@@ -1,1 +1,3 @@
 demo-scraper/.env
+criteo/*
+!criteo/criteo_conversion_search_data.ipynb
