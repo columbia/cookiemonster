@@ -1,12 +1,13 @@
 import os
 import typer
 from loguru import logger
-from typing import Dict, Any
+from typing import Dict, Any, List
 from omegaconf import OmegaConf
-import pandas as pd
+
+from termcolor import colored
+from user import User
 from report import Report
 from dataset import Dataset
-from user import User
 
 app = typer.Typer()
 
@@ -15,15 +16,18 @@ class Evaluation:
     def __init__(self, config: Dict[str, Any]):
         self.config = OmegaConf.create(config)
         self.dataset = Dataset.create(self.config.dataset)
-        self.users: Dict[str, User] = {}
 
+        self.users: Dict[str, User] = {}
         self.reports: Dict[str, List[Report]] = {}
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
 
-        while res := self.dataset.read_next_event():
+        event_reader = self.dataset.event_reader()
+        while res := next(event_reader):
             (user_id, event) = res
+
+            logger.info(colored(str(event), "blue"))
 
             if user_id not in self.users:
                 self.users[user_id] = User(user_id, self.config.user)
@@ -32,12 +36,12 @@ class Evaluation:
 
             if report:
                 if event.destination not in self.reports:
-                    self.reoprts[event.destination] = []
+                    self.reports[event.destination] = []
                 self.reports[event.destination].append(report)
 
-                # TODO: add possibly with simpy another process per destination
-                # that receives reports, categorizes them per query and schedules
-                # sending them to TEE for aggregation
+            # TODO: add possibly with simpy another process per destination
+            # that receives reports, categorizes them per query and schedules
+            # sending them to TEE for aggregation
 
 
 @app.command()

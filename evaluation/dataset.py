@@ -1,7 +1,8 @@
+import math
 import pandas as pd
 from loguru import logger
 from omegaconf import OmegaConf
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Tuple
 from events import Impression, Conversion
 
 
@@ -9,7 +10,8 @@ class Dataset:
     def __init__(self, config: OmegaConf) -> None:
         """A sequence of Events"""
         self.config = config
-        self.data = pd.read_csv(self.config.dataset.path)
+        self.impressions_data = pd.read_csv(self.config.impressions_path)
+        self.conversions_data = pd.read_csv(self.config.conversions_path)
 
     @classmethod
     def create(cls, config: OmegaConf):
@@ -24,33 +26,69 @@ class Criteo(Dataset):
     def __init__(self, config: OmegaConf) -> None:
         super().__init__(config)
 
-    def read_next_event(self) -> (str, Union[Impression, Conversion]):
-        for _, row in self.data.iterrows():
-            click_day = row["click_day"]
-            conversion_day = row["conversion_day"]
-            user_id = row["user_id"]
-            partner_id = row["partner_id"]
-            product_id = row["product_id"]
-            product_price = row["product_price"]
-            SalesAmountInEuro = row["SalesAmountInEuro"]
+    def event_reader(self):
+        impression_timestamp = conversion_timestamp = 0
 
-            if conversion_day < 0:
-                event = Impression(
-                    epoch=click_day,
-                    destination=partner_id,
-                    keys={"product_id": product_id},
+        impression = None
+        conversion = None
+
+        impressions_reader = self.impressions_data.iterrows()
+        conversions_reader = self.conversions_data.iterrows()
+
+        def read_impression():
+            try:
+                _, row = next(impressions_reader)
+                impression = Impression(
+                    epoch=row["click_day"],
+                    destination=row["partner_id"],
+                    filter=row["filter"],
+                    key=str(row["key"]),
                 )
-            else:
-                event = Conversion(
-                    destination=partner_id,
-                    attribution_window=(max(conversion_day - 30, 0), conversion_day),
+                impression_timestamp = row["click_timestamp"]
+                impression_user_id = row["user_id"]
+                return impression, impression_timestamp, impression_user_id
+
+            except StopIteration:
+                return None, math.inf, None
+
+        def read_conversion():
+            try:
+                _, row = next(conversions_reader)
+                conversion = Conversion(
+                    destination=row["partner_id"],
+                    attribution_window=(
+                        max(row["conversion_day"] - 30, 0),
+                        row["conversion_day"],
+                    ),
                     attribution_logic="last_touch",
                     partitioning_logic="",
-                    aggregatable_value=SalesAmountInEuro,
-                    aggregatable_cap_value=SalesAmountInEuro,  # TODO: what is the cap?
-                    keys_to_match={"product_id": product_id},
-                    metadata={"product_price": product_price},
+                    aggregatable_value=row["SalesAmountInEuro"],
+                    aggregatable_cap_value=row["aggregatable_cap_value"],
+                    filter=row["filter"],
+                    key=str(row["key"]),
                     epsilon=0.01,
                 )
+                conversion_timestamp = row["conversion_timestamp"]
+                conversion_user_id = row["user_id"]
+                return conversion, conversion_timestamp, conversion_user_id
 
-            yield (user_id, event)
+            except StopIteration:
+                return None, math.inf, None
+
+        while True:
+            if not impression and impression_timestamp != math.inf:
+                impression, impression_timestamp, impression_user_id = read_impression()
+            if not conversion and conversion_timestamp != math.inf:
+                conversion, conversion_timestamp, conversion_user_id = read_conversion()
+
+            # Feed the event with the earliest timestamp
+            if impression_timestamp == math.inf and conversion_timestamp == math.inf:
+                break
+            elif impression_timestamp <= conversion_timestamp:
+                yield (impression_user_id, impression)
+                impression = None
+            else:
+                yield (conversion_user_id, conversion)
+                conversion = None
+
+        yield None

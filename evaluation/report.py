@@ -1,8 +1,6 @@
-from collections import namedtuple
-from typing import Dict, Any, Union, Tuple, Optional
+from typing import Dict, Tuple, List, Optional
 
 from events import Impression
-from utils import attribution_window_to_list
 
 
 class Report:
@@ -14,7 +12,7 @@ class Report:
             self.histogram[key] = 0
         self.histogram[key] += value
 
-    def __add__(self, other) -> Report:
+    def __add__(self, other) -> "Report":
         report = Report()
         for key, value in self.histogram.items():
             report.add(key, value)
@@ -41,38 +39,33 @@ class Partition:
     def compute_sensitivity(self, sensitivity_metric) -> float:
         match sensitivity_metric:
             case "L1":
-                return sum(list(self.report.values()))
+                return sum(list(self.report.histogram.values()))
 
             case _:
                 raise ValueError(
                     f"Unsupported sensitivity metric: {sensitivity_metric}"
                 )
 
-    def create_report(self) -> None:
+    def create_report(self, key_piece: str) -> None:
         self.report = Report()
 
-        match partition.attribution_logic:
+        match self.attribution_logic:
             case "last_touch":
                 # Scan all impressions in epoch and keep the latest one
-                epochs = list(self.impressions_per_epoch.keys()).sort(reverse=True)
+                epochs = sorted(list(self.impressions_per_epoch.keys()), reverse=True)
                 for epoch in epochs:
                     impressions = self.impressions_per_epoch[epoch]
                     if impressions:
-                        impression_keys = impressions[-1].keys
+                        impression_key = impressions[-1].key
 
                         # Sort impression keys and stringify them
-                        bucket_key = str(
-                            {
-                                key: impression_keys[key]
-                                for key in sorted(impression_keys.keys())
-                            }
-                        )
+                        bucket_key = impression_key + "-" + key_piece
                         bucket_value = self.value
 
                         self.report.add(bucket_key, bucket_value)
             case _:
                 raise ValueError(
-                    f"Unsupported attribution logic: {partition.attribution_logic}"
+                    f"Unsupported attribution logic: {self.attribution_logic}"
                 )
 
     def null_report(self) -> None:

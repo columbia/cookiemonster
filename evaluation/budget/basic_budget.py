@@ -1,17 +1,15 @@
-from collections import namedtuple
-from typing import Dict, List, Tuple
-
 import numpy as np
+from collections import namedtuple
 
-from evaluation.budget.budget import Budget
+from budget.budget import Budget
 
 MAX_DUMP_DIGITS = 50
-
+DELTA = 1e-7
 
 DPBudget = namedtuple("ConvertedDPBudget", ["epsilon", "delta"])
 
 
-class BasicBudget:
+class BasicBudget(Budget):
     # This means PureDP
     def __init__(self, epsilon) -> None:
         self.epsilon = epsilon
@@ -22,7 +20,7 @@ class BasicBudget:
             return True
         return False
 
-    def dp_budget(self, delta: float = DELTA_MNIST) -> DPBudget:
+    def dp_budget(self, delta: float = DELTA) -> DPBudget:
         if hasattr(self, "dp_budget_cached"):
             return self.dp_budget_cached
 

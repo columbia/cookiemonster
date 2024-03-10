@@ -1,9 +1,11 @@
 from typing import Dict, List, Any, Union, Tuple
 from omegaconf import OmegaConf
-from events import Impression, Conversion
+
+from budget import BasicBudget
 from report import Partition, Report
+from events import Impression, Conversion
+from budget_accountant import BudgetAccountant
 from utils import attribution_window_to_list
-from budgets import BudgetAccountant
 
 
 class User:
@@ -13,7 +15,7 @@ class User:
 
         self.filters_per_origin: Dict[str, BudgetAccountant] = {}
         self.impressions: Dict[int, List[Impression]] = {}
-        self.conversions: List[Conversion] = {}
+        self.conversions: List[Conversion] = []
 
     def process_event(
         self, event: Union[Impression, Conversion]
@@ -36,7 +38,7 @@ class User:
         the keys_to_match. Then creates a report using the attribution logic."""
 
         # Create partitioning
-        partitions = create_partitions(conversion)
+        partitions = self.create_partitions(conversion)
 
         # Get relevant impressions per epoch per partition
         for partition in partitions:
@@ -47,7 +49,7 @@ class User:
                     # Maybe sort impressions by key and do log search or sth?
                     for impression in self.impressions[epoch]:
                         if impression.matches(
-                            conversion.destination, conversion.keys_to_match
+                            conversion.destination, conversion.filter
                         ):
                             if epoch not in partition.impressions_per_epoch:
                                 partition.impressions_per_epoch[epoch] = []
@@ -55,7 +57,7 @@ class User:
 
         # Create a report per partition
         for partition in partitions:
-            partition.create_report()
+            partition.create_report(conversion.key)
 
         # Compute global sensitivity
         match self.config.sensitivity_metric:
@@ -73,8 +75,7 @@ class User:
                 # No optimizations. Epochs in this partition pay worst case budget
                 if not self.pay_all_or_nothing(
                     partition.attribution_window,
-                    conversion,
-                    destination,
+                    conversion.destination,
                     conversion.epsilon,
                 ):
                     partition.null_report()
@@ -130,7 +131,7 @@ class User:
 
         return final_report
 
-    def get_partitions(self, conversion: Conversion) -> List[Partition]:
+    def create_partitions(self, conversion: Conversion) -> List[Partition]:
         match conversion.partitioning_logic:
             case "":
                 # No partitioning - take union of all epochs
@@ -138,13 +139,13 @@ class User:
                     Partition(
                         conversion.attribution_window,
                         conversion.attribution_logic,
-                        conversion.value,
+                        conversion.aggregatable_value,
                     )
                 ]
             case "uniform":
                 # One epoch per partition, value distributed uniformly
-                per_partition_value = float(conversion.value) / len(partitions)
-                (x, y) = attribution_window
+                (x, y) = conversion.attribution_window
+                per_partition_value = float(conversion.aggregatable_value) / (y - x + 1)
                 return [
                     Partition((i, i), conversion.attribution_logic, per_partition_value)
                     for i in range(x, y + 1)
@@ -175,11 +176,11 @@ class User:
                 destination_filter.add_new_block_budget(epoch)
 
             # Check if epoch has enough budget
-            if not destination_filter.can_run(epoch):
+            if not destination_filter.can_run(epoch, BasicBudget(epsilon)):
                 return False
 
         # Consume budget from all epochs
         for epoch in attribution_epochs:
-            destination_filter.consume_block_budget(epoch, epsilon)
+            destination_filter.consume_block_budget(epoch, BasicBudget(epsilon))
 
         return True

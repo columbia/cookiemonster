@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Dict, Any, Tuple, Optional
 
 
 class Event:
@@ -7,16 +7,20 @@ class Event:
 
 
 class Impression(Event):
-    def __init__(self, epoch: int, destination: str, keys: Dict[str, Any]):
+    def __init__(self, epoch: int, destination: str, filter: str, key: str):
         self.epoch = epoch
         self.destination = destination
-        self.keys = keys
+        self.filter = filter
+        self.key = key
 
-    def matches(self, destination: str, keys_to_match: Dict[str, Any]):
+    def matches(self, destination: str, filter: str):
         # Condition: destinations and keys must match
-        if self.destination == destination and self.keys == keys_to_match:
+        if self.destination == destination and self.filter == filter:
             return True
         return False
+
+    def __str__(self):
+        return f"|Impression| Epoch: {self.epoch}, Destination: {self.destination}"
 
 
 class Conversion(Event):
@@ -28,9 +32,10 @@ class Conversion(Event):
         partitioning_logic: str,
         aggregatable_value: float,
         aggregatable_cap_value: float,
-        keys_to_match: Dict[str, Any],
-        metadata: Dict[str, Any],
+        filter: str,
+        key: str,
         epsilon: float,
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         self.destination = destination
         self.attribution_window = attribution_window
@@ -38,6 +43,10 @@ class Conversion(Event):
         self.partitioning_logic = partitioning_logic
         self.aggregatable_value = aggregatable_value
         self.aggregatable_cap_value = aggregatable_cap_value
-        self.keys_to_match = keys_to_match
+        self.filter = filter
+        self.key = key
         self.metadata = metadata
         self.epsilon = epsilon
+
+    def __str__(self):
+        return f"|Conversion| Attribution-Window: {self.attribution_window}, Destination: {self.destination}, Value: {self.aggregatable_value}"

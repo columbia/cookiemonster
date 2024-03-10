@@ -7,7 +7,8 @@
     },
     "dataset": {
         "name": "criteo",
-        "path": "criteo/criteo.csv"
+        "impressions_path": "criteo/criteo_impressions.csv",
+        "conversions_path": "criteo/criteo_conversions.csv"
     },
     "logs": {
         "verbose": false,
