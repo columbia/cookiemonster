@@ -28,8 +28,9 @@ out/Default/chrome --disable-gpu --user-data-dir=/mydata/chromium-data --remote-
 ```
 
 #### Exporting Display
-
+```bash
 sudo apt-get install xorg
 sudo apt-get install xvfb
 Xvfb :99 -screen 0 1024x768x24 &
 export DISPLAY=:99
+```
