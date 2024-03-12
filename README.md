@@ -14,16 +14,22 @@
 
 ## Setup `chromium`
 
-### Build chromium following the instructions here:
+#### Build chromium following the instructions here:
 https://chromium.googlesource.com/chromium/src/+/main/docs/linux/build_instructions.md
 
-### Upon making changes to the code:
+#### Upon making changes to the code:
 ```bash
 autoninja -C out/Default chrome
 ```
 
-### Run:
+#### Run:
 ``` bash
 out/Default/chrome --disable-gpu --user-data-dir=/mydata/chromium-data --remote-debugging-port=8888 --flag-switches-begin --disable-field-trial-config  --start-maximized --enable-privacy-sandbox-ads-apis --privacy-sandbox-enrollment-overrides=http://arapi-adtech.localhost:8085 --show-overdraw-feedback --flag-switches-end --restore-last-session  http://arapi-publisher.localhost:8087/
 ```
-```
+
+#### Exporting Display
+
+sudo apt-get install xorg
+sudo apt-get install xvfb
+Xvfb :99 -screen 0 1024x768x24 &
+export DISPLAY=:99
