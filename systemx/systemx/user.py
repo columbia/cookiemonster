@@ -1,11 +1,11 @@
 from typing import Dict, List, Any, Union, Tuple
 from omegaconf import OmegaConf
+from systemx.budget import BasicBudget
 
-from budget import BasicBudget
-from report import Partition, Report
-from events import Impression, Conversion
-from budget_accountant import BudgetAccountant
-from utils import attribution_window_to_list
+from systemx.report import Partition, Report
+from systemx.events import Impression, Conversion
+from systemx.budget_accountant import BudgetAccountant
+from systemx.utils import attribution_window_to_list
 
 
 class User:
@@ -184,3 +184,9 @@ class User:
             destination_filter.consume_block_budget(epoch, BasicBudget(epsilon))
 
         return True
+
+    def get_logs(self) -> Dict[str, Dict[str, float]]:
+        logs = {}
+        for origin, filter in self.filters_per_origin.items():
+            logs[origin] = filter.get_all_block_budgets()
+        return logs

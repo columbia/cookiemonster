@@ -2,12 +2,13 @@ import os
 import typer
 from loguru import logger
 from typing import Dict, Any, List
+from termcolor import colored
 from omegaconf import OmegaConf
 
-from termcolor import colored
-from user import User
-from report import Report
-from dataset import Dataset
+from systemx.user import User
+from systemx.report import Report
+from systemx.dataset import Dataset
+from systemx.utils import process_logs, save_logs
 
 app = typer.Typer()
 
@@ -43,17 +44,25 @@ class Evaluation:
             # that receives reports, categorizes them per query and schedules
             # sending them to TEE for aggregation
 
+        # Collects budget consumption per user per destination epoch
+        logs = process_logs(
+            [user.get_logs() for user in self.users.values()],
+            OmegaConf.to_object(self.config),
+        )
+        if self.config.logs.save:
+            save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
+            save_logs(logs, save_dir)
+
 
 @app.command()
 def run_evaluation(
-    omegaconf: str = "evaluation/config/config.json",
+    omegaconf: str = "systemx/config/config.json",
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
 
     omegaconf = OmegaConf.load(omegaconf)
-    logs = Evaluation(omegaconf).run()
-    return logs
+    return Evaluation(omegaconf).run()
 
 
 if __name__ == "__main__":

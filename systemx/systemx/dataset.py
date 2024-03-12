@@ -3,7 +3,8 @@ import pandas as pd
 from loguru import logger
 from omegaconf import OmegaConf
 from typing import Dict, Any, Union, Tuple
-from events import Impression, Conversion
+
+from systemx.events import Impression, Conversion
 
 
 class Dataset:

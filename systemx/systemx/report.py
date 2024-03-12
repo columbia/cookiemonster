@@ -1,6 +1,6 @@
 from typing import Dict, Tuple, List, Optional
 
-from events import Impression
+from systemx.events import Impression
 
 
 class Report:

@@ -1,5 +1,5 @@
 from typing import Dict, List, Union, Tuple
-from budget import BasicBudget
+from systemx.budget import BasicBudget
 
 
 class BudgetAccountantKey:
