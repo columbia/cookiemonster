@@ -1,0 +1,20 @@
+extends _layout.pug
+
+block content
+    h3 Thanks for your purchase!
+    img.pixel(height='12' width='12' src=adtechRequestUrl)
+    div.pixel-name Pixel that tracks purchases (completed checkouts)
+    div  Order ID: #{purchaseId}
+    button(onClick="generateNewPurchase()") 🔄 New purchase (buy something else)
+    script.
+        async function generateNewPurchase() {
+            await fetch('/new-purchase', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                'Content-Type': 'application/json'
+                },
+            })
+            location.reload()
+        }
+    script(src="./toast.js")

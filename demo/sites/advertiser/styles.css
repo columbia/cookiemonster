@@ -1,0 +1,197 @@
+/**
+ * Copyright 2022 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+body {
+  font-family: sans-serif;
+  padding: 0;
+  margin: 0;
+  --max-width: 50rem;
+  --font-size-s: 0.9rem;
+  --font-size-xs: 0.7rem;
+  --link-color: rgb(0, 38, 255);
+  --link-color-dark: rgb(0 25 169);
+  --link-color-x-light: rgb(0 38 255 / 24%);
+}
+
+.main {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 1rem 2.5rem;
+}
+
+.mainContentWrapper {
+  animation-fill-mode: forwards;
+  animation: appear 0.8s;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.toast-close {
+  padding: 0 5px;
+  font-size: 1rem;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+
+h1 {
+  padding: 0.1rem 0.2rem;
+  margin: 0;
+  text-align: center;
+  font-size: 2.8rem;
+}
+
+h1,
+h2,
+h3,
+article {
+  font-family: 'Mohave', sans-serif;
+}
+
+article {
+  margin: 1rem 0;
+  line-height: 1.8;
+}
+
+code {
+  font-family: 'Lucida Console', Monaco, monospace;
+  font-size: var(--font-size-xs);
+  background-color: #0000000f;
+  padding: 0.1rem;
+}
+
+.menu {
+  display: flex;
+  margin: 2rem 0 0 0;
+  padding: 1rem 0 0;
+  border-top: solid 1px #00000082;
+  justify-content: center;
+}
+
+.menu > div {
+  margin-right: 1.8rem;
+}
+
+.conversion-list {
+  display: flex;
+}
+
+.conversion-list-section-1 {
+  flex: 8;
+}
+
+.conversion-list-section-2 {
+  flex: 7;
+}
+
+.conversion-list > div > div {
+  margin: 0.6rem 1rem 0.6rem 0;
+}
+
+.menu a {
+  padding: 0.2rem;
+  text-decoration: none;
+}
+
+.select {
+  user-select: all;
+  cursor: default;
+}
+
+header {
+  border-bottom: solid 1px #0000004f;
+  background-color: #fff6b2;
+  box-shadow: rgba(0, 0, 0, 0.35) 0px 5px 15px;
+}
+
+::selection {
+  color: white;
+  background: black;
+}
+
+a {
+  color: var(--link-color);
+  transition: color 0.2s linear, background-color 0.2s linear,
+    border 0.2s linear;
+}
+
+nav a:hover,
+nav a.current {
+  color: var(--link-color);
+  background: var(--link-color-x-light);
+  border-bottom: solid 1px var(--link-color);
+}
+
+#footer {
+  --padding: 0.4rem;
+  background-color: rgba(0, 0, 0, 0.164);
+  padding: var(--padding);
+  z-index: 1000;
+  text-align: center;
+  font-size: 0.9rem;
+  position: absolute;
+  bottom: 0;
+  width: calc(100vw - 2 * (var(--padding)));
+}
+
+input[type='checkbox'] {
+  cursor: pointer;
+  margin: 0.5rem 0.5rem 0.5rem 0;
+}
+
+.pixel {
+  background-color: red;
+}
+
+.pixel-name {
+  color: red;
+  font-size: 0.8rem;
+  font-family: 'Lucida Console', Monaco, monospace;
+  width: 15rem;
+  transform: translate(1rem, -1rem);
+  line-height: 0.8rem;
+}
+
+.product-description {
+  margin: 1rem 0;
+}
+
+.product {
+  display: flex;
+  justify-content: space-between;
+  max-width: 40rem;
+}
+
+button {
+  cursor: pointer;
+  margin: 0.5rem 0;
+}
+
+.trigger {
+  margin: 0.3rem 0 0 0;
+}
+
+.checkout {
+  --link-color: rgb(255, 0, 221);
+  --link-color-x-light: rgba(255, 0, 170, 0.164);
+}
