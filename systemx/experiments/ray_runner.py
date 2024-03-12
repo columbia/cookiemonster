@@ -2,17 +2,18 @@ from typing import Any, Dict, List
 
 import ray
 from ray import tune
+from ray import train
 from loguru import logger
 from rich.pretty import pretty_repr
 
-from systemx.utils import RAY_LOGS, REPO_ROOT, get_data_path
+from systemx.utils import RAY_LOGS, get_data_path
 from systemx.run_evaluation import Evaluation
 
 
 def run_and_report(config: dict, replace=False) -> None:
     logs = Evaluation(config).run()
-    # if logs:
-    # tune.report(**logs)
+    if logs:
+        train.report(logs)
 
 
 def grid_run(
@@ -62,7 +63,7 @@ def grid_run(
             tune.logger.JsonLoggerCallback(),
         ],
         progress_reporter=ray.tune.CLIReporter(
-            metric_columns=[""],
+            metric_columns=[],
             parameter_columns={
                 "dataset/name": "dataset",
                 "user/optimization": "optimization",
@@ -78,7 +79,7 @@ class CustomLoggerCallback(tune.logger.LoggerCallback):
     """Custom logger interface"""
 
     def __init__(self, metrics=[]) -> None:
-        self.metrics = ["n_allocated_tasks"]
+        self.metrics = []
         self.metrics.extend(metrics)
         super().__init__()
 

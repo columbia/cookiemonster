@@ -46,17 +46,20 @@ class Evaluation:
 
         # Collects budget consumption per user per destination epoch
         logs = process_logs(
-            [user.get_logs() for user in self.users.values()],
-            OmegaConf.to_object(self.config),
+            [user.get_logs() for user in self.users.values()], OmegaConf.to_object(self.config)
         )
         if self.config.logs.save:
-            save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
+            save_dir = (
+                self.config.logs.save_dir if self.config.logs.save_dir else ""
+            )
             save_logs(logs, save_dir)
+        
+        return logs
 
 
 @app.command()
 def run_evaluation(
-    omegaconf: str = "systemx/config/config.json",
+    omegaconf: str = "config/config.json",
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level

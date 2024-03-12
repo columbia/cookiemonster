@@ -31,23 +31,20 @@ def process_logs(
     log: List[Dict[str, Dict[str, float]]], config: Dict[str, Any]
 ) -> dict:
 
-    proceessed_logs = {}
-    for user_i, user in enumerate(log):
+    remaining_budgets_per_epoch = []
+    for user in log:
         for destination, filter in user.items():
-            for epoch, budget in filter.items():
+            remaining_budgets_per_epoch.append(filter)
+    
 
-                proceessed_logs.update(
-                    {
-                        "user": user_i,
-                        "destination": destination,
-                        "epoch": epoch,
-                        "remaining_budget": budget,
-                        "initial_budget": config["user"]["initial_budget"],
-                        "optimization": config["user"]["optimization"],
-                        "dataset": config["dataset"]["name"],
-                        "config": config,
-                    }
-                )
+    proceessed_logs = {
+        "remaining_budgets_per_epoch": remaining_budgets_per_epoch,
+        "initial_budget": config["user"]["initial_budget"],
+        "optimization": config["user"]["optimization"],
+        "dataset": config["dataset"]["name"],
+        "config": config,
+    }
+
     return proceessed_logs
 
 

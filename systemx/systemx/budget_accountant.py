@@ -30,7 +30,7 @@ class BudgetAccountant:
         return None
 
     def get_all_block_budgets(self):
-        return self.filter.items()
+        return {block: budget.epsilon for block, budget in self.filter.items()}
 
     def add_new_block_budget(self, block):
         assert block not in self.filter

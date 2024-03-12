@@ -9,11 +9,11 @@ app = typer.Typer()
 def optimizations_criteo(dataset):
     logs_dir = f"{dataset}/optimizations"
     config = {
-        "optimization": [0, 1, 2, 3],
+        "optimization": ["0", "1", "2"],
         "dataset_name": "criteo",
-        "impressions_path": "criteo/pruned_criteo_impressions.csv",
-        "conversions_path": "criteo/pruned_criteo_conversions.csv",
-        "initial_budget": [5],
+        "impressions_path": "criteo/criteo_impressions.csv",
+        "conversions_path": "criteo/criteo_conversions.csv",
+        "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
