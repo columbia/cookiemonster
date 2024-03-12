@@ -20,7 +20,6 @@ class Report:
             report.add(key, value)
         return report
 
-
 class Partition:
     def __init__(
         self,

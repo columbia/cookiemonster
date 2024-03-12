@@ -58,7 +58,7 @@ class Criteo(Dataset):
                 conversion = Conversion(
                     destination=row["partner_id"],
                     attribution_window=(
-                        max(row["conversion_day"] - 30, 0),
+                        max(row["conversion_day"] - 29, 0),
                         row["conversion_day"],
                     ),
                     attribution_logic="last_touch",

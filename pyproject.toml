@@ -15,6 +15,8 @@ omegaconf = "^2.3.0"
 black = "^24.2.0"
 termcolor = "^2.4.0"
 rich = "^13.7.1"
+plotly = "^5.19.0"
+matplotlib = "^3.8.3"
 
 [tool.poetry.dev-dependencies]
 

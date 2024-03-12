@@ -13,7 +13,6 @@ class BasicBudget(Budget):
     # This means PureDP
     def __init__(self, epsilon) -> None:
         self.epsilon = epsilon
-        self.pure_epsilon = epsilon
 
     def is_positive(self) -> bool:
         if self.epsilon >= 0:
