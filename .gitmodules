@@ -4,6 +4,3 @@
 [submodule "devtools-frontend"]
 	path = devtools-frontend
 	url = https://github.com/columbia/devtools-frontend.git
-[submodule "demo"]
-	path = demo
-	url = https://github.com/columbia/attribution-reporting-demo.git
