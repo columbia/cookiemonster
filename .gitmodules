@@ -1,7 +1,7 @@
-[submodule "chromium"]
+[submodule "chromium-prototype/chromium"]
 	path = chromium
 	url = https://github.com/columbia/chromium.git
-[submodule "devtools-frontend"]
+[submodule "chromium-prototype/devtools-frontend"]
 	path = devtools-frontend
 	url = https://github.com/columbia/devtools-frontend.git
 [submodule "chromium-prototype/depot_tools"]
