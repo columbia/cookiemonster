@@ -1,8 +1,8 @@
 [submodule "chromium-prototype/chromium"]
-	path = chromium
+	path = chromium-prototype/chromium
 	url = https://github.com/columbia/chromium.git
 [submodule "chromium-prototype/devtools-frontend"]
-	path = devtools-frontend
+	path = chromium-prototype/devtools-frontend
 	url = https://github.com/columbia/devtools-frontend.git
 [submodule "chromium-prototype/depot_tools"]
 	path = chromium-prototype/depot_tools
