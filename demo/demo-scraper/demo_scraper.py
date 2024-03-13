@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 import time
 
+
 class Config:
     def __init__(self) -> None:
         self.attribution_internals = "chrome://attribution-internals"
@@ -17,7 +18,10 @@ class Config:
         self.user_profile = os.getenv("USER_PROFILE")
         self.implicit_wait = int(os.getenv("IMPLICIT_WAIT", "10"))
         self.driver_timeout = int(os.getenv("DRIVER_TIMEOUT", "10"))
-        self.sleep_while_observing_attribution_internals = int(os.getenv("SLEEP_WHILE_OBSERVING_ATTRIBUTION_INTERNALS", "0"))
+        self.sleep_while_observing_attribution_internals = int(
+            os.getenv("SLEEP_WHILE_OBSERVING_ATTRIBUTION_INTERNALS", "0")
+        )
+
 
 class TrustSafetyDemo:
     def __init__(self, config: Config) -> None:
@@ -46,14 +50,18 @@ class TrustSafetyDemo:
 
             self.window_handles.add(driver.current_window_handle)
 
-            publisher_site_link = driver.find_element(by=By.LINK_TEXT, value="publisher site")
+            publisher_site_link = driver.find_element(
+                by=By.LINK_TEXT, value="publisher site"
+            )
             publisher_site_link.click()
 
             self._switch_tabs(driver, wait)
 
             wait.until(EC.url_matches(self.config.publisher_url))
 
-            ad_that_registers_clicks = driver.find_element(by=By.PARTIAL_LINK_TEXT, value="HTML element")
+            ad_that_registers_clicks = driver.find_element(
+                by=By.PARTIAL_LINK_TEXT, value="HTML element"
+            )
             ad_that_registers_clicks.click()
 
             wait.until(EC.url_matches(f"{self.config.publisher_url}/click-element"))
@@ -67,7 +75,9 @@ class TrustSafetyDemo:
 
             self._switch_tabs(driver, wait)
 
-            complete_checkout_link = driver.find_element(by=By.PARTIAL_LINK_TEXT, value="Complete checkout**")
+            complete_checkout_link = driver.find_element(
+                by=By.PARTIAL_LINK_TEXT, value="Complete checkout**"
+            )
             wait.until(EC.visibility_of(complete_checkout_link))
             complete_checkout_link.click()
 
@@ -76,8 +86,7 @@ class TrustSafetyDemo:
                 if h3.text == "Thanks for your purchase!":
                     wait.until(EC.visibility_of(h3))
 
-
-            driver.switch_to.new_window('tab')
+            driver.switch_to.new_window("tab")
             driver.get(self.config.attribution_internals)
             wait.until(EC.url_matches(self.config.attribution_internals))
 

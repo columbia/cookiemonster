@@ -4,3 +4,6 @@
 [submodule "devtools-frontend"]
 	path = devtools-frontend
 	url = https://github.com/columbia/devtools-frontend.git
+[submodule "chromium-prototype/depot_tools"]
+	path = chromium-prototype/depot_tools
+	url = https://github.com/columbia/depot_tools.git
