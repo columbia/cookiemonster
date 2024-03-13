@@ -4,12 +4,14 @@
 
 ## Repo Structure
 
-- `chromium`: (submodule) on-device DP budgeting prototyped on Chromium based on Google's Attribution Reporting API.
+- `chromium-prototype`: Contains the following submodules:
+    - `chromium`: On-device DP budgeting prototyped on Chromium based on Google's Attribution Reporting API.
+    - `devtools-frontend`: frontend changes for extending Attribution Reporting API's Source and Trigger registration parameters. 
+    - `depot_tools`: tweaked script to help fetch our Chromium version
+    
+    These submodules are not meant to be initialized upon cloning this repo. We keep them here only for pointers. See instructions below on how to setup the Chromium prototype.
 
-- `devtools-frontend`: (submodule) frontend changes for extending Attribution Reporting API's Source and Trigger registration parameters.
-
-- `demo`: creating servers for adtech, advertiser, publisher using the extended API. (todo: maybe add this directly and not as a submodule)
-
+- `demo`: creating servers for adtech, advertiser, publisher using the extended API. 
 
 
 ## Setup `chromium`
