@@ -8,7 +8,7 @@
 
 - `devtools-frontend`: (submodule) frontend changes for extending Attribution Reporting API's Source and Trigger registration parameters.
 
-- `demo`: (submodule) creating servers for adtech, advertiser, publisher using the extended API. (todo: maybe add this directly and not as a submodule)
+- `demo`: creating servers for adtech, advertiser, publisher using the extended API. (todo: maybe add this directly and not as a submodule)
 
 
 
@@ -18,7 +18,7 @@ Don't initialize the chromium submodule. We keep it here just for quick access t
 
 #### Clone depot_tools:
 ```bash
-https://github.com/columbia/depot_tools.git
+git clone https://github.com/columbia/depot_tools.git
 ```
 
 #### Add depot_tools to PATH
