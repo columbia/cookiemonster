@@ -40,16 +40,6 @@ Press `n` to the following:
 `OK to update it to https://chromium.googlesource.com/chromium/tools/depot_tools.git ? [Y/n] n`
 
 
-#### Pull changes from our devtools-frontend 
-Hacky way to pull changes from our devtools-frontend. 
-Previous command fetched the google repos instead. TODO: fix that.
-```bash
-cd src/third_party/devtools-frontend/src/
-git remote add cu https://github.com/columbia/devtools-frontend.git
-git fetch cu
-git checkout cu/cu-ara
-```
-
 #### Install dependencies
 ```bash
     cd src
@@ -68,6 +58,18 @@ Press `n` to the following:
 ```bash
     gn gen out/Default
 ```
+
+
+#### Pull changes from our devtools-frontend 
+Hacky way to pull changes from our devtools-frontend. 
+Previous command fetched the google repos instead. TODO: fix that.
+```bash
+cd src/third_party/devtools-frontend/src/
+git remote add cu https://github.com/columbia/devtools-frontend.git
+git fetch cu
+git checkout cu/cu-ara
+```
+
 
 #### Build chromium
 ```bash
