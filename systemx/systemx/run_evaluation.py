@@ -1,14 +1,15 @@
-import os
-import typer
 from loguru import logger
-from typing import Dict, Any, List
-from termcolor import colored
 from omegaconf import OmegaConf
+import os
+from termcolor import colored
+import typer
+from typing import Dict, Any, List
 
 from systemx.user import User
 from systemx.report import Report
 from systemx.dataset import Dataset
 from systemx.utils import process_logs, save_logs
+from systemx.aggregation_service import AggregationService
 
 app = typer.Typer()
 
@@ -20,12 +21,16 @@ class Evaluation:
 
         self.users: Dict[str, User] = {}
         self.reports: Dict[str, List[Report]] = {}
+        self.summary_reports: List[Dict[str, Dict[str, float]]] = []
+        self.aggregation_service = AggregationService.create(self.config.aggregation_service)
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
 
+        count = 0
         event_reader = self.dataset.event_reader()
         while res := next(event_reader):
+            count += 1
             (user_id, event) = res
 
             logger.info(colored(str(event), "blue"))
@@ -40,9 +45,20 @@ class Evaluation:
                     self.reports[event.destination] = []
                 self.reports[event.destination].append(report)
 
-            # TODO: add possibly with simpy another process per destination
-            # that receives reports, categorizes them per query and schedules
-            # sending them to TEE for aggregation
+            if count % 1000 == 0:
+                """
+                TODO: add possibly with simpy another process per destination that
+                receives reports, categorizes them per query and schedules sending
+                them to TEE for aggregation
+
+                QUESTION: what intervals would we use for simulation? would an adtech request a
+                summary report based on a timed interval? or based on receive X number of reports?
+
+                QUESTION: should we throw out previously calculated summary_reports? Or do we want to keep
+                the summary reports over time? Similarly, shouldn't the aggregatable reports (self.reports)
+                only be kept until a summary report is generated for them?
+                """
+                self.summary_reports.append(self.aggregation_service.create_summary_reports(self.reports))
 
         # Collects budget consumption per user per destination epoch
         logs = process_logs(

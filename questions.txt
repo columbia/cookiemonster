@@ -1,0 +1,11 @@
+1. added pyenv and .python-version to control 3.10.11 usage
+2. will need to add setup steps to readme (install pyenv, set poetry use 3.10.11, poetry install)
+3. will need to add setup step of copying Criteo_Conversion_Search dataset into the data/criteo folder. might be nice if we automate this.
+4. will need to document (if we want to use it) the dataset splitting step.
+5. what directory do you run the evaluation from? I needed to edit the paths to get this to work.
+6. how do you run with the scaling-python project?
+7. is report supposed to represent an aggregatable report? what's the intention with the addition in there?
+8. are we looking to create an aggregate across all destinations? or aggregates by destination?
+9. how do we want to fine tune the moments when we create an aggregated report?
+10. do we throw out the aggregatable reports after we calculate a summary report from them?
+11. how did you create the pruned dataset? doesn't seem like create_dataset handles that.

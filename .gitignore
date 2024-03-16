@@ -7,6 +7,8 @@ demo-scraper/.env
 criteo/*
 !criteo/criteo_conversion_search_data.ipynb
 !criteo/create_dataset.py
+systemx/data/criteo/*
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

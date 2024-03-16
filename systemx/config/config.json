@@ -19,5 +19,6 @@
         "mlflow": true,
         "mlflow_experiment_id": "",
         "loguru_level": "INFO"
-    }
+    },
+    "aggregation_service": "local_naive"
 }
