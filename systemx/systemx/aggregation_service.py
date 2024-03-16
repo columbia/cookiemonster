@@ -44,11 +44,18 @@ class LocalLaplacianAggregationService(AggregationService):
         raise NotImplementedError()
 
 class RemoteNaiveAggregationService(LocalNaiveAggregationService):
+    """
+    RemoteNaiveAggregationService - aggregation service that delegates summary report aggregation to remote processes
+    """
+
     def create_summary_reports(self, aggregatable_reports: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
         # TODO: send out to create summary reports per destination
         return super().create_summary_reports()
     
 class RemoteLaplacianAggregationService(LocalLaplacianAggregationService):
+    """
+    RemoteLaplacianAggregationService - aggregation service that delegates summary report aggregation to remote processes
+    """
     
     def create_summary_reports(self, aggregatable_reports: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
         # TODO: send out to create summary reports per destination
