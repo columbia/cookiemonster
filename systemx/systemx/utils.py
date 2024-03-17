@@ -31,14 +31,21 @@ def process_logs(
     log: List[Dict[str, Dict[str, float]]], config: Dict[str, Any]
 ) -> dict:
 
-    remaining_budgets_per_epoch = []
+    destination_mappings = {}
+    remaining_budget_per_user_per_destination_per_epoch = []
+
     for user in log:
+        user_data = {}
         for destination, filter in user.items():
-            remaining_budgets_per_epoch.append(filter)
-    
+            if destination not in destination_mappings:
+                destination_mappings[destination] = len(destination_mappings)
+
+            user_data[destination_mappings[destination]] = filter
+
+        remaining_budget_per_user_per_destination_per_epoch.append(user_data)
 
     proceessed_logs = {
-        "remaining_budgets_per_epoch": remaining_budgets_per_epoch,
+        "remaining_budget_per_user_per_destination_per_epoch": remaining_budget_per_user_per_destination_per_epoch,
         "initial_budget": config["user"]["initial_budget"],
         "optimization": config["user"]["optimization"],
         "dataset": config["dataset"]["name"],

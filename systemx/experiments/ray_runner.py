@@ -21,6 +21,8 @@ def grid_run(
     dataset_name: str,
     impressions_path: str,
     conversions_path: str,
+    num_days_per_epoch: int,
+    num_days_attribution_window: int,
     initial_budget: float,
     logs_dir: str,
     loguru_level: str,
@@ -38,6 +40,8 @@ def grid_run(
             "name": dataset_name,
             "impressions_path": get_data_path(impressions_path),
             "conversions_path": get_data_path(conversions_path),
+            "num_days_per_epoch": num_days_per_epoch,
+            "num_days_attribution_window": num_days_attribution_window
         },
         "logs": {
             "verbose": False,

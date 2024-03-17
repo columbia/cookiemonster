@@ -17,6 +17,7 @@ termcolor = "^2.4.0"
 rich = "^13.7.1"
 plotly = "^5.19.0"
 matplotlib = "^3.8.3"
+nbclean = "^0.3.2"
 
 [tool.poetry.dev-dependencies]
 

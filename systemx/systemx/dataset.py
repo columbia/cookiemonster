@@ -39,8 +39,9 @@ class Criteo(Dataset):
         def read_impression():
             try:
                 _, row = next(impressions_reader)
+                impression_epoch = row["click_day"] // self.config.num_days_per_epoch
                 impression = Impression(
-                    epoch=row["click_day"],
+                    epoch=impression_epoch,
                     destination=row["partner_id"],
                     filter=row["filter"],
                     key=str(row["key"]),
@@ -55,11 +56,18 @@ class Criteo(Dataset):
         def read_conversion():
             try:
                 _, row = next(conversions_reader)
+                conversion_epoch = (
+                    row["conversion_day"] // self.config.num_days_per_epoch
+                )
+                num_epochs_attribution_window = (
+                    self.config.num_days_attribution_window
+                    // self.config.num_days_per_epoch
+                )
                 conversion = Conversion(
                     destination=row["partner_id"],
                     attribution_window=(
-                        max(row["conversion_day"] - 29, 0),
-                        row["conversion_day"],
+                        max(conversion_epoch - num_epochs_attribution_window, 0),
+                        conversion_epoch,
                     ),
                     attribution_logic="last_touch",
                     partitioning_logic="",

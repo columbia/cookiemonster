@@ -13,6 +13,8 @@ def optimizations_criteo(dataset):
         "dataset_name": "criteo",
         "impressions_path": "criteo/criteo_impressions.csv",
         "conversions_path": "criteo/criteo_conversions.csv",
+        "num_days_per_epoch": 30,
+        "num_days_attribution_window": 30,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",

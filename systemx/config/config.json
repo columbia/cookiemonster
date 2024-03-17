@@ -8,7 +8,9 @@
     "dataset": {
         "name": "criteo",
         "impressions_path": "data/criteo/pruned_criteo_impressions.csv",
-        "conversions_path": "data/criteo/pruned_criteo_conversions.csv"
+        "conversions_path": "data/criteo/pruned_criteo_conversions.csv",
+        "num_days_per_epoch": 1,
+        "num_days_attribution_window": 30
     },
     "logs": {
         "verbose": false,

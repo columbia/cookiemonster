@@ -71,6 +71,10 @@ class User:
 
         # Budget accounting
         for partition in partitions:
+            self.maybe_initialize_filters(
+                conversion.destination, partition.attribution_window
+            )
+
             if self.config.optimization == "0":
                 # No optimizations. Epochs in this partition pay worst case budget
                 if not self.pay_all_or_nothing(
@@ -155,6 +159,19 @@ class User:
                     f"Unsupported partitioning logic: {conversion.partitioning_logic}"
                 )
 
+    def maybe_initialize_filters(
+        self, destination: str, attribution_epochs: Tuple[int, int]
+    ):
+        attribution_epochs = attribution_window_to_list(attribution_epochs)
+        if destination not in self.filters_per_origin:
+            self.filters_per_origin[destination] = BudgetAccountant(self.config)
+        destination_filter = self.filters_per_origin[destination]
+
+        for epoch in attribution_epochs:
+            # Maybe initialize epoch
+            if destination_filter.get_block_budget(epoch) is None:
+                destination_filter.add_new_block_budget(epoch)
+
     def pay_all_or_nothing(
         self,
         attribution_epochs: Union[Tuple[int, int], List[int]],
@@ -164,17 +181,10 @@ class User:
         if isinstance(attribution_epochs, tuple):
             attribution_epochs = attribution_window_to_list(attribution_epochs)
 
-        if destination not in self.filters_per_origin:
-            self.filters_per_origin[destination] = BudgetAccountant(self.config)
-
         destination_filter = self.filters_per_origin[destination]
 
         # Check if all epochs have enough remaining budget
         for epoch in attribution_epochs:
-            # Maybe initialize epoch
-            if destination_filter.get_block_budget(epoch) is None:
-                destination_filter.add_new_block_budget(epoch)
-
             # Check if epoch has enough budget
             if not destination_filter.can_run(epoch, BasicBudget(epsilon)):
                 return False
