@@ -56,7 +56,6 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
     def process_experiment_logs(row, experiments, get_user_logs, get_destination_logs):
         initial_budget = row["initial_budget"]
         optimization = row["optimization"]
-        print("Analyze optimization ", optimization)
         b = row["remaining_budget_per_user_per_destination_per_epoch"]
 
         users_data = []
@@ -126,13 +125,13 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
                     "avg_budget_consumption_per_requested_epoch_across_converted_users"
                 ] = davg
                 per_destination_data[
-                    "sum_budget_consumption_per_requested_epoch_across_converted_users"
+                    "sum_budget_consumption_per_requested_epoch_across_users"
                 ] = dsum
                 per_destination_data[
                     "avg_budget_consumption_across_requested_epochs_across_converted_users"
                 ] = davg.mean()
                 per_destination_data[
-                    "sum_budget_consumption_across_requested_epochs_across_converted_users"
+                    "sum_budget_consumption_across_epochs_across_users"
                 ] = dsum.sum()
                 per_destination_data["max_epoch_requested_across_users"] = mx_epoch
                 del per_destination_data["filters"]
@@ -181,7 +180,7 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
         total_users_converted_across_destinations = result[
             "total_users_converted_across_destinations"
         ]
-        print(total_users_converted_across_destinations)
+        # print(total_users_converted_across_destinations)
 
     custom_order = [opt0, opt1, opt2]
 
@@ -210,109 +209,148 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
     )
 
 
-def plot_avg_budget_per_destination_across_epochs_across_users(destinations_data_df):
-    fig = px.bar(
-        destinations_data_df,
-        x="destination_id",
-        y="avg_budget_consumption_across_requested_epochs_across_converted_users",
-        color="optimization",
-        barmode="group",
-        title=f"Avg. Budget Consumption per destination across users across epochs",
-        width=1100,
-        height=600,
-        # facet_row="optimization",
-    )
-    iplot(fig)
+def plot_budget_consumption(df):
+
+    def plot_num_conversions_per_destination(df):
+        fig = px.bar(
+            df.query("optimization=='no_optimization'"),
+            x="destination_id",
+            y="num_user_ids_who_converted",
+            title=f"Number of conversions per destination",
+            width=1100,
+            height=600,
+            # facet_row="optimization",
+        )
+        return fig
+
+    def plot_avg_budget_consumption_per_destination_across_epochs_across_users(df):
+        fig = px.bar(
+            df,
+            x="destination_id",
+            y="avg_budget_consumption_across_requested_epochs_across_converted_users",
+            color="optimization",
+            barmode="group",
+            title=f"Avg. Budget Consumption per destination across requested epochs across converted users",
+            width=1100,
+            height=600,
+        )
+        return fig
+
+    def plot_avg_budget_consumption_across_destinations(df):
+        # Average across destinations
+        dff = (
+            df.groupby("optimization", observed=False)[
+                "sum_budget_consumption_across_epochs_across_users"
+            ]
+            .mean()
+            .reset_index(name="mean")
+        )
+
+        fig = px.bar(
+            dff,
+            x="optimization",
+            y="mean",
+            title=f"Avg. Budget Consumption across destinations",
+            width=1100,
+            height=600,
+        )
+        return fig
+
+    def plot_total_budget_consumption_per_epoch_across_destinations(df):
+        def align_and_sum(group):
+            if not group.empty:
+                max_shape = max(arr.shape for arr in group)
+                padded_arrays = [
+                    np.pad(arr, (0, max_shape[0] - arr.shape[0]), mode="constant")
+                    for arr in group
+                ]
+                summed_array = np.sum(padded_arrays, axis=0)
+                return summed_array
+
+        def explode_within_group(group):
+            return group.explode(
+                "sum_budget_consumption_per_requested_epoch_across_users"
+            )
+
+        g = df.groupby("optimization", observed=False)
+        g = g["sum_budget_consumption_per_requested_epoch_across_users"].apply(
+            align_and_sum
+        )
+        g = g.reset_index(
+            name="sum_budget_consumption_per_requested_epoch_across_users"
+        )
+        g = (
+            g.groupby("optimization", observed=False)[
+                "sum_budget_consumption_per_requested_epoch_across_users"
+            ]
+            .apply(explode_within_group)
+            .reset_index()
+        )
+        g["sum_budget_consumption_per_requested_epoch_across_users"] = g[
+            "sum_budget_consumption_per_requested_epoch_across_users"
+        ].astype(float)
+
+        fig = px.bar(
+            g,
+            x="level_1",
+            y="sum_budget_consumption_per_requested_epoch_across_users",
+            color="optimization",
+            barmode="group",
+            title=f"Total. Budget Consumption per requested epoch across destinations",
+            width=1100,
+            height=600,
+        )
+        return fig
+
+    def plot_total_budget_consumption_per_destination_across_epochs_across_users(df):
+        fig = px.bar(
+            df,
+            x="destination_id",
+            y="sum_budget_consumption_across_epochs_across_users",
+            color="optimization",
+            barmode="group",
+            title=f"Total Budget Consumption per destination across users across epochs",
+            width=1100,
+            height=600,
+        )
+        return fig
+
+    def plot_total_budget_consumption_across_destinations(df):
+        dff = (
+            df.groupby("optimization", observed=False)[
+                "sum_budget_consumption_across_requested_epochs_across_users"
+            ]
+            .sum()
+            .reset_index(name="sum")
+        )
+        fig = px.bar(
+            dff,
+            x="optimization",
+            y="sum",
+            title=f"Total Budget Consumption across destinations across users across epochs",
+            width=1100,
+            height=600,
+        )
+        return fig
+
+    iplot(plot_num_conversions_per_destination(df))
+    iplot(plot_avg_budget_consumption_per_destination_across_epochs_across_users(df))
+    iplot(plot_avg_budget_consumption_across_destinations(df))
+    iplot(plot_total_budget_consumption_per_epoch_across_destinations(df))
+    iplot(plot_total_budget_consumption_per_destination_across_epochs_across_users(df))
+    iplot(plot_total_budget_consumption_across_destinations(df))
 
 
-def plot_sum_budget_per_destination_across_epochs_across_users(destinations_data_df):
-    fig = px.bar(
-        destinations_data_df,
-        x="destination_id",
-        y="sum_budget_consumption_across_requested_epochs_across_converted_users",
-        color="optimization",
-        barmode="group",
-        title=f"Total Budget Consumption per destination across users across epochs",
-        width=1100,
-        height=600,
-        # facet_row="optimization",
-    )
-    iplot(fig)
+# max_epoch_requested_across_destinations_across_users = destinations_data_df[
+#     "max_epoch_requested_across_users"
+# ].max()
 
-
-def plot_num_conversions_per_destination(destinations_data_df):
-    df = destinations_data_df.query("optimization=='no_optimization'")
-    fig = px.bar(
-        df,
-        x="destination_id",
-        y="num_user_ids_who_converted",
-        title=f"Number of conversions per destination",
-        width=1100,
-        height=600,
-        # facet_row="optimization",
-    )
-    iplot(fig)
-
-
-def plot_avg_budget_across_destinations_across_epochs_across_users(
-    destinations_data_df, total_users_converted_across_destinations
-):
-    max_epoch_requested_across_destinations_across_users = destinations_data_df[
-        "max_epoch_requested_across_users"
-    ].max()
-
-    df = destinations_data_df[["optimization"]]
-    df[
-        "avg_budget_across_destinations_across_epochs_across_users"
-    ] = destinations_data_df[
-        "sum_budget_consumption_across_requested_epochs_across_converted_users"
-    ] / (
-        total_users_converted_across_destinations
-        * max_epoch_requested_across_destinations_across_users
-    )
-
-    df = (
-        df.groupby("optimization", observed=False)[
-            "avg_budget_across_destinations_across_epochs_across_users"
-        ]
-        .mean()
-        .reset_index(name="mean")
-    )
-
-    fig = px.bar(
-        df,
-        x="optimization",
-        y="mean",
-        # color="optimization",
-        # barmode="group",
-        title=f"Avg. Budget Consumption across destinations across users across epochs",
-        width=1100,
-        height=600,
-        # facet_row="optimization",
-    )
-    iplot(fig)
-
-
-def plot_sum_budget_across_destinations_across_epochs_across_users(
-    destinations_data_df,
-):
-
-    df = (
-        destinations_data_df.groupby("optimization", observed=False)[
-            "sum_budget_consumption_across_requested_epochs_across_converted_users"
-        ]
-        .sum()
-        .reset_index(name="sum")
-    )
-    fig = px.bar(
-        df,
-        x="optimization",
-        y="sum",
-        # color="optimization",
-        # barmode="group",
-        title=f"Total Budget Consumption across destinations across users across epochs",
-        width=1100,
-        height=600,
-        # facet_row="optimization",
-    )
-    iplot(fig)
+# df = destinations_data_df[["optimization"]]
+# df[
+#     "avg_budget_across_destinations_across_epochs_across_users"
+# ] = destinations_data_df[
+#     "sum_budget_consumption_across_requested_epochs_across_converted_users"
+# ] / (
+#     total_users_converted_across_destinations
+#     * max_epoch_requested_across_destinations_across_users
+# )

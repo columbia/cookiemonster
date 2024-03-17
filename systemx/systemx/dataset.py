@@ -66,7 +66,7 @@ class Criteo(Dataset):
                 conversion = Conversion(
                     destination=row["partner_id"],
                     attribution_window=(
-                        max(conversion_epoch - num_epochs_attribution_window, 0),
+                        max(conversion_epoch - num_epochs_attribution_window - 1, 0),
                         conversion_epoch,
                     ),
                     attribution_logic="last_touch",
