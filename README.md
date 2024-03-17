@@ -22,19 +22,26 @@
 
 ## Run `systemx` experiments
 
-#### Run many experiments in parallel:
+Enter repo:
 ```bash
 cd adsprivate
+```
+Activate poetry environment:
+```bash
+poetry shell
+```
+
+### Run many experiments in parallel
+```bash
 PYTHONPATH="systemx" python3 systemx/experiments/runner.cli.py
 ```
 
 The results will be stored inside the `adsprivate/systemx/logs` directory.
 Use the notebooks in `adsprivate/systemx/notebooks` to check how to analyze the results.
 
-#### Run one experiment at a time:
+### Run one experiment at a time
 ```bash
-cd adsprivate/systemx
-PYTHONPATH="systemx" python3 systemx/run_evaluation.py --config config/config.json
+python3 systemx/systemx/run_evaluation.py --config systemx/config/config.json
 ```
 
 The results will be stored inside the `adsprivate/systemx/logs` directory.
