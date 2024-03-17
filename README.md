@@ -19,6 +19,13 @@
     - `notebooks`: Contains notebooks that we use to analyze the results of the experiments
      - `systemx`: Contains the main functionality of the on-device  DP budgeting
 
+## Install dependencies
+
+```bash
+pip install poetry
+poetry install
+poetry shell
+```
 
 ## Create datasets
 
@@ -35,10 +42,6 @@ python3 create_dataset.py
 Enter repo:
 ```bash
 cd adsprivate
-```
-Activate poetry environment:
-```bash
-poetry shell
 ```
 
 ### Run many experiments in parallel
