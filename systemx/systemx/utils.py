@@ -48,6 +48,8 @@ def process_logs(
         "remaining_budget_per_user_per_destination_per_epoch": remaining_budget_per_user_per_destination_per_epoch,
         "initial_budget": config["user"]["initial_budget"],
         "optimization": config["user"]["optimization"],
+        "num_days_per_epoch": config["dataset"]["num_days_per_epoch"],
+        "num_days_attribution_window": config["dataset"]["num_days_attribution_window"],
         "dataset": config["dataset"]["name"],
         "config": config,
     }
