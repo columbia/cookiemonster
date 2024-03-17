@@ -13,7 +13,7 @@ def optimizations_criteo(dataset):
         "dataset_name": "criteo",
         "impressions_path": "criteo/criteo_impressions.csv",
         "conversions_path": "criteo/criteo_conversions.csv",
-        "num_days_per_epoch": [1, 30],
+        "num_days_per_epoch": [1],
         "num_days_attribution_window": 30,
         "initial_budget": [1],
         "logs_dir": logs_dir,
@@ -21,7 +21,14 @@ def optimizations_criteo(dataset):
         "mlflow_experiment_id": "",
     }
 
-    logs = grid_run(**config)
+    grid_run(**config)
+
+    # Not running in parallel due to memory issues    
+    config["num_days_per_epoch"] = [15]
+    grid_run(**config)
+
+    config["num_days_per_epoch"] = [30]
+    grid_run(**config)
 
     # analyze(f"ray/{logs_dir}")
 
