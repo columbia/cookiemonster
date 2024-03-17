@@ -20,6 +20,16 @@
      - `systemx`: Contains the main functionality of the on-device  DP budgeting
 
 
+## Create datasets
+
+Criteo:
+```bash
+wget http://go.criteo.net/criteo-research-search-conversion.tar.gz
+tar -xzf criteo-research-search-conversion.tar.gz
+cd adsprivate/systemx/data/criteo
+python3 create_dataset.py
+```
+
 ## Run `systemx` experiments
 
 Enter repo:

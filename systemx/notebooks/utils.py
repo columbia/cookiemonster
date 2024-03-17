@@ -318,7 +318,7 @@ def plot_budget_consumption(df):
     def plot_total_budget_consumption_across_destinations(df):
         dff = (
             df.groupby("optimization", observed=False)[
-                "sum_budget_consumption_across_requested_epochs_across_users"
+                "sum_budget_consumption_across_epochs_across_users"
             ]
             .sum()
             .reset_index(name="sum")
