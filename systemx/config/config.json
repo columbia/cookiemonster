@@ -7,8 +7,8 @@
     },
     "dataset": {
         "name": "criteo",
-        "impressions_path": "data/criteo/pruned_criteo_impressions.csv",
-        "conversions_path": "data/criteo/pruned_criteo_conversions.csv",
+        "impressions_path": "data/criteo/criteo_impressions.csv",
+        "conversions_path": "data/criteo/criteo_conversions.csv",
         "num_days_per_epoch": 1,
         "num_days_attribution_window": 30
     },
@@ -20,5 +20,9 @@
         "mlflow_experiment_id": "",
         "loguru_level": "INFO"
     },
-    "aggregation_service": "local_naive"
+    "aggregation_service": "local_naive",
+    "aggregation_policy": {
+        "type": "epoch_policy",
+        "interval": 2
+    }
 }
