@@ -60,7 +60,7 @@ class Criteo(Dataset):
                     row["conversion_day"] // self.config.num_days_per_epoch
                 )
                 num_epochs_attribution_window = (
-                    self.config.num_days_attribution_window
+                    (self.config.num_days_attribution_window - 1)
                     // self.config.num_days_per_epoch
                 )
                 conversion = Conversion(
