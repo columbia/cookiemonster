@@ -31,9 +31,9 @@ poetry shell
 
 Criteo:
 ```bash
+cd adsprivate/systemx/data/criteo
 wget http://go.criteo.net/criteo-research-search-conversion.tar.gz
 tar -xzf criteo-research-search-conversion.tar.gz
-cd adsprivate/systemx/data/criteo
 python3 create_dataset.py
 ```
 
