@@ -4,6 +4,9 @@ import numpy as np
 import random
 import datetime
 
+USER_COUNT = 1000
+CONVERSION_RATE_PERCENTAGE = 1
+
 def generate_uuid() :
   return uuid.uuid4()
 
@@ -89,7 +92,7 @@ def generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records
   probabilities = [0.01 for _ in range(userCount)]
 
   for i in range(userCount):
-    scaleup = 0;
+    scaleup = 0
     probability = 0.01
     if publisher_user_profile.loc[i]['pub_profile_1'] == 1 :
       scaleup +=  probability*0.02
@@ -117,7 +120,7 @@ def generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records
     probabilities[device_index] += scaleup
 
   publisher_user_profile['probability'] = probabilities
-  converted_users_count = userCount//20
+  converted_users_count = (user_count * CONVERSION_RATE_PERCENTAGE)//100
   users = publisher_user_profile[id_attribute].sample(n=converted_users_count, weights=publisher_user_profile['probability'])
 
   data = {}
@@ -147,7 +150,7 @@ def generate_conversion_records(publisher_user_profile, ad_exposure_records, adv
   amount_means = [2.0 for _ in range(converted_user_count)]
 
   for i in range(converted_user_count):
-    scaleup = 0;
+    scaleup = 0
     mean = 2.0
     device_index = publisher_user_profile.loc[publisher_user_profile[device_id] == advertiser_user_profile.loc[i][device_id]].index[0]
     if publisher_user_profile.loc[device_index]['pub_profile_1'] == 1 :
@@ -204,7 +207,7 @@ def generate_conversion_records(publisher_user_profile, ad_exposure_records, adv
 
   return pd.DataFrame(data)
 
-user_count = 100
+user_count = USER_COUNT
 publisher_user_profile = generate_publisher_user_profile(user_count)
 ad_exposure_records = generate_ad_exposure_records(publisher_user_profile, user_count)
 advertiser_user_profile = generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records, user_count)
