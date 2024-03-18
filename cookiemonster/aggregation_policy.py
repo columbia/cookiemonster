@@ -5,14 +5,14 @@ from omegaconf import DictConfig
 from cookiemonster.events import Impression, Conversion
 
 class AggregationPolicyType(str, Enum):
-    COUNT_POLICY = "count_policy"
+    COUNT_POLICY = "count_conversion_policy"
     EPOCH_POLICY = "epoch_policy"
 
 class AggregationPolicy(ABC):
     @classmethod
     def create(cls, config: DictConfig) -> "AggregationPolicy":
         if config.type == AggregationPolicyType.COUNT_POLICY:
-            return CountPolicy(config)
+            return CountConversionPolicy(config)
         elif config.type == AggregationPolicyType.EPOCH_POLICY:
             return EpochPolicy(config)
         else:
@@ -22,9 +22,9 @@ class AggregationPolicy(ABC):
     def should_calculate_summary_reports(self, event: Impression | Conversion) -> bool:
         pass
 
-class CountPolicy(AggregationPolicy):
+class CountConversionPolicy(AggregationPolicy):
     """
-    CountPolicy - an aggregation policy that will calculate the summary reports after the specified
+    CountConversionPolicy - an aggregation policy that will calculate the summary reports after the specified
     number of iterations has elapsed.
     """
     def __init__(self, config: DictConfig) -> None:
@@ -32,8 +32,11 @@ class CountPolicy(AggregationPolicy):
         self.current = 0
     
     def should_calculate_summary_reports(self, event: Impression | Conversion) -> bool:
-        self.current += 1
-        return self.current % self.counts == 0
+        if isinstance(event, Conversion):
+            self.current += 1
+            return self.current % self.counts == 0
+        else:
+            return False
     
 class EpochPolicy(AggregationPolicy):
     """
