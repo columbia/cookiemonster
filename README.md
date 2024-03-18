@@ -15,7 +15,7 @@
 
 - `systemx`: A lightweight implementation of the on-device DP budgeting that we use to run experiments.
     - `data`: Contains datasets that we used for the evaluation. Run the corresponding `create_dataset.py` scripts to create each dataset.
-    - `experiments`: Contains scripts that use Ray.tune to run many experiments in parallel. e.g.  `python3 experiments/runner.cli.py --exp optimizations --dataset criteo`
+    - `experiments`: Contains scripts that use Ray.tune to run many experiments in parallel.
     - `notebooks`: Contains notebooks that we use to analyze the results of the experiments
      - `systemx`: Contains the main functionality of the on-device  DP budgeting
 

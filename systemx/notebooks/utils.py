@@ -1,7 +1,6 @@
 import numpy as np
 from typing import List
 import pandas as pd
-
 # import modin as pd
 import plotly.express as px
 from plotly.offline import iplot
@@ -56,6 +55,7 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
     def process_experiment_logs(row, experiments, get_user_logs, get_destination_logs):
         initial_budget = row["initial_budget"]
         optimization = row["optimization"]
+        num_days_per_epoch = row["num_days_per_epoch"]
         b = row["remaining_budget_per_user_per_destination_per_epoch"]
 
         users_data = []
@@ -146,7 +146,7 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
         users_data_df = pd.DataFrame.from_records(users_data)
         destinations_data_df = pd.DataFrame.from_records(destinations_data)
 
-        experiments[optimization] = {
+        experiments[(optimization, num_days_per_epoch)] = {
             "users": users_data_df,
             "destinations": destinations_data_df,
             "total_users_converted_across_destinations": total_num_users_converted,
@@ -171,10 +171,13 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
     users_data_dfs = []
     destinations_data_dfs = []
 
-    for optimization, result in experiments.items():
+    for key, result in experiments.items():
+        (optimization, num_days_per_epoch) = key
         result["users"]["optimization"] = rename(optimization)
+        result["users"]["num_days_per_epoch"] = num_days_per_epoch
         users_data_dfs.append(result["users"])
         result["destinations"]["optimization"] = rename(optimization)
+        result["destinations"]["num_days_per_epoch"] = num_days_per_epoch
         destinations_data_dfs.append(result["destinations"])
 
         total_users_converted_across_destinations = result[
@@ -199,7 +202,7 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
     ].astype(int)
 
     destinations_data_df = destinations_data_df.sort_values(
-        ["destination_id", "optimization"]
+        ["destination_id", "optimization", "num_days_per_epoch"]
     )
 
     return (
@@ -213,13 +216,12 @@ def plot_budget_consumption(df):
 
     def plot_num_conversions_per_destination(df):
         fig = px.bar(
-            df.query("optimization=='no_optimization'"),
+            df.query("optimization=='no_optimization' and num_days_per_epoch==1"),
             x="destination_id",
             y="num_user_ids_who_converted",
             title=f"Number of conversions per destination",
             width=1100,
             height=600,
-            # facet_row="optimization",
         )
         return fig
 
@@ -232,14 +234,39 @@ def plot_budget_consumption(df):
             barmode="group",
             title=f"Avg. Budget Consumption per destination across requested epochs across converted users",
             width=1100,
-            height=600,
+            height=1600,
+            facet_row="num_days_per_epoch",
         )
+        fig.update_yaxes(title_text="avg budget")
+        fig.update_layout(
+            margin=dict(b=300),
+        )
+        fig.update_layout(
+        annotations=[
+            dict(
+                text="• For num-days-per-epoch=1 we have 90 epochs and each time we request 30 epochs. <br>The no-optimization and monoepoch optimization behave similarly because reports request more than 1 epoch so monoepoch cannot thrive. <br>Monoepoch is slightly better  because reports in day 1 (epoch 1) necessarily request for only 1 epoch instead of 30. <br>Multiepoch performs obviously the best because instead of paying for 30 epochs we pay for just 1 - the dataset is extremely sparse <br>and in most cases we find relevant impressions in just one epoch. <br>•  For num-days-per-epoch=15 we have 6 epochs and each time we  request 2 epochs. <br>Yet again monoepoch doesn't thrive because most requests are for >1 epoch. <br>However, it is still slightly better than no-optimization because reports in epoch 1 necessarily request for only 1 epoch instead of 2. <br>Multiepoch is obviously still better because it pays for one epoch instead of 2. <br>However, the gap is smaller since even the other baselines do not mpay as much now. <br>• For num-days-per-epoch=30 we have 3 epochs and each time we request 1. <br>Monoepoch and multiepoch are identical. They are better than no optimization since they pay bsaed on their individual sensitivity rather than the global one.",
+                # showarrow=True,
+                # arrowsize=40,
+                x = 0,
+                y = -0.25,
+                xref='paper',
+                yref='paper',
+                xanchor='left',
+                yanchor='bottom',
+                font=dict(size=13, color="black"),
+                align="left",
+                textangle=0,
+                width=1000,
+                height=200,
+            )
+        ]
+    )
         return fig
 
     def plot_avg_budget_consumption_across_destinations(df):
         # Average across destinations
         dff = (
-            df.groupby("optimization", observed=False)[
+            df.groupby(["optimization", "num_days_per_epoch"], observed=False)[
                 "sum_budget_consumption_across_epochs_across_users"
             ]
             .mean()
@@ -252,7 +279,8 @@ def plot_budget_consumption(df):
             y="mean",
             title=f"Avg. Budget Consumption across destinations",
             width=1100,
-            height=600,
+            height=1000,
+            facet_row="num_days_per_epoch",
         )
         return fig
 
@@ -272,7 +300,7 @@ def plot_budget_consumption(df):
                 "sum_budget_consumption_per_requested_epoch_across_users"
             )
 
-        g = df.groupby("optimization", observed=False)
+        g = df.groupby(["optimization", "num_days_per_epoch"], observed=False)
         g = g["sum_budget_consumption_per_requested_epoch_across_users"].apply(
             align_and_sum
         )
@@ -280,7 +308,7 @@ def plot_budget_consumption(df):
             name="sum_budget_consumption_per_requested_epoch_across_users"
         )
         g = (
-            g.groupby("optimization", observed=False)[
+            g.groupby(["optimization", "num_days_per_epoch"], observed=False)[
                 "sum_budget_consumption_per_requested_epoch_across_users"
             ]
             .apply(explode_within_group)
@@ -292,13 +320,14 @@ def plot_budget_consumption(df):
 
         fig = px.bar(
             g,
-            x="level_1",
+            x="level_2",
             y="sum_budget_consumption_per_requested_epoch_across_users",
             color="optimization",
             barmode="group",
             title=f"Total. Budget Consumption per requested epoch across destinations",
             width=1100,
-            height=600,
+            height=1600,
+            facet_row="num_days_per_epoch",
         )
         return fig
 
@@ -311,13 +340,14 @@ def plot_budget_consumption(df):
             barmode="group",
             title=f"Total Budget Consumption per destination across users across epochs",
             width=1100,
-            height=600,
+            height=1600,
+            facet_row="num_days_per_epoch",
         )
         return fig
 
     def plot_total_budget_consumption_across_destinations(df):
         dff = (
-            df.groupby("optimization", observed=False)[
+            df.groupby(["optimization", "num_days_per_epoch"], observed=False)[
                 "sum_budget_consumption_across_epochs_across_users"
             ]
             .sum()
@@ -329,7 +359,8 @@ def plot_budget_consumption(df):
             y="sum",
             title=f"Total Budget Consumption across destinations across users across epochs",
             width=1100,
-            height=600,
+            height=1600,
+            facet_row="num_days_per_epoch",
         )
         return fig
 
