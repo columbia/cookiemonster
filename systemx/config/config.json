@@ -2,13 +2,14 @@
     "sensitivity_metric": "L1",
     "user": {
         "sensitivity_metric": "L1",
-        "optimization": "1",
+        "baseline": "user_epoch_ara",
+        "optimization": "multiepoch",
         "initial_budget": 10
     },
     "dataset": {
         "name": "criteo",
-        "impressions_path": "data/criteo/pruned_criteo_impressions.csv",
-        "conversions_path": "data/criteo/pruned_criteo_conversions.csv",
+        "impressions_path": "systemx/data/criteo/pruned_criteo_impressions_three_advertisers.csv",
+        "conversions_path": "systemx/data/criteo/pruned_criteo_conversions_three_advertisers.csv",
         "num_days_per_epoch": 1,
         "num_days_attribution_window": 30
     },

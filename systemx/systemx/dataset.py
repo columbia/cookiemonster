@@ -59,11 +59,13 @@ class Criteo(Dataset):
                 conversion_epoch = (
                     row["conversion_day"] // self.config.num_days_per_epoch
                 )
+                conversion_timestamp = row["conversion_timestamp"]
                 num_epochs_attribution_window = (
-                    (self.config.num_days_attribution_window - 1)
-                    // self.config.num_days_per_epoch
-                )
+                    self.config.num_days_attribution_window - 1
+                ) // self.config.num_days_per_epoch
+
                 conversion = Conversion(
+                    timestamp=conversion_timestamp,
                     destination=row["partner_id"],
                     attribution_window=(
                         max(conversion_epoch - num_epochs_attribution_window, 0),
@@ -71,13 +73,12 @@ class Criteo(Dataset):
                     ),
                     attribution_logic="last_touch",
                     partitioning_logic="",
-                    aggregatable_value=row["SalesAmountInEuro"],
+                    aggregatable_value=row["count"],
                     aggregatable_cap_value=row["aggregatable_cap_value"],
                     filter=row["filter"],
                     key=str(row["key"]),
                     epsilon=0.01,
                 )
-                conversion_timestamp = row["conversion_timestamp"]
                 conversion_user_id = row["user_id"]
                 return conversion, conversion_timestamp, conversion_user_id
 

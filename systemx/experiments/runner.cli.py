@@ -9,10 +9,11 @@ app = typer.Typer()
 def optimizations_criteo(dataset):
     logs_dir = f"{dataset}/optimizations"
     config = {
-        "optimization": ["0", "1", "2"],
+        "baseline": ["ipa", "user_epoch_ara", "systemx"],
+        "optimization": ["multiepoch"],
         "dataset_name": "criteo",
-        "impressions_path": "criteo/criteo_impressions.csv",
-        "conversions_path": "criteo/criteo_conversions.csv",
+        "impressions_path": "criteo/criteo_impressions_three_advertisers.csv",
+        "conversions_path": "criteo/criteo_conversions_three_advertisers.csv",
         "num_days_per_epoch": [1],
         "num_days_attribution_window": 30,
         "initial_budget": [1],
@@ -23,12 +24,12 @@ def optimizations_criteo(dataset):
 
     grid_run(**config)
 
-    # Not running in parallel due to memory issues    
-    config["num_days_per_epoch"] = [15]
-    grid_run(**config)
+    # # Not running in parallel due to memory issues
+    # config["num_days_per_epoch"] = [15]
+    # grid_run(**config)
 
-    config["num_days_per_epoch"] = [30]
-    grid_run(**config)
+    # config["num_days_per_epoch"] = [30]
+    # grid_run(**config)
 
     # analyze(f"ray/{logs_dir}")
 

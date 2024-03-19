@@ -103,27 +103,37 @@ df["conversion_day"] = df["conversion_datetime"].apply(
 df["conversion_day"] -= min_click_day
 
 # Handpick data for 3 advertisers
-df = df.query("partner_id=='9D9E93D1D461D7BAE47FB67EC0E01B62' or partner_id=='F122B91F6D102E4630817566839A4F1F' or partner_id=='9FF550C0B17A3C493378CB6E2DEEE6E4'")
+df = df.query(
+    "partner_id=='9D9E93D1D461D7BAE47FB67EC0E01B62' or partner_id=='F122B91F6D102E4630817566839A4F1F' or partner_id=='9FF550C0B17A3C493378CB6E2DEEE6E4'"
+)
+
 
 # Hash their product ids into three buckets
 def hash_to_buckets(s):
     hash_value = hash(s)
     normalized_hash = (hash_value % 10000) / 10000
-    if normalized_hash < 1/3:
+    if normalized_hash < 1 / 3:
         return 0
-    elif normalized_hash < 2/3:
+    elif normalized_hash < 2 / 3:
         return 1
     else:
         return 2
 
 
 df["product_id_group"] = df["product_id"].apply(hash_to_buckets)
-
-
 df["filter"] = "product_group_id=" + df["product_id_group"].astype(str)
 
 # Get impressions
-impressions = df[["click_timestamp", "click_day", "user_id", "partner_id", "product_id_group", "filter"]]
+impressions = df[
+    [
+        "click_timestamp",
+        "click_day",
+        "user_id",
+        "partner_id",
+        "product_id_group",
+        "filter",
+    ]
+]
 impressions = impressions.sort_values(by=["click_timestamp"])
 impressions["key"] = "purchaseCount"
 
@@ -135,25 +145,45 @@ conversions = pd.DataFrame(df.loc[df.Sale == 1])[
         "user_id",
         "partner_id",
         "product_id_group",
-        "filter"
+        "filter",
+        "SalesAmountInEuro",
+        "product_price",
     ]
 ]
 conversions = conversions.sort_values(by=["conversion_timestamp"])
 
+# Process SalesAmountInEuro to not be smaller than product_price
+conversions.loc[
+    conversions["SalesAmountInEuro"] < conversions["product_price"], "SalesAmountInEuro"
+] = conversions["product_price"]
+
+# Compute counts
+conversions["count"] = conversions["SalesAmountInEuro"] // conversions["product_price"]
+conversions = conversions.drop(columns=["product_price", "SalesAmountInEuro"])
+
+# Cap Counts
+cap_value = 5
+conversions.loc[conversions["count"] > cap_value, "count"] = cap_value
+
+
 def get_epsilon_from_accuracy(n):
-    s=1 
-    a=0.05
-    b=0.01
-    return s * math.log(1/b) / (n * a)
+    s = cap_value
+    a = 0.05
+    b = 0.01
+    return s * math.log(1 / b) / (n * a)
 
 
 # Get epsilons from accuracy
-x = conversions.groupby(["partner_id", "product_id_group"]).size().reset_index(name="count")
+x = (
+    conversions.groupby(["partner_id", "product_id_group"])
+    .size()
+    .reset_index(name="count")
+)
 x["epsilon"] = x["count"].apply(get_epsilon_from_accuracy)
 x = x.drop(columns=["count"])
 conversions = conversions.merge(x, on=["partner_id", "product_id_group"], how="left")
 
-conversions["aggregatable_cap_value"] = 1
+conversions["aggregatable_cap_value"] = cap_value
 conversions["key"] = "product_group_id=" + conversions["product_id_group"].astype(str)
 
 impressions.to_csv("criteo_impressions_three_advertisers.csv", header=True, index=False)

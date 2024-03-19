@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List
 import pandas as pd
+
 # import modin as pd
 import plotly.express as px
 from plotly.offline import iplot
@@ -9,27 +10,11 @@ from multiprocessing import Manager, Process
 from systemx.utils import LOGS_PATH
 from experiments.ray.analysis import load_ray_experiment
 
-opt0 = "no_optimization"
-opt1 = "monoepoch"
-opt2 = "multiepoch"
-
 
 def get_df(path):
     logs = LOGS_PATH.joinpath(path)
     df = load_ray_experiment(logs)
     return df
-
-
-def rename(optimization):
-    match optimization:
-        case "0":
-            return opt0
-        case "1":
-            return opt1
-        case "2":
-            return opt2
-        case _:
-            raise ValueError("No such optimization")
 
 
 def get_per_epoch_budget_consumption(filters: List[str], initial_budget):
@@ -173,10 +158,10 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
 
     for key, result in experiments.items():
         (optimization, num_days_per_epoch) = key
-        result["users"]["optimization"] = rename(optimization)
+        result["users"]["optimization"] = optimization
         result["users"]["num_days_per_epoch"] = num_days_per_epoch
         users_data_dfs.append(result["users"])
-        result["destinations"]["optimization"] = rename(optimization)
+        result["destinations"]["optimization"] = optimization
         result["destinations"]["num_days_per_epoch"] = num_days_per_epoch
         destinations_data_dfs.append(result["destinations"])
 
@@ -185,7 +170,7 @@ def analyze_budget_consumption(path, get_user_logs=True, get_destination_logs=Tr
         ]
         # print(total_users_converted_across_destinations)
 
-    custom_order = [opt0, opt1, opt2]
+    custom_order = []
 
     users_data_df = pd.concat(users_data_dfs)
     users_data_df["optimization"] = pd.Categorical(
@@ -241,26 +226,26 @@ def plot_budget_consumption(df):
         fig.update_layout(
             margin=dict(b=300),
         )
-    #     fig.update_layout(
-    #     annotations=[
-    #         dict(
-    #             text="• For num-days-per-epoch=1 we have 90 epochs and each time we request 30 epochs. <br>The no-optimization and monoepoch optimization behave similarly because reports request more than 1 epoch so monoepoch cannot thrive. <br>Monoepoch is slightly better  because reports in day 1 (epoch 1) necessarily request for only 1 epoch instead of 30. <br>Multiepoch performs obviously the best because instead of paying for 30 epochs we pay for just 1 - the dataset is extremely sparse <br>and in most cases we find relevant impressions in just one epoch. <br>•  For num-days-per-epoch=15 we have 6 epochs and each time we  request 2 epochs. <br>Yet again monoepoch doesn't thrive because most requests are for >1 epoch. <br>However, it is still slightly better than no-optimization because reports in epoch 1 necessarily request for only 1 epoch instead of 2. <br>Multiepoch is obviously still better because it pays for one epoch instead of 2. <br>However, the gap is smaller since even the other baselines do not mpay as much now. <br>• For num-days-per-epoch=30 we have 3 epochs and each time we request 1. <br>Monoepoch and multiepoch are identical. They are better than no optimization since they pay bsaed on their individual sensitivity rather than the global one.",
-    #             # showarrow=True,
-    #             # arrowsize=40,
-    #             x = 0,
-    #             y = -0.25,
-    #             xref='paper',
-    #             yref='paper',
-    #             xanchor='left',
-    #             yanchor='bottom',
-    #             font=dict(size=13, color="black"),
-    #             align="left",
-    #             textangle=0,
-    #             width=1000,
-    #             height=200,
-    #         )
-    #     ]
-    # )
+        #     fig.update_layout(
+        #     annotations=[
+        #         dict(
+        #             text="• For num-days-per-epoch=1 we have 90 epochs and each time we request 30 epochs. <br>The no-optimization and monoepoch optimization behave similarly because reports request more than 1 epoch so monoepoch cannot thrive. <br>Monoepoch is slightly better  because reports in day 1 (epoch 1) necessarily request for only 1 epoch instead of 30. <br>Multiepoch performs obviously the best because instead of paying for 30 epochs we pay for just 1 - the dataset is extremely sparse <br>and in most cases we find relevant impressions in just one epoch. <br>•  For num-days-per-epoch=15 we have 6 epochs and each time we  request 2 epochs. <br>Yet again monoepoch doesn't thrive because most requests are for >1 epoch. <br>However, it is still slightly better than no-optimization because reports in epoch 1 necessarily request for only 1 epoch instead of 2. <br>Multiepoch is obviously still better because it pays for one epoch instead of 2. <br>However, the gap is smaller since even the other baselines do not mpay as much now. <br>• For num-days-per-epoch=30 we have 3 epochs and each time we request 1. <br>Monoepoch and multiepoch are identical. They are better than no optimization since they pay bsaed on their individual sensitivity rather than the global one.",
+        #             # showarrow=True,
+        #             # arrowsize=40,
+        #             x = 0,
+        #             y = -0.25,
+        #             xref='paper',
+        #             yref='paper',
+        #             xanchor='left',
+        #             yanchor='bottom',
+        #             font=dict(size=13, color="black"),
+        #             align="left",
+        #             textangle=0,
+        #             width=1000,
+        #             height=200,
+        #         )
+        #     ]
+        # )
         return fig
 
     def plot_avg_budget_consumption_across_destinations(df):

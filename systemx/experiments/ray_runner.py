@@ -17,6 +17,7 @@ def run_and_report(config: dict, replace=False) -> None:
 
 
 def grid_run(
+    baseline: List[str],
     optimization: List[str],
     dataset_name: str,
     impressions_path: str,
@@ -33,6 +34,7 @@ def grid_run(
         "sensitivity_metric": "L1",
         "user": {
             "sensitivity_metric": "L1",
+            "baseline": tune.grid_search(baseline),
             "optimization": tune.grid_search(optimization),
             "initial_budget": tune.grid_search(initial_budget),
         },

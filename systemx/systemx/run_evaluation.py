@@ -5,10 +5,10 @@ from typing import Dict, Any, List
 from termcolor import colored
 from omegaconf import OmegaConf
 
-from systemx.user import User
 from systemx.report import Report
 from systemx.dataset import Dataset
 from systemx.utils import process_logs, save_logs
+from systemx.user import User, get_logs_across_users
 
 app = typer.Typer()
 
@@ -17,7 +17,6 @@ class Evaluation:
     def __init__(self, config: Dict[str, Any]):
         self.config = OmegaConf.create(config)
         self.dataset = Dataset.create(self.config.dataset)
-
         self.users: Dict[str, User] = {}
         self.reports: Dict[str, List[Report]] = {}
 
@@ -46,7 +45,7 @@ class Evaluation:
 
         # Collects budget consumption per user per destination epoch
         logs = process_logs(
-            [user.get_logs() for user in self.users.values()],
+            get_logs_across_users(),
             OmegaConf.to_object(self.config),
         )
         if self.config.logs.save:
@@ -58,7 +57,7 @@ class Evaluation:
 
 @app.command()
 def run_evaluation(
-    omegaconf: str = "config/config.json",
+    omegaconf: str = "systemx/config/config.json",
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
