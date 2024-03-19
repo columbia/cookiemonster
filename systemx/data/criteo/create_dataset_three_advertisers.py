@@ -150,6 +150,7 @@ def get_epsilon_from_accuracy(n):
 # Get epsilons from accuracy
 x = conversions.groupby(["partner_id", "product_id_group"]).size().reset_index(name="count")
 x["epsilon"] = x["count"].apply(get_epsilon_from_accuracy)
+x = x.drop(columns=["count"])
 conversions = conversions.merge(x, on=["partner_id", "product_id_group"], how="left")
 
 conversions["aggregatable_cap_value"] = 1
