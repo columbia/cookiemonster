@@ -10,7 +10,7 @@
         "name": "criteo",
         "impressions_path": "systemx/data/criteo/criteo_impressions_three_advertisers.csv",
         "conversions_path": "systemx/data/criteo/criteo_conversions_three_advertisers.csv",
-        "num_days_per_epoch": 15,
+        "num_days_per_epoch": 1,
         "num_days_attribution_window": 30
     },
     "logs": {

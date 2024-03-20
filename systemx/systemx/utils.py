@@ -20,8 +20,8 @@ MONOEPOCH = "monoepoch"
 MULTIEPOCH = "multiepoch"
 
 
-def attribution_window_to_list(attribution_window: Tuple[int, int]) -> List[int]:
-    return list(range(attribution_window[0], attribution_window[1] + 1))
+def epoch_window_to_list(epoch_window: Tuple[int, int]) -> List[int]:
+    return list(range(epoch_window[0], epoch_window[1] + 1))
 
 
 def get_data_path(path):
@@ -37,9 +37,7 @@ def load_logs(log_path: str, relative_path=True) -> dict:
     return logs
 
 
-def process_logs(
-    logs: Dict[str, List[Dict[str, Any]]], config: Dict[str, Any]
-) -> dict:
+def process_logs(logs: Dict[str, List[Dict[str, Any]]], config: Dict[str, Any]) -> dict:
 
     proceessed_logs = {
         "destination_logs": logs,

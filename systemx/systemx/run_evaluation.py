@@ -12,11 +12,13 @@ from systemx.user import User, get_logs_across_users
 
 app = typer.Typer()
 
+
 class QueryBatch:
     def __init__(self, query_id, epsilon) -> None:
         self.query_id = query_id
         self.epsilon = epsilon
         self.reports = []
+
 
 class Evaluation:
     def __init__(self, config: Dict[str, Any]):
@@ -39,22 +41,21 @@ class Evaluation:
 
             report = self.users[user_id].process_event(event)
 
-            if not report.empty():
+            if report:
+                assert not report.empty()
                 if event.destination not in self.reports:
                     self.reports[event.destination] = {}
 
                 assert len(report.histogram.keys()) == 1
                 query_id = list(report.histogram.keys())[0]
-               
+
                 if query_id not in self.reports[event.destination]:
                     self.reports[event.destination][query_id] = []
-                
+
                 self.reports[event.destination][query_id].append(report)
 
-
         # End of reports - batch
-        
-                
+
         # Collects budget consumption per user per destination epoch
         logs = process_logs(
             get_logs_across_users(),
