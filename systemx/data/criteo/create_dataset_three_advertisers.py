@@ -93,6 +93,8 @@ df["click_day"] = df["click_datetime"].apply(
 min_click_day = df["click_day"].min()
 df["click_day"] -= min_click_day
 
+df.loc[(df['Sale'] == 1) & (df['Time_delay_for_conversion'] == -1), 'Sale'] = 0
+
 df["conversion_timestamp"] = df["Time_delay_for_conversion"] + df["click_timestamp"]
 df["conversion_datetime"] = df["conversion_timestamp"].apply(
     lambda x: datetime.fromtimestamp(x)

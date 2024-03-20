@@ -38,7 +38,7 @@ def load_logs(log_path: str, relative_path=True) -> dict:
 
 
 def process_logs(
-    logs: Dict[str, Dict[str, Any]], config: Dict[str, Any]
+    logs: Dict[str, List[Dict[str, Any]]], config: Dict[str, Any]
 ) -> dict:
 
     proceessed_logs = {

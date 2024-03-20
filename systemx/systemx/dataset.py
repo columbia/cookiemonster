@@ -77,7 +77,7 @@ class Criteo(Dataset):
                     aggregatable_cap_value=row["aggregatable_cap_value"],
                     filter=row["filter"],
                     key=str(row["key"]),
-                    epsilon=0.01,
+                    epsilon=row["epsilon"],
                 )
                 conversion_user_id = row["user_id"]
                 return conversion, conversion_timestamp, conversion_user_id

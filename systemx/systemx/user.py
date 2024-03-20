@@ -89,14 +89,17 @@ class User:
         )
 
         if conversion.destination not in User.logs:
-            User.logs[conversion.destination] = {
-                "conversion_timestamp": conversion.timestamp,
-                "total_budget_consumed": 0,
-                "user_id": self.id,
-                "attribution_window": conversion.attribution_window,
-                "status": kOk,
-            }
-        destination_logs = User.logs[conversion.destination]
+            User.logs[conversion.destination] = []
+
+        User.logs[conversion.destination].append({
+            "conversion_timestamp": conversion.timestamp,
+            "total_budget_consumed": 0,
+            "user_id": self.id,
+            "attribution_window": conversion.attribution_window,
+            "status": kOk,
+        })
+    
+        destination_logs = User.logs[conversion.destination][-1]
 
         # Budget accounting
         for partition in partitions:
