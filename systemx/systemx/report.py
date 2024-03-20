@@ -39,11 +39,7 @@ class Partition:
         self.value = value
 
     def epochs_window_size(self) -> int:
-        return (
-            self.epochs_window[1]
-            - self.epochs_window[0]
-            + 1
-        )
+        return self.epochs_window[1] - self.epochs_window[0] + 1
 
     def compute_sensitivity(self, sensitivity_metric) -> float:
         match sensitivity_metric:
