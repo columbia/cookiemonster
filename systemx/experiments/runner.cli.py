@@ -16,7 +16,7 @@ def optimizations_criteo(dataset):
         "conversions_path": "criteo/criteo_conversions_three_advertisers.csv",
         "num_days_per_epoch": [1, 15, 30],
         "num_days_attribution_window": 30,
-        "initial_budget": [10],
+        "initial_budget": [100000000],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",

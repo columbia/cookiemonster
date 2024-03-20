@@ -49,20 +49,22 @@ def analyze_budget_consumption(path):
 
 
 def plot_budget_consumption(df):
+    df["key"] = df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
     def plot_budget_consumption_across_time(df):
         fig = px.line(
             df,
             x="conversion_timestamp",
             y="cumulative_budget_consumed",
-            color="baseline",
+            color="key",
             title=f"Total Budget Consumption",
             width=1100,
             height=1600,
-            facet_row="num_days_per_epoch",
+            # facet_row="num_days_per_epoch",
         )
         return fig
 
     figures = df.groupby("destination_id").apply(plot_budget_consumption_across_time, include_groups=False).reset_index(name="figures")["figures"]
 
-    for figure in figures.values:
-        iplot(figure)
+    # for figure in figures.values:
+        # iplot(figure)
+    iplot(figures.values[0])

@@ -12,6 +12,9 @@ class Report:
             self.histogram[key] = 0
         self.histogram[key] += value
 
+    def empty(self,):
+        return self.histogram == {}
+    
     def __add__(self, other) -> "Report":
         report = Report()
         for key, value in self.histogram.items():
@@ -63,6 +66,11 @@ class Partition:
                         bucket_value = self.value
 
                         self.report.add(bucket_key, bucket_value)
+                
+                if self.report.empty():
+                    bucket_key = impression_key + "-" + key_piece
+                    bucket_value = self.value
+
             case _:
                 raise ValueError(
                     f"Unsupported attribution logic: {self.attribution_logic}"
