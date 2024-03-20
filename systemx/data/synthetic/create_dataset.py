@@ -3,9 +3,8 @@ import pandas as pd
 import numpy as np
 import random
 import datetime
-
-USER_COUNT = 1000
-CONVERSION_RATE_PERCENTAGE = 1
+import json
+import argparse
 
 def generate_uuid() :
   return uuid.uuid4()
@@ -85,7 +84,7 @@ def generate_ad_exposure_records(publisher_user_profile, userCount) :
 
   return pd.DataFrame(data)
 
-def generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records, userCount) :
+def generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records, userCount, conversion_rate) :
   id_attribute = 'device_id'
   attribute_columns = ['conv_profile_1', 'conv_profile_2', 'conv_profile_3', 'conv_profile_4', 'conv_profile_5', 'conv_profile_6', 'conv_profile_7', 'conv_profile_8']
   segment = 'conv_segment'
@@ -120,7 +119,7 @@ def generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records
     probabilities[device_index] += scaleup
 
   publisher_user_profile['probability'] = probabilities
-  converted_users_count = (user_count * CONVERSION_RATE_PERCENTAGE)//100
+  converted_users_count = (userCount * conversion_rate)//100
   users = publisher_user_profile[id_attribute].sample(n=converted_users_count, weights=publisher_user_profile['probability'])
 
   data = {}
@@ -207,41 +206,55 @@ def generate_conversion_records(publisher_user_profile, ad_exposure_records, adv
 
   return pd.DataFrame(data)
 
-user_count = USER_COUNT
-publisher_user_profile = generate_publisher_user_profile(user_count)
-ad_exposure_records = generate_ad_exposure_records(publisher_user_profile, user_count)
-advertiser_user_profile = generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records, user_count)
-conversion_records = generate_conversion_records(publisher_user_profile, ad_exposure_records, advertiser_user_profile)
+def main(config) : 
 
-df_pubs = publisher_user_profile.merge(ad_exposure_records, how='inner', on='device_id',suffixes=('_pub_profile', '_exposure_record'))
-df_convs = advertiser_user_profile.merge(conversion_records, how='inner', on='device_id',suffixes=('_ad_profile', '_conv_record'))
+  with open(config, "r") as f : 
+    config_data = json.load(f)
+  user_count = config_data["synthetic_dataset"]["user_count"]
+  conversion_rate = config_data["synthetic_dataset"]["conversion_rate"]
 
-partner_id = generate_uuid()
-impressions = df_pubs[["device_id","exp_timestamp"]]
-impressions = impressions.rename(columns={"device_id" : "user_id", "exp_timestamp" : "click_timestamp"})
-impressions["click_day"] = impressions["click_timestamp"].apply(
-    lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
-)
-impressions["key"] = "purchaseValue"
-impressions["partner_id"] = partner_id
-filter = "-"
-impressions["filter"] = filter
+  
+  publisher_user_profile = generate_publisher_user_profile(user_count)
+  ad_exposure_records = generate_ad_exposure_records(publisher_user_profile, user_count)
+  advertiser_user_profile = generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records, user_count, conversion_rate)
+  conversion_records = generate_conversion_records(publisher_user_profile, ad_exposure_records, advertiser_user_profile)
 
-conversions = df_convs[["device_id", 'conv_timestamp', 'conv_amount']]
-conversions = conversions.rename(columns={"devide_id" : "user_id", 'conv_timestamp' : 'conversion_timestamp', 'conv_amount' : 'SalesAmountInEuro'})
-conversions["SalesAmountInEuro"] = conversions["SalesAmountInEuro"].round(decimals=0)
-conversions = conversions.sort_values(by=["conversion_timestamp"])
-conversions["conversion_day"] = conversions["conversion_timestamp"].apply(
-    lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
-)
-conversions["filter"] = filter
-conversions["partner_id"] = partner_id
+  df_pubs = publisher_user_profile.merge(ad_exposure_records, how='inner', on='device_id',suffixes=('_pub_profile', '_exposure_record'))
+  df_convs = advertiser_user_profile.merge(conversion_records, how='inner', on='device_id',suffixes=('_ad_profile', '_conv_record'))
 
-max_values = conversions.groupby(["partner_id"])["SalesAmountInEuro"].max()
-max_values = max_values.reset_index(name="aggregatable_cap_value")
-max_values["aggregatable_cap_value"] = max_values["aggregatable_cap_value"]
-conversions = conversions.merge(max_values, on=["partner_id"], how="left")
-conversions["key"] = "2024"
+  partner_id = generate_uuid()
+  impressions = df_pubs[["device_id","exp_timestamp"]]
+  impressions = impressions.rename(columns={"device_id" : "user_id", "exp_timestamp" : "click_timestamp"})
+  impressions["click_day"] = impressions["click_timestamp"].apply(
+      lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
+  )
+  impressions["key"] = "purchaseValue"
+  impressions["partner_id"] = partner_id
+  filter = "-"
+  impressions["filter"] = filter
 
-impressions.to_csv("criteo_impressions.csv", header=True, index=False)
-conversions.to_csv("criteo_conversions.csv", header=True, index=False)
+  conversions = df_convs[["device_id", 'conv_timestamp', 'conv_amount']]
+  conversions = conversions.rename(columns={"devide_id" : "user_id", 'conv_timestamp' : 'conversion_timestamp', 'conv_amount' : 'SalesAmountInEuro'})
+  conversions["SalesAmountInEuro"] = conversions["SalesAmountInEuro"].round(decimals=0)
+  conversions = conversions.sort_values(by=["conversion_timestamp"])
+  conversions["conversion_day"] = conversions["conversion_timestamp"].apply(
+      lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
+  )
+  conversions["filter"] = filter
+  conversions["partner_id"] = partner_id
+
+  max_values = conversions.groupby(["partner_id"])["SalesAmountInEuro"].max()
+  max_values = max_values.reset_index(name="aggregatable_cap_value")
+  max_values["aggregatable_cap_value"] = max_values["aggregatable_cap_value"]
+  conversions = conversions.merge(max_values, on=["partner_id"], how="left")
+  conversions["key"] = "2024"
+
+  impressions.to_csv("synthetic_impressions.csv", header=True, index=False)
+  conversions.to_csv("synthetic_conversions.csv", header=True, index=False)
+
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--config", help="Path to configuration file", required=True)
+  args = parser.parse_args()
+  main(args.config)
