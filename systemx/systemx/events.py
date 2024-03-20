@@ -26,6 +26,7 @@ class Impression(Event):
 class Conversion(Event):
     def __init__(
         self,
+        timestamp: int,
         destination: str,
         attribution_window: Tuple[int, int],
         attribution_logic: str,
@@ -37,6 +38,7 @@ class Conversion(Event):
         epsilon: float,
         metadata: Optional[Dict[str, Any]] = None,
     ):
+        self.timestamp = timestamp
         self.destination = destination
         self.attribution_window = attribution_window
         self.attribution_logic = attribution_logic

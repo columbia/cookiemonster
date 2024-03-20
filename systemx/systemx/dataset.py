@@ -39,8 +39,9 @@ class Criteo(Dataset):
         def read_impression():
             try:
                 _, row = next(impressions_reader)
+                impression_epoch = row["click_day"] // self.config.num_days_per_epoch
                 impression = Impression(
-                    epoch=row["click_day"],
+                    epoch=impression_epoch,
                     destination=row["partner_id"],
                     filter=row["filter"],
                     key=str(row["key"]),
@@ -55,21 +56,29 @@ class Criteo(Dataset):
         def read_conversion():
             try:
                 _, row = next(conversions_reader)
+                conversion_epoch = (
+                    row["conversion_day"] // self.config.num_days_per_epoch
+                )
+                conversion_timestamp = row["conversion_timestamp"]
+                num_epochs_attribution_window = (
+                    self.config.num_days_attribution_window - 1
+                ) // self.config.num_days_per_epoch
+
                 conversion = Conversion(
+                    timestamp=conversion_timestamp,
                     destination=row["partner_id"],
                     attribution_window=(
-                        max(row["conversion_day"] - 29, 0),
-                        row["conversion_day"],
+                        max(conversion_epoch - num_epochs_attribution_window, 0),
+                        conversion_epoch,
                     ),
                     attribution_logic="last_touch",
                     partitioning_logic="",
-                    aggregatable_value=row["SalesAmountInEuro"],
+                    aggregatable_value=row["count"],
                     aggregatable_cap_value=row["aggregatable_cap_value"],
                     filter=row["filter"],
                     key=str(row["key"]),
-                    epsilon=0.01,
+                    epsilon=row["epsilon"],
                 )
-                conversion_timestamp = row["conversion_timestamp"]
                 conversion_user_id = row["user_id"]
                 return conversion, conversion_timestamp, conversion_user_id
 

@@ -1,43 +1,55 @@
 import os
 import typer
-import argprase
-
+import argparse
 from ray_runner import grid_run
 
 app = typer.Typer()
 
 
-# def optimizations_criteo(dataset):
-#     logs_dir = f"{dataset}/optimizations"
-#     config = {
-#         "optimization": ["0", "1", "2"],
-#         "dataset_name": "criteo",
-#         "impressions_path": "criteo/criteo_impressions.csv",
-#         "conversions_path": "criteo/criteo_conversions.csv",
-#         "initial_budget": [1],
-#         "logs_dir": logs_dir,
-#         "loguru_level": "INFO",
-#         "mlflow_experiment_id": "",
-#     }
-
-#     logs = grid_run(**config)
-
-    # analyze(f"ray/{logs_dir}")
-
-def optimizations(dataset) : 
+def optimizations_criteo(dataset):
     logs_dir = f"{dataset}/optimizations"
     config = {
-        "optimization": ["0", "1", "2"],
-        "dataset_name": "{dataset}",
-        "impressions_path": "{dataset}/{dataset}_impressions.csv",
-        "conversions_path": "{dataset}/{dataset}_conversions.csv",
-        "initial_budget": [1],
+        "baseline": ["ipa", "user_epoch_ara", "systemx"],
+        "optimization": ["multiepoch"],
+        "dataset_name": "criteo",
+        "impressions_path": "criteo/criteo_impressions_three_advertisers.csv",
+        "conversions_path": "criteo/criteo_conversions_three_advertisers.csv",
+        "num_days_per_epoch": [1, 15, 30],
+        "num_days_attribution_window": 30,
+        "initial_budget": [100000000],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
     }
 
-    logs = grid_run(**config)
+    grid_run(**config)
+
+def optimizations_synthetic(dataset):
+    logs_dir = f"{dataset}/optimizations"
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "systemx"],
+        "optimization": ["multiepoch"],
+        "dataset_name": "criteo",
+        "impressions_path": "synthetic/synthetic_impressions.csv",
+        "conversions_path": "synthetic/synthetic_conversions.csv",
+        "num_days_per_epoch": [1, 15, 30],
+        "num_days_attribution_window": 30,
+        "initial_budget": [100000000],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "mlflow_experiment_id": "",
+    }
+
+    grid_run(**config)
+
+    # # Not running in parallel due to memory issues
+    # config["num_days_per_epoch"] = [15]
+    # grid_run(**config)
+
+    # config["num_days_per_epoch"] = [30]
+    # grid_run(**config)
+
+    # analyze(f"ray/{logs_dir}")
 
 
 @app.command()
@@ -48,11 +60,11 @@ def run(
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
     os.environ["TUNE_DISABLE_AUTO_CALLBACK_LOGGERS"] = "1"
-    globals()[f"{exp}"](dataset)
+    globals()[f"{exp}_{dataset}"](dataset)
 
 
 if __name__ == "__main__":
-    parser = argprase.ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument("--synthetic", action="store_true", help="Run experiments on synthetic dataset")
     args = parser.parse_args()
 

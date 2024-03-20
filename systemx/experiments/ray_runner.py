@@ -17,10 +17,13 @@ def run_and_report(config: dict, replace=False) -> None:
 
 
 def grid_run(
+    baseline: List[str],
     optimization: List[str],
     dataset_name: str,
     impressions_path: str,
     conversions_path: str,
+    num_days_per_epoch: List[int],
+    num_days_attribution_window: int,
     initial_budget: float,
     logs_dir: str,
     loguru_level: str,
@@ -31,6 +34,7 @@ def grid_run(
         "sensitivity_metric": "L1",
         "user": {
             "sensitivity_metric": "L1",
+            "baseline": tune.grid_search(baseline),
             "optimization": tune.grid_search(optimization),
             "initial_budget": tune.grid_search(initial_budget),
         },
@@ -38,6 +42,8 @@ def grid_run(
             "name": dataset_name,
             "impressions_path": get_data_path(impressions_path),
             "conversions_path": get_data_path(conversions_path),
+            "num_days_per_epoch": tune.grid_search(num_days_per_epoch),
+            "num_days_attribution_window": num_days_attribution_window,
         },
         "logs": {
             "verbose": False,

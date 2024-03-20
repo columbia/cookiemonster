@@ -6,19 +6,23 @@ from typing import Dict, Any, List
 from termcolor import colored
 from omegaconf import OmegaConf
 
-from systemx.user import User
 from systemx.report import Report
 from systemx.dataset import Dataset
 from systemx.utils import process_logs, save_logs
+from systemx.user import User, get_logs_across_users
 
 app = typer.Typer()
 
+class QueryBatch:
+    def __init__(self, query_id, epsilon) -> None:
+        self.query_id = query_id
+        self.epsilon = epsilon
+        self.reports = []
 
 class Evaluation:
     def __init__(self, config: Dict[str, Any]):
         self.config = OmegaConf.create(config)
         self.dataset = Dataset.create(self.config.dataset)
-
         self.users: Dict[str, User] = {}
         self.reports: Dict[str, List[Report]] = {}
 
@@ -36,31 +40,37 @@ class Evaluation:
 
             report = self.users[user_id].process_event(event)
 
-            if report:
+            if not report.empty():
                 if event.destination not in self.reports:
-                    self.reports[event.destination] = []
-                self.reports[event.destination].append(report)
+                    self.reports[event.destination] = {}
 
-            # TODO: add possibly with simpy another process per destination
-            # that receives reports, categorizes them per query and schedules
-            # sending them to TEE for aggregation
+                assert len(report.histogram.keys()) == 1
+                query_id = list(report.histogram.keys())[0]
+               
+                if query_id not in self.reports[event.destination]:
+                    self.reports[event.destination][query_id] = []
+                
+                self.reports[event.destination][query_id].append(report)
 
+
+        # End of reports - batch
+        
+                
         # Collects budget consumption per user per destination epoch
         logs = process_logs(
-            [user.get_logs() for user in self.users.values()], OmegaConf.to_object(self.config)
+            get_logs_across_users(),
+            OmegaConf.to_object(self.config),
         )
         if self.config.logs.save:
-            save_dir = (
-                self.config.logs.save_dir if self.config.logs.save_dir else ""
-            )
+            save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
             save_logs(logs, save_dir)
-        
+
         return logs
 
 
 @app.command()
 def run_evaluation(
-    omegaconf: str = "config/config.json",
+    omegaconf: str = "systemx/config/config.json",
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level

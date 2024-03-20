@@ -1,10 +1,15 @@
 import numpy as np
+from typing import List
 import pandas as pd
+
+# import modin as pd
 import plotly.express as px
 from plotly.offline import iplot
+from multiprocessing import Manager, Process
 
 from systemx.utils import LOGS_PATH
 from experiments.ray.analysis import load_ray_experiment
+
 
 def get_df(path):
     logs = LOGS_PATH.joinpath(path)
@@ -12,52 +17,54 @@ def get_df(path):
     return df
 
 
-def get_avg_budget_consumption(df):
-    results = []
-    for _, row  in df.iterrows():
-        initial_budget = row["initial_budget"]
-        b = row["remaining_budgets_per_epoch"]
-        
-        max_index = max([ max(map(int, d.keys())) if d else 0 for d in b] )
-        print(max_index)
-        dense_matrix = np.zeros((len(b), max_index + 1))
-        for i, d in enumerate(b):
-            if d:
-                keys = np.array(list(map(int, d.keys())))
-                values = initial_budget - np.array(list(d.values()))
-                dense_matrix[i, keys] = values
-
-        avg_consumed_budget_per_epoch = np.mean(dense_matrix, axis=0)
-        avg_consumed_budget_across_epochs = np.mean(avg_consumed_budget_per_epoch)
-        results.append(
-            pd.DataFrame([{
-                "optimization": row["optimization"],
-                "initial_budget": initial_budget,
-                "avg_consumed_budget_per_epoch": avg_consumed_budget_per_epoch,
-                "avg_consumed_budget_across_epochs": avg_consumed_budget_across_epochs,
-                }]
-            )
-        )
-    
-    return pd.concat(results)
-
-
-def plot_avg_budget_across_epochs(df):
-    df = df.sort_values(["optimization"])
-    fig = px.bar(
-        df,
-        x="optimization",
-        y="avg_consumed_budget_across_epochs",
-        color="optimization",
-        title=f"Avg. Budget Consumption across epochs/advertisers",
-        width=900,
-        height=500,
-    )
-    return fig
-
-
 def analyze_budget_consumption(path):
     df = get_df(path)
-    dff = get_avg_budget_consumption(df)
-    iplot(plot_avg_budget_across_epochs(dff))
-    return dff
+
+    def get_logs(row):
+        logs = []
+        for destination, destination_logs in row["destination_logs"].items():
+            cumulative_budget_consumed = 0
+            for i, log in enumerate(destination_logs):
+                cumulative_budget_consumed += log["total_budget_consumed"]
+                logs.append({"destination_id": destination,
+                            "conversion_timestamp": i,
+                            "total_budget_consumed": log["total_budget_consumed"],
+                            "cumulative_budget_consumed": cumulative_budget_consumed,
+                            "user_id": log["user_id"],
+                            "attribution_window": log["attribution_window"],
+                            "status": log["status"],
+                            "baseline": row["baseline"],
+                            "optimization": row["optimization"],
+                            "num_days_per_epoch": row["num_days_per_epoch"],
+                            "num_days_attribution_window": row["num_days_attribution_window"],
+                            })
+        return pd.DataFrame.from_records(logs)
+
+
+    dfs = []
+    for _, row in df.iterrows():
+        dfs.append(get_logs(row))
+
+    return pd.concat(dfs)
+
+
+def plot_budget_consumption(df):
+    df["key"] = df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
+    def plot_budget_consumption_across_time(df):
+        fig = px.line(
+            df,
+            x="conversion_timestamp",
+            y="cumulative_budget_consumed",
+            color="key",
+            title=f"Total Budget Consumption",
+            width=1100,
+            height=1600,
+            # facet_row="num_days_per_epoch",
+        )
+        return fig
+
+    figures = df.groupby("destination_id").apply(plot_budget_consumption_across_time, include_groups=False).reset_index(name="figures")["figures"]
+
+    # for figure in figures.values:
+        # iplot(figure)
+    iplot(figures.values[0])
