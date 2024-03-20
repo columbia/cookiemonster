@@ -78,6 +78,5 @@ def run_evaluation(
     omegaconf = OmegaConf.load(omegaconf)
     return Evaluation(omegaconf).run()
 
-
 if __name__ == "__main__":
     app()

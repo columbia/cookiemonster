@@ -1,0 +1,9 @@
+{
+    "num_users" : 100,
+    "conversion_rate" : 1,
+    "impressions_rate_per_user" : 0.2,
+    "num_disjoint_queries" : 100,
+    "num_days": 90,
+    "num_conversions_per_query" : 20000,
+    "num_advertisers": 1
+}
