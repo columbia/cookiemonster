@@ -5,9 +5,11 @@ import random
 import datetime
 import json
 import argparse
+import time
+import math
 
 def generate_uuid() :
-  return uuid.uuid4()
+  return uuid.uuid4().hex.upper()
 
 def right_skewed_probability(levels, p_start = 2.0/3, p_end = 1.0/3) :
   prob = np.linspace(p_start, p_end, levels)
@@ -64,8 +66,8 @@ def generate_ad_exposure_records(publisher_user_profile, userCount) :
 
   lognormal_distribution = generate_log_normal_distribution(userCount)
   records_size = sum(lognormal_distribution)
-  start_date = datetime.datetime(2024, 1, 1)
-  end_date = end_date = datetime.datetime(2024, 1, 31)
+  start_date = datetime.datetime(2020, 1, 1)
+  end_date = end_date = datetime.datetime(2020, 1, 31)
 
   data = {}
   data[exp_record_id] = [generate_uuid() for _ in range(records_size)]
@@ -185,8 +187,8 @@ def generate_conversion_records(publisher_user_profile, ad_exposure_records, adv
 
   poisson_distribution = generate_poisson_distribution(converted_user_count)
   records_size = sum(poisson_distribution)
-  start_date = datetime.datetime(2024, 1, 1)
-  end_date = end_date = datetime.datetime(2024, 1, 31)
+  start_date = datetime.datetime(2020, 1, 1)
+  end_date = end_date = datetime.datetime(2020, 1, 31)
 
   data = {}
   data[conv_record_id] = [generate_uuid() for _ in range(records_size)]
@@ -206,14 +208,31 @@ def generate_conversion_records(publisher_user_profile, ad_exposure_records, adv
 
   return pd.DataFrame(data)
 
+def get_epsilon_from_accuracy(n):
+    cap_value = 5
+    s = cap_value
+    a = 0.05
+    b = 0.01
+    return s * math.log(1 / b) / (n * a)
+
+def hash_to_buckets(s):
+    hash_value = hash(s)
+    normalized_hash = (hash_value % 10000) / 10000
+    if normalized_hash < 1 / 3:
+        return 0
+    elif normalized_hash < 2 / 3:
+        return 1
+    else:
+        return 2
+
 def main(config) : 
 
   with open(config, "r") as f : 
     config_data = json.load(f)
-  user_count = config_data["synthetic_dataset"]["user_count"]
-  conversion_rate = config_data["synthetic_dataset"]["conversion_rate"]
+  user_count = config_data["dataset"]["user_count"]
+  conversion_rate = config_data["dataset"]["conversion_rate"]
 
-  
+
   publisher_user_profile = generate_publisher_user_profile(user_count)
   ad_exposure_records = generate_ad_exposure_records(publisher_user_profile, user_count)
   advertiser_user_profile = generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records, user_count, conversion_rate)
@@ -223,32 +242,56 @@ def main(config) :
   df_convs = advertiser_user_profile.merge(conversion_records, how='inner', on='device_id',suffixes=('_ad_profile', '_conv_record'))
 
   partner_id = generate_uuid()
+  product_id = generate_uuid()
   impressions = df_pubs[["device_id","exp_timestamp"]]
   impressions = impressions.rename(columns={"device_id" : "user_id", "exp_timestamp" : "click_timestamp"})
   impressions["click_day"] = impressions["click_timestamp"].apply(
       lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
   )
-  impressions["key"] = "purchaseValue"
+  impressions["key"] = "purchaseCount"
   impressions["partner_id"] = partner_id
-  filter = "-"
-  impressions["filter"] = filter
+  impressions["product_id"] = product_id
 
   conversions = df_convs[["device_id", 'conv_timestamp', 'conv_amount']]
-  conversions = conversions.rename(columns={"devide_id" : "user_id", 'conv_timestamp' : 'conversion_timestamp', 'conv_amount' : 'SalesAmountInEuro'})
+  conversions = conversions.rename(columns={"device_id" : "user_id", 'conv_timestamp' : 'conversion_timestamp', 'conv_amount' : 'SalesAmountInEuro'})
   conversions["SalesAmountInEuro"] = conversions["SalesAmountInEuro"].round(decimals=0)
   conversions = conversions.sort_values(by=["conversion_timestamp"])
   conversions["conversion_day"] = conversions["conversion_timestamp"].apply(
       lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
   )
-  conversions["filter"] = filter
   conversions["partner_id"] = partner_id
+  conversions["product_id"] = product_id
 
   max_values = conversions.groupby(["partner_id"])["SalesAmountInEuro"].max()
   max_values = max_values.reset_index(name="aggregatable_cap_value")
   max_values["aggregatable_cap_value"] = max_values["aggregatable_cap_value"]
   conversions = conversions.merge(max_values, on=["partner_id"], how="left")
-  conversions["key"] = "2024"
+  conversions["count"] = "1"
 
+  # timestamp to unix
+  conversions["conversion_timestamp"] = [int(time.mktime(date_time.timetuple())) for date_time in conversions["conversion_timestamp"]]
+  impressions["click_timestamp"] = [int(time.mktime(date_time.timetuple())) for date_time in impressions["click_timestamp"]]
+
+  impressions["product_id_group"] = impressions["product_id"].apply(hash_to_buckets)
+  impressions["filter"] = "product_group_id=" + impressions["product_id_group"].astype(str)
+
+  conversions["product_id_group"] = conversions["product_id"].apply(hash_to_buckets)
+  conversions["filter"] = "product_group_id=" + conversions["product_id_group"].astype(str)
+  
+  x = (
+    conversions.groupby(["partner_id", "product_id_group"])
+    .size()
+    .reset_index(name="count")
+)
+  x["epsilon"] = x["count"].apply(get_epsilon_from_accuracy)
+  x = x.drop(columns=["count"])
+  conversions = conversions.merge(x, on=["partner_id", "product_id_group"], how="left")
+
+  conversions["key"] = "product_group_id=" + conversions["product_id_group"].astype(str)
+
+  impressions = impressions.sort_values(by=["click_timestamp"])
+  conversions = conversions.sort_values(by=["conversion_timestamp"])
+  
   impressions.to_csv("synthetic_impressions.csv", header=True, index=False)
   conversions.to_csv("synthetic_conversions.csv", header=True, index=False)
 

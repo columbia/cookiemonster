@@ -2,15 +2,18 @@
     "sensitivity_metric": "L1",
     "user": {
         "sensitivity_metric": "L1",
-        "optimization": "1",
+        "baseline": "systemx",
+        "optimization": "multiepoch",
         "initial_budget": 10
     },
-    "synthetic_dataset" : {
-        "user_count" : 100,
+    "dataset" : {
+        "user_count" : 10000,
         "conversion_rate" : 1,
         "name" : "synthetic",
         "impressions_path" : "data/synthetic/synthetic_impressions.csv",
-        "conversions_path" : "data/synthetic/synthetic_conversions.csv"
+        "conversions_path" : "data/synthetic/synthetic_conversions.csv",
+        "num_days_per_epoch": 15,
+        "num_days_attribution_window": 30
     },
     "logs": {
         "verbose": false,

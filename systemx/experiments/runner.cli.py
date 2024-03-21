@@ -22,7 +22,16 @@ def optimizations_criteo(dataset):
         "mlflow_experiment_id": "",
     }
 
+    # grid_run(**config)
+
+    # # Not running in parallel due to memory issues
+    config["num_days_per_epoch"] = [15]
     grid_run(**config)
+
+    config["num_days_per_epoch"] = [30]
+    grid_run(**config)
+
+    # analyze(f"ray/{logs_dir}")
 
 def optimizations_synthetic(dataset):
     logs_dir = f"{dataset}/optimizations"
@@ -42,15 +51,6 @@ def optimizations_synthetic(dataset):
 
     grid_run(**config)
 
-    # # Not running in parallel due to memory issues
-    # config["num_days_per_epoch"] = [15]
-    # grid_run(**config)
-
-    # config["num_days_per_epoch"] = [30]
-    # grid_run(**config)
-
-    # analyze(f"ray/{logs_dir}")
-
 
 @app.command()
 def run(
@@ -64,11 +64,4 @@ def run(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--synthetic", action="store_true", help="Run experiments on synthetic dataset")
-    args = parser.parse_args()
-
-    if args.synthetic:
-        app(dataset = "synthetic")
-    else :
-        app()
+    app()
