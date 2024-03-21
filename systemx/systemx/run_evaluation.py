@@ -1,6 +1,5 @@
 import os
 import typer
-import argparse
 from loguru import logger
 from typing import Dict, Any, List
 from termcolor import colored
@@ -80,7 +79,4 @@ def run_evaluation(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", help="Path to configuration file", required=True)
-    args = parser.parse_args()
-    app(omegaconf = args.config)
+    app()
