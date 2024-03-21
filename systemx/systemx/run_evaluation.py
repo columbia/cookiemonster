@@ -29,10 +29,8 @@ class Evaluation:
     def run(self):
         """Reads events from a dataset and asks users to process them"""
 
-        count = 0
         event_reader = self.dataset.event_reader()
         while res := next(event_reader):
-            count += 1
             (user_id, event) = res
 
             logger.info(colored(str(event), "blue"))
