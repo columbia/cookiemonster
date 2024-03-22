@@ -85,24 +85,21 @@ df = pd.read_csv(
 df = df.drop(columns=columns_to_drop)
 df = df.dropna(subset=["product_id", "partner_id", "user_id"])
 
-# create some other columns from existing data for easier reading
-df["click_datetime"] = df["click_timestamp"].apply(lambda x: datetime.fromtimestamp(x))
-df["click_day"] = df["click_datetime"].apply(
-    lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
-)
-min_click_day = df["click_day"].min()
-df["click_day"] -= min_click_day
+df["click_timestamp"] = df["click_timestamp"] - df["click_timestamp"].min()
+# df["click_datetime"] = df["click_timestamp"].apply(lambda x: datetime.fromtimestamp(x))
+# df["click_day"] = df["click_datetime"].apply(
+#     lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
+# )
 
-df.loc[(df['Sale'] == 1) & (df['Time_delay_for_conversion'] == -1), 'Sale'] = 0
+df.loc[(df["Sale"] == 1) & (df["Time_delay_for_conversion"] == -1), "Sale"] = 0
 
 df["conversion_timestamp"] = df["Time_delay_for_conversion"] + df["click_timestamp"]
-df["conversion_datetime"] = df["conversion_timestamp"].apply(
-    lambda x: datetime.fromtimestamp(x)
-)
-df["conversion_day"] = df["conversion_datetime"].apply(
-    lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
-)
-df["conversion_day"] -= min_click_day
+# df["conversion_datetime"] = df["conversion_timestamp"].apply(
+#     lambda x: datetime.fromtimestamp(x)
+# )
+# df["conversion_day"] = df["conversion_datetime"].apply(
+#     lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
+# )
 
 # Handpick data for 3 advertisers
 df = df.query(
@@ -129,7 +126,7 @@ df["filter"] = "product_group_id=" + df["product_id_group"].astype(str)
 impressions = df[
     [
         "click_timestamp",
-        "click_day",
+        # "click_day",
         "user_id",
         "partner_id",
         "product_id_group",
@@ -137,13 +134,13 @@ impressions = df[
     ]
 ]
 impressions = impressions.sort_values(by=["click_timestamp"])
-impressions["key"] = "purchaseCount"
+impressions["key"] = ""
 
 # Get conversions
 conversions = pd.DataFrame(df.loc[df.Sale == 1])[
     [
         "conversion_timestamp",
-        "conversion_day",
+        # "conversion_day",
         "user_id",
         "partner_id",
         "product_id_group",
@@ -186,7 +183,7 @@ x = x.drop(columns=["count"])
 conversions = conversions.merge(x, on=["partner_id", "product_id_group"], how="left")
 
 conversions["aggregatable_cap_value"] = cap_value
-conversions["key"] = "product_group_id=" + conversions["product_id_group"].astype(str)
+conversions["key"] = "purchaseCount"
 
 impressions.to_csv("criteo_impressions_three_advertisers.csv", header=True, index=False)
 conversions.to_csv("criteo_conversions_three_advertisers.csv", header=True, index=False)

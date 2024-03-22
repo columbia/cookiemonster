@@ -26,20 +26,24 @@ def analyze_budget_consumption(path):
             cumulative_budget_consumed = 0
             for i, log in enumerate(destination_logs):
                 cumulative_budget_consumed += log["total_budget_consumed"]
-                logs.append({"destination_id": destination,
-                            "conversion_timestamp": i,
-                            "total_budget_consumed": log["total_budget_consumed"],
-                            "cumulative_budget_consumed": cumulative_budget_consumed,
-                            "user_id": log["user_id"],
-                            "attribution_window": log["attribution_window"],
-                            "status": log["status"],
-                            "baseline": row["baseline"],
-                            "optimization": row["optimization"],
-                            "num_days_per_epoch": row["num_days_per_epoch"],
-                            "num_days_attribution_window": row["num_days_attribution_window"],
-                            })
+                logs.append(
+                    {
+                        "destination_id": destination,
+                        "conversion_timestamp": i,
+                        "total_budget_consumed": log["total_budget_consumed"],
+                        "cumulative_budget_consumed": cumulative_budget_consumed,
+                        "user_id": log["user_id"],
+                        "epoch_window": log["epoch_window"],
+                        "status": log["status"],
+                        "baseline": row["baseline"],
+                        "optimization": row["optimization"],
+                        "num_days_per_epoch": row["num_days_per_epoch"],
+                        "num_days_attribution_window": row[
+                            "num_days_attribution_window"
+                        ],
+                    }
+                )
         return pd.DataFrame.from_records(logs)
-
 
     dfs = []
     for _, row in df.iterrows():
@@ -49,7 +53,10 @@ def analyze_budget_consumption(path):
 
 
 def plot_budget_consumption(df):
-    df["key"] = df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
+    df["key"] = (
+        df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
+    )
+
     def plot_budget_consumption_across_time(df):
         fig = px.line(
             df,
@@ -63,8 +70,12 @@ def plot_budget_consumption(df):
         )
         return fig
 
-    figures = df.groupby("destination_id").apply(plot_budget_consumption_across_time, include_groups=False).reset_index(name="figures")["figures"]
+    figures = (
+        df.groupby("destination_id")
+        .apply(plot_budget_consumption_across_time, include_groups=False)
+        .reset_index(name="figures")["figures"]
+    )
 
     # for figure in figures.values:
-        # iplot(figure)
+    # iplot(figure)
     iplot(figures.values[0])
