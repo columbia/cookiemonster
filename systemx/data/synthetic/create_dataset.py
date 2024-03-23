@@ -103,7 +103,7 @@ def generate_advertiser_user_profile(publisher_user_profile, ad_exposure_records
       scaleup += probability*0.02*publisher_user_profile.loc[i]['pub_profile_3']/999
     if  publisher_user_profile.loc[i]['pub_profile_4'] > 0 :
       scaleup += probability*0.02*publisher_user_profile.loc[i]['pub_profile_4']/9999
-    probabilities += scaleup
+    probabilities[i] += scaleup
 
   for _,record in ad_exposure_records.iterrows() :
     id = record[id_attribute]
