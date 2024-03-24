@@ -1,9 +1,10 @@
 {
-    "num_users" : 100,
-    "conversion_rate" : 1,
-    "impressions_rate_per_user" : 0.2,
+    "conversion_rate_per_query" : 1,
+    "per_day_impressions_rate" : 0.036,
     "num_disjoint_queries" : 100,
     "num_days": 90,
-    "num_conversions_per_query" : 20000,
-    "num_advertisers": 1
+    "num_schedules" : 1,
+    "scheduled_batch_size" : 20000,
+    "accuracy": [0.05, 0.01],
+    "cap_value": 5
 }
