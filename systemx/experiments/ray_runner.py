@@ -24,6 +24,7 @@ def grid_run(
     conversions_path: str,
     num_days_per_epoch: List[int],
     num_days_attribution_window: int,
+    workload_size: List[int],
     initial_budget: float,
     logs_dir: str,
     loguru_level: str,
@@ -44,6 +45,7 @@ def grid_run(
             "conversions_path": get_data_path(conversions_path),
             "num_days_per_epoch": tune.grid_search(num_days_per_epoch),
             "num_days_attribution_window": num_days_attribution_window,
+            "workload_size": tune.grid_search(workload_size),
         },
         "logs": {
             "verbose": False,

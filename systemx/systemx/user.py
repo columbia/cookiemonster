@@ -1,15 +1,14 @@
-from typing import Dict, List, Any, Union, Tuple
 from omegaconf import OmegaConf
-from systemx.budget import BasicBudget
+from typing import Dict, List, Any, Union, Tuple
 
+from systemx.event_logger import EventLogger
 from systemx.report import Partition, Report
 from systemx.events import Impression, Conversion
-from systemx.budget_accountant import BudgetAccountant
+from systemx.budget_accountant import BudgetAccountant, BudgetAccountantResult
+
+from systemx.utils import maybe_initialize_filters, compute_global_sensitivity
+
 from systemx.utils import (
-    epoch_window_to_list,
-    kInsufficientBudgetError,
-    kOk,
-    kNulledReport,
     IPA,
     USER_EPOCH_ARA,
     SYSTEMX,
@@ -18,10 +17,14 @@ from systemx.utils import (
 )
 
 
+class ConversionResult:
+    def __init__(self, unbiased_final_report: Report, final_report: Report) -> None:
+        self.unbiased_final_report = unbiased_final_report
+        self.final_report = final_report
+
+
 class User:
-    # static filters shared across users
-    global_filters_per_origin: Dict[str, BudgetAccountant] = {}  # For IPA
-    logs: Dict[str, Dict[str, Any]] = {}
+    logger = EventLogger()
 
     def __init__(self, id: Any, config: OmegaConf) -> None:
         self.id = id
@@ -32,7 +35,7 @@ class User:
 
     def process_event(
         self, event: Union[Impression, Conversion]
-    ) -> Union[Report, None]:
+    ) -> Union[None, ConversionResult]:
         if isinstance(event, Impression):
             if event.epoch not in self.impressions:
                 self.impressions[event.epoch] = []
@@ -40,13 +43,12 @@ class User:
 
         elif isinstance(event, Conversion):
             self.conversions.append(event)
-            report = self.create_report(event)
-            return report
+            return self.create_report(event)
 
         else:
             raise ValueError(f"Unsupported event Type: {type(event)}")
 
-    def create_report(self, conversion: Conversion) -> Union[Report, str]:
+    def create_report(self, conversion: Conversion) -> ConversionResult:
         """Searches for impressions to attribute within the attribution window that match
         the keys_to_match. Then creates a report using the attribution logic."""
 
@@ -76,137 +78,89 @@ class User:
         for partition in partitions:
             partition.create_report(conversion.filter, conversion.key)
 
-        # Compute global sensitivity
-        match self.config.sensitivity_metric:
-            case "L1":
-                global_sensitivity = conversion.aggregatable_cap_value
-            case _:
-                raise ValueError(
-                    f"Unsupported sensitivity metric: {self.config.sensitivity_metric}"
-                )
-        assert global_sensitivity is not None
+        # IPA doesn't do on-device budget accounting
+        if self.config.baseline != IPA:
 
-        filters_per_origin = (
-            User.global_filters_per_origin
-            if self.config.baseline == IPA
-            else self.filters_per_origin
-        )
-
-        if conversion.destination not in User.logs:
-            User.logs[conversion.destination] = []
-
-        User.logs[conversion.destination].append(
-            {
-                "conversion_timestamp": conversion.timestamp,
-                "total_budget_consumed": 0,
-                "user_id": self.id,
-                "epochs_window": conversion.epochs_window,
-                "attribution_window": conversion.attribution_window,
-                "status": kOk,
-            }
-        )
-
-        destination_logs = User.logs[conversion.destination][-1]
-
-        # Budget accounting
-        for partition in partitions:
-
-            maybe_initialize_filters(
-                filters_per_origin,
-                conversion.destination,
-                partition.epochs_window,
-                self.config,
+            # Compute global sensitivity
+            global_sensitivity = compute_global_sensitivity(
+                self.config.sensitivity_metric, conversion.aggregatable_cap_value
             )
 
-            if self.config.baseline == IPA:
-                pass
-                # # Central DP. Advertiser consumes worst-case budget from all the requested epochs in his global filter
-                # if not pay_all_or_nothing(
-                #     filters_per_origin,
-                #     partition.epochs_window,
-                #     conversion.destination,
-                #     conversion.epsilon,
-                #     destination_logs,
-                # ):
-                #     # Report is rejected at this point, returns error
-                #     destination_logs["status"] = kInsufficientBudgetError
-                #     return kInsufficientBudgetError
+            # Budget accounting
+            for partition in partitions:
 
-            elif self.config.baseline == USER_EPOCH_ARA:
-                # Epochs in this partition pay worst case budget
-                if not pay_all_or_nothing(
-                    filters_per_origin,
-                    partition.epochs_window,
+                origin_filters = maybe_initialize_filters(
+                    self.filters_per_origin,
                     conversion.destination,
-                    conversion.epsilon,
-                    destination_logs,
-                ):
-                    destination_logs["status"] = kNulledReport
-                    partition.null_report()
+                    partition.epochs_window,
+                    float(self.config.initial_budget),
+                )
 
-            elif self.config.baseline == SYSTEMX:
-                if partition.epochs_window_size() == 1:
-                    # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity
-                    # Assuming Laplace
-                    noise_scale = global_sensitivity / conversion.epsilon
-                    p_individual_epsilon = (
-                        partition.compute_sensitivity(self.config.sensitivity_metric)
-                        / noise_scale
+                if self.config.baseline == USER_EPOCH_ARA:
+                    # Epochs in this partition pay worst case budget
+                    filter_result = origin_filters.pay_all_or_nothing(
+                        partition.epochs_window, conversion.epsilon
                     )
 
-                    if not pay_all_or_nothing(
-                        filters_per_origin,
-                        partition.epochs_window,
-                        conversion.destination,
-                        p_individual_epsilon,
-                        destination_logs,
-                    ):
-                        destination_logs["status"] = kNulledReport
-                        partition.null_report()
-                else:
-                    # Partition is union of at least two epochs.
-                    if self.config.optimization == MONOEPOCH:
-                        # Optimization 1 is for partitions that cover one epoch only so it is ineffective here
-                        if not pay_all_or_nothing(
-                            filters_per_origin,
-                            partition.epochs_window,
-                            conversion.destination,
-                            conversion.epsilon,
-                            destination_logs,
-                        ):
-                            destination_logs["status"] = kNulledReport
-                            partition.null_report()
-
-                    elif self.config.optimization == MULTIEPOCH:
-                        active_epochs = []
-                        (x, y) = partition.epochs_window
-                        for epoch in range(x, y + 1):
-                            # Epochs empty of impressions are not paying any budget
-                            if epoch in partition.impressions_per_epoch:
-                                active_epochs.append(epoch)
-
-                        if not pay_all_or_nothing(
-                            filters_per_origin,
-                            active_epochs,
-                            conversion.destination,
-                            conversion.epsilon,
-                            destination_logs,
-                        ):
-                            destination_logs["status"] = kNulledReport
-                            partition.null_report()
-                    else:
-                        raise ValueError(
-                            f"Unsupported optimization: {self.config.optimization}"
+                elif self.config.baseline == SYSTEMX:
+                    if partition.epochs_window_size() == 1:
+                        # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity (Assuming Laplace)
+                        noise_scale = global_sensitivity / conversion.epsilon
+                        p_individual_epsilon = (
+                            partition.compute_sensitivity(
+                                self.config.sensitivity_metric
+                            )
+                            / noise_scale
                         )
-            else:
-                raise ValueError(f"Unsupported baseline: {self.config.baseline}")
+                        filter_result = origin_filters.pay_all_or_nothing(
+                            partition.epochs_window, p_individual_epsilon
+                        )
+
+                    else:
+                        # Partition is union of at least two epochs.
+                        if self.config.optimization == MONOEPOCH:
+                            # Optimization 1 is for partitions that cover one epoch only so it is ineffective here
+                            filter_result = origin_filters.pay_all_or_nothing(
+                                partition.epochs_window, conversion.epsilon
+                            )
+
+                        elif self.config.optimization == MULTIEPOCH:
+                            active_epochs = []
+                            (x, y) = partition.epochs_window
+                            for epoch in range(x, y + 1):
+                                # Epochs empty of impressions are not paying any budget
+                                if epoch in partition.impressions_per_epoch:
+                                    active_epochs.append(epoch)
+
+                            filter_result = origin_filters.pay_all_or_nothing(
+                                active_epochs, conversion.epsilon
+                            )
+
+                        else:
+                            raise ValueError(
+                                f"Unsupported optimization: {self.config.optimization}"
+                            )
+
+                else:
+                    raise ValueError(f"Unsupported baseline: {self.config.baseline}")
+
+                if not filter_result.succeeded():
+                    partition.null_report()
+
+                User.logger.log_event(conversion, self.id, filter_result)
 
         # Aggregate partition reports to create a final report
         final_report = Report()
         for partition in partitions:
             final_report += partition.report
 
-        return final_report
+        # Keep an unbiased version of the final report for experiments
+        unbiased_final_report = Report()
+        for partition in partitions:
+            unbiased_final_report += partition.unbiased_report
+
+        conversion_result = ConversionResult(unbiased_final_report, final_report)
+        return conversion_result
 
     def create_partitions(self, conversion: Conversion) -> List[Partition]:
         match conversion.partitioning_logic:
@@ -233,45 +187,5 @@ class User:
                 )
 
 
-def pay_all_or_nothing(
-    filters_per_origin,
-    attribution_epochs: Union[Tuple[int, int], List[int]],
-    destination: str,
-    epsilon: float,
-    logs: Dict[str, Any],
-) -> bool:
-    if isinstance(attribution_epochs, tuple):
-        attribution_epochs = epoch_window_to_list(attribution_epochs)
-
-    destination_filter = filters_per_origin[destination]
-
-    # Check if all epochs have enough remaining budget
-    for epoch in attribution_epochs:
-        # Check if epoch has enough budget
-        if not destination_filter.can_run(epoch, BasicBudget(epsilon)):
-            return False
-
-    # Consume budget from all epochs
-    for epoch in attribution_epochs:
-        destination_filter.consume_block_budget(epoch, BasicBudget(epsilon))
-        logs["total_budget_consumed"] += epsilon
-
-    return True
-
-
-def maybe_initialize_filters(
-    filters_per_origin, destination: str, attribution_epochs: Tuple[int, int], config
-):
-    attribution_epochs = epoch_window_to_list(attribution_epochs)
-    if destination not in filters_per_origin:
-        filters_per_origin[destination] = BudgetAccountant()
-    destination_filter = filters_per_origin[destination]
-
-    for epoch in attribution_epochs:
-        # Maybe initialize epoch
-        if destination_filter.get_block_budget(epoch) is None:
-            destination_filter.add_new_block_budget(epoch, float(config.initial_budget))
-
-
-def get_logs_across_users() -> Dict[str, Dict[str, Any]]:
-    return User.logs
+def get_log_events_across_users() -> Dict[str, Dict[str, Any]]:
+    return User.logger

@@ -2,15 +2,17 @@ import json
 import uuid
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Union
+
+from systemx.budget import BasicBudget
+from systemx.budget_accountant import BudgetAccountant
 
 
 REPO_ROOT = Path(__file__).parent.parent
 LOGS_PATH = REPO_ROOT.joinpath("logs")
 RAY_LOGS = LOGS_PATH.joinpath("ray")
 
-kInsufficientBudgetError = "InsufficientBudgetError"
-kOk = "OK"
+
 kNulledReport = "Null"
 
 IPA = "ipa"
@@ -20,8 +22,28 @@ MONOEPOCH = "monoepoch"
 MULTIEPOCH = "multiepoch"
 
 
-def epoch_window_to_list(epoch_window: Tuple[int, int]) -> List[int]:
-    return list(range(epoch_window[0], epoch_window[1] + 1))
+def maybe_initialize_filters(
+    filters_per_origin,
+    destination: str,
+    attribution_epochs: Tuple[int, int],
+    initial_budget: float,
+):
+    if destination not in filters_per_origin:
+        filters_per_origin[destination] = BudgetAccountant()
+    destination_filter = filters_per_origin[destination]
+
+    destination_filter.maybe_initialize(attribution_epochs, initial_budget)
+    return destination_filter
+
+
+def compute_global_sensitivity(sensitivity_metric, aggregatable_cap_value):
+    match sensitivity_metric:
+        case "L1":
+            global_sensitivity = aggregatable_cap_value
+        case _:
+            raise ValueError(f"Unsupported sensitivity metric: {sensitivity_metric}")
+    assert global_sensitivity is not None
+    return global_sensitivity
 
 
 def get_data_path(path):

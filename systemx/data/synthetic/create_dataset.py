@@ -288,7 +288,11 @@ def generate_conversion_records(config, publisher_user_profile, ad_exposure_reco
 
     # Cap value to 30 to bound user contribution
     data[conv_amount] = [
-        min(np.random.lognormal(mean=value, sigma=0.2).round(decimals=0), config.cap_value) for value in mean_values
+        min(
+            np.random.lognormal(mean=value, sigma=0.2).round(decimals=0),
+            config.cap_value,
+        )
+        for value in mean_values
     ]
 
     return pd.DataFrame(data)
@@ -400,7 +404,9 @@ def create_synthetic_dataset(config: Dict[str, Any]):
     total_synthetic_impressions = []
     total_synthetic_conversions = []
 
-    config.num_conversions_per_query = config.scheduled_batch_size * config.num_schedules
+    config.num_conversions_per_query = (
+        config.scheduled_batch_size * config.num_schedules
+    )
 
     # One conversion max allowed per user each query
     config.num_users = (
@@ -436,7 +442,7 @@ def create_synthetic_dataset(config: Dict[str, Any]):
     n = config.num_conversions_per_query
 
     def set_epsilon_given_accuracy(a, b, s, n):
-      return s * math.log(1 / b) / (n * a)
+        return s * math.log(1 / b) / (n * a)
 
     epsilon_per_query = set_epsilon_given_accuracy(a, b, s, n)
     total_synthetic_conversions_df["epsilon"] = epsilon_per_query

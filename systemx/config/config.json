@@ -1,5 +1,6 @@
 {
     "sensitivity_metric": "L1",
+    "scheduling_batch_size": 20000,
     "user": {
         "sensitivity_metric": "L1",
         "baseline": "systemx",
@@ -8,10 +9,11 @@
     },
     "dataset": {
         "name": "criteo",
-        "impressions_path": "systemx/data/criteo/criteo_impressions_three_advertisers.csv",
-        "conversions_path": "systemx/data/criteo/criteo_conversions_three_advertisers.csv",
+        "impressions_path": "systemx/data/synthetic/synthetic_impressions.csv",
+        "conversions_path": "systemx/data/criteo/synthetic_conversions.csv",
         "num_days_per_epoch": 1,
-        "num_days_attribution_window": 30
+        "num_days_attribution_window": 30,
+        "workload_size": 100
     },
     "logs": {
         "verbose": false,

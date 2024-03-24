@@ -1,7 +1,8 @@
 from typing import Dict, Tuple, List, Optional
 
 from systemx.events import Impression
-from deep import copy
+import copy
+
 
 class Report:
     def __init__(self):
@@ -56,7 +57,7 @@ class Partition:
 
         match self.attribution_logic:
             case "last_touch":
-                # Scan all impressions in epoch and keep the latest one
+                # Scan all impressions in epochs and keep the latest one
                 epochs = sorted(list(self.impressions_per_epoch.keys()), reverse=True)
                 for epoch in epochs:
                     impressions = self.impressions_per_epoch[epoch]
@@ -70,6 +71,7 @@ class Partition:
                         bucket_value = self.value
 
                         self.report.add(bucket_key, bucket_value)
+                        break
 
                 if self.report.empty():
                     bucket_key = "_" + filter + "_" + key_piece
@@ -81,7 +83,8 @@ class Partition:
                     f"Unsupported attribution logic: {self.attribution_logic}"
                 )
 
-        self.unbiased_report = self.report.copy()
-    
+        # Unbiased report will never be Nulled - kept for experiments
+        self.unbiased_report = copy.deepcopy(self.report)
+
     def null_report(self) -> None:
         self.report = Report()

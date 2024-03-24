@@ -1,10 +1,22 @@
 from typing import Dict, List, Union, Tuple
 from systemx.budget import BasicBudget
 
+kOk = "OK"
+kInsufficientBudgetError = "InsufficientBudgetError"
+
 
 class BudgetAccountantKey:
     def __init__(self, block):
         self.key = f"{block}"
+
+
+class BudgetAccountantResult:
+    def __init__(self, status: str, total_budget_consumed: float) -> None:
+        self.status = status
+        self.total_budget_consumed = total_budget_consumed
+
+    def succeeded(self):
+        return self.status == kOk
 
 
 class BudgetAccountant:
@@ -54,8 +66,46 @@ class BudgetAccountant:
         # Re-write the budget in the KV store
         self.update_block_budget(block, budget)
 
+    def pay_all_or_nothing(
+        self, blocks: Union[Tuple[int, int], List[int]], epsilon: float
+    ) -> BudgetAccountantResult:
+        if isinstance(blocks, tuple):
+            blocks = block_window_to_list(blocks)
+
+        total_budget_consumed = 0
+
+        # Check if all blocks have enough remaining budget
+        for block in blocks:
+            # Check if epoch has enough budget
+            if not self.filter.can_run(block, BasicBudget(epsilon)):
+                return BudgetAccountantResult(
+                    kInsufficientBudgetError, total_budget_consumed
+                )
+
+        # Consume budget from all blocks
+        for block in blocks:
+            self.filter.consume_block_budget(block, BasicBudget(epsilon))
+            total_budget_consumed += epsilon
+
+        return BudgetAccountantResult(kOk, total_budget_consumed)
+
+    def maybe_initialize_filter(
+        self, blocks: Union[Tuple[int, int], List[int]], initial_budget: float
+    ):
+        if isinstance(blocks, tuple):
+            blocks = block_window_to_list(blocks)
+
+        for block in blocks:
+            # Maybe initialize epoch
+            if self.filter.get_block_budget(block) is None:
+                self.filter.add_new_block_budget(block, initial_budget)
+
     def dump(self):
         budgets = [
             (block, budget.dump()) for (block, budget) in self.get_all_block_budgets()
         ]
         return budgets
+
+
+def block_window_to_list(blocks: Tuple[int, int]) -> List[int]:
+    return list(range(blocks[0], blocks[1] + 1))
