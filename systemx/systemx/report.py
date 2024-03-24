@@ -1,7 +1,7 @@
 from typing import Dict, Tuple, List, Optional
 
 from systemx.events import Impression
-
+from deep import copy
 
 class Report:
     def __init__(self):
@@ -81,5 +81,7 @@ class Partition:
                     f"Unsupported attribution logic: {self.attribution_logic}"
                 )
 
+        self.unbiased_report = self.report.copy()
+    
     def null_report(self) -> None:
         self.report = Report()
