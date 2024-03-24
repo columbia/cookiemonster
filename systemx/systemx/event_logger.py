@@ -8,7 +8,7 @@ class EventLogger:
         # TODO: Possibly add support for mlflow logging
         self.logs: Dict[str, Any] = {"budget": {}, "bias": {}}
 
-    def log_event(
+    def log_event_budget_internal(
         self,
         timestamp: int,
         destination: str,
@@ -34,23 +34,13 @@ class EventLogger:
             }
         )
 
-    def log_event(self, timestamp: int, destination: str, query_id: str, bias: float):
-        logs = self.logs["bias"]
-
-        if destination not in logs:
-            logs[destination] = []
-
-        logs[destination].append(
-            {"timestamp": timestamp, "query_id": query_id, "bisa": bias}
-        )
-
-    def log_event(
+    def log_event_budget(
         self,
         event: Union[Impression, Conversion],
         user_id: Any,
         filter_result: BudgetAccountantResult,
     ):
-        self.log_event(
+        self.log_event_budget_internal(
             event.timestamp,
             event.destination,
             user_id,
@@ -58,6 +48,17 @@ class EventLogger:
             event.attribution_window,
             filter_result.total_budget_consumed,
             filter_result.status,
+        )
+
+
+    def log_event_bias(self, timestamp: int, destination: str, query_id: str, bias: float):
+        logs = self.logs["bias"]
+
+        if destination not in logs:
+            logs[destination] = []
+
+        logs[destination].append(
+            {"timestamp": timestamp, "query_id": query_id, "bias": bias}
         )
 
     def __add__(self, other: "EventLogger") -> "EventLogger":

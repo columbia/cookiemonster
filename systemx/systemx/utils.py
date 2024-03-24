@@ -32,7 +32,7 @@ def maybe_initialize_filters(
         filters_per_origin[destination] = BudgetAccountant()
     destination_filter = filters_per_origin[destination]
 
-    destination_filter.maybe_initialize(attribution_epochs, initial_budget)
+    destination_filter.maybe_initialize_filter(attribution_epochs, initial_budget)
     return destination_filter
 
 
@@ -62,12 +62,13 @@ def load_logs(log_path: str, relative_path=True) -> dict:
 def process_logs(logs: Dict[str, List[Dict[str, Any]]], config: Dict[str, Any]) -> dict:
 
     proceessed_logs = {
-        "destination_logs": logs,
+        "logs": logs,
         "baseline": config["user"]["baseline"],
         "optimization": config["user"]["optimization"],
+        "initial_budget": config["user"]["initial_budget"],
         "num_days_per_epoch": config["dataset"]["num_days_per_epoch"],
         "num_days_attribution_window": config["dataset"]["num_days_attribution_window"],
-        "initial_budget": config["user"]["initial_budget"],
+        "workload_size": config["dataset"]["workload_size"],
         "dataset": config["dataset"]["name"],
         "config": config,
     }

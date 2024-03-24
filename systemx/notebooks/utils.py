@@ -1,11 +1,8 @@
-import numpy as np
-from typing import List
 import pandas as pd
-
 # import modin as pd
 import plotly.express as px
 from plotly.offline import iplot
-from multiprocessing import Manager, Process
+# from multiprocessing import Manager, Process
 
 from systemx.utils import LOGS_PATH
 from experiments.ray.analysis import load_ray_experiment
@@ -19,10 +16,11 @@ def get_df(path):
 
 def analyze_budget_consumption(path):
     df = get_df(path)
+    budget_logs_per_destination = df["logs"]["budget"]
 
     def get_logs(row):
         logs = []
-        for destination, destination_logs in row["destination_logs"].items():
+        for destination, destination_logs in budget_logs_per_destination.items():
             cumulative_budget_consumed = 0
             for i, log in enumerate(destination_logs):
                 cumulative_budget_consumed += log["total_budget_consumed"]
@@ -32,15 +30,49 @@ def analyze_budget_consumption(path):
                         "conversion_timestamp": i,
                         "total_budget_consumed": log["total_budget_consumed"],
                         "cumulative_budget_consumed": cumulative_budget_consumed,
-                        "user_id": log["user_id"],
-                        "epoch_window": log["epoch_window"],
+                        # "user_id": log["user_id"],
+                        # "epoch_window": log["epoch_window"],
                         "status": log["status"],
                         "baseline": row["baseline"],
                         "optimization": row["optimization"],
                         "num_days_per_epoch": row["num_days_per_epoch"],
-                        "num_days_attribution_window": row[
-                            "num_days_attribution_window"
-                        ],
+                        # "num_days_attribution_window": row[
+                            # "num_days_attribution_window"
+                        # ],
+                    }
+                )
+        return pd.DataFrame.from_records(logs)
+
+    dfs = []
+    for _, row in df.iterrows():
+        dfs.append(get_logs(row))
+
+    return pd.concat(dfs)
+
+def analyze_bias(path):
+    df = get_df(path)
+    bias_logs_per_destination = df["logs"]["bias"]
+
+    def get_logs(row):
+        logs = []
+        for destination, destination_logs in bias_logs_per_destination.items():            
+            total_bias = 0
+            for i, log in enumerate(destination_logs):
+                total_bias += log["bias"]
+                logs.append(
+                    {
+                        "destination_id": destination,
+                        "conversion_timestamp": i,
+                        "bias": total_bias,
+                        # "user_id": log["user_id"],
+                        # "epoch_window": log["epoch_window"],
+                        "status": log["status"],
+                        "baseline": row["baseline"],
+                        "optimization": row["optimization"],
+                        "num_days_per_epoch": row["num_days_per_epoch"],
+                        # "num_days_attribution_window": row[
+                            # "num_days_attribution_window"
+                        # ],
                     }
                 )
         return pd.DataFrame.from_records(logs)

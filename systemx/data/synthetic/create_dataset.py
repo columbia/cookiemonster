@@ -50,7 +50,7 @@ def generate_random_date(start_date, num_days):
     start_seconds = 0
     end_seconds = start_seconds + (num_days * 24 * 60 * 60)
     random_seconds = random.randint(start_seconds, end_seconds)
-    return datetime.datetime.utcfromtimestamp(random_seconds)
+    return random_seconds
 
 
 def generate_publisher_user_profile(config):
@@ -289,7 +289,7 @@ def generate_conversion_records(config, publisher_user_profile, ad_exposure_reco
     # Cap value to 30 to bound user contribution
     data[conv_amount] = [
         min(
-            np.random.lognormal(mean=value, sigma=0.2).round(decimals=0),
+            round(np.random.lognormal(mean=value, sigma=0.2), 1),
             config.cap_value,
         )
         for value in mean_values

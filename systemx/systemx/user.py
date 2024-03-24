@@ -147,7 +147,7 @@ class User:
                 if not filter_result.succeeded():
                     partition.null_report()
 
-                User.logger.log_event(conversion, self.id, filter_result)
+                User.logger.log_event_budget(conversion, self.id, filter_result)
 
         # Aggregate partition reports to create a final report
         final_report = Report()

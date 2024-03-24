@@ -1,19 +1,19 @@
 {
     "sensitivity_metric": "L1",
-    "scheduling_batch_size": 20000,
+    "scheduling_batch_size_per_query": 5,
     "user": {
         "sensitivity_metric": "L1",
-        "baseline": "systemx",
+        "baseline": "IPA",
         "optimization": "multiepoch",
         "initial_budget": 10
     },
     "dataset": {
-        "name": "criteo",
+        "name": "synthetic",
         "impressions_path": "systemx/data/synthetic/synthetic_impressions.csv",
-        "conversions_path": "systemx/data/criteo/synthetic_conversions.csv",
+        "conversions_path": "systemx/data/synthetic/synthetic_conversions.csv",
         "num_days_per_epoch": 1,
         "num_days_attribution_window": 30,
-        "workload_size": 100
+        "workload_size": 1
     },
     "logs": {
         "verbose": false,

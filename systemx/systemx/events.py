@@ -14,12 +14,14 @@ class Impression(Event):
         destination: str,
         filter: str,
         key: str,
+        user_id: Any,
     ):
         self.timestamp = timestamp
         self.epoch = epoch
         self.destination = destination
         self.filter = filter
         self.key = key
+        self.user_id = user_id
 
     def matches(self, destination: str, filter: str):
         # Condition: destinations and keys must match
@@ -34,7 +36,7 @@ class Impression(Event):
         )
 
     def __str__(self):
-        return f"|Impression| Epoch: {self.epoch}, Destination: {self.destination}"
+        return f"|Impression| Epoch: {self.epoch}, Timestamp: {self.timestamp}, User: {self.user_id}, Filter: {self.filter}"
 
 
 class Conversion(Event):
@@ -52,6 +54,7 @@ class Conversion(Event):
         filter: str,
         key: str,
         epsilon: float,
+        user_id: Any,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         self.timestamp = timestamp
@@ -65,8 +68,9 @@ class Conversion(Event):
         self.aggregatable_cap_value = aggregatable_cap_value
         self.filter = filter
         self.key = key
+        self.user_id = user_id
         self.metadata = metadata
         self.epsilon = epsilon
 
     def __str__(self):
-        return f"|Conversion| Attribution-Window in Timestamps: {self.attribution_window}, Epochs window: {self.epochs_window}, Destination: {self.destination}, Value: {self.aggregatable_value}"
+        return f"|Conversion| Attribution-Window in Timestamps: {self.attribution_window}, Epochs window: {self.epochs_window}, User: {self.user_id}, Filter: {self.filter}, Value: {self.aggregatable_value}"

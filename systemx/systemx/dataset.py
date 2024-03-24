@@ -55,6 +55,7 @@ class Synthetic(Dataset):
                     7 * (impression_date.isocalendar().week - 1)
                 ) + impression_date.isocalendar().weekday
                 impression_epoch = impression_day // self.config.num_days_per_epoch
+                impression_user_id = row["user_id"]
 
                 impression = Impression(
                     timestamp=impression_timestamp,
@@ -62,8 +63,8 @@ class Synthetic(Dataset):
                     destination=row["advertiser_id"],
                     filter=row["filter"],
                     key=str(row["key"]),
+                    user_id=impression_user_id
                 )
-                impression_user_id = row["user_id"]
                 return impression, impression_timestamp, impression_user_id
 
             except StopIteration:
@@ -103,6 +104,8 @@ class Synthetic(Dataset):
                     earliest_attribution_day // self.config.num_days_per_epoch,
                     conversion_epoch,
                 )
+                
+                conversion_user_id = row["user_id"]
 
                 conversion = Conversion(
                     timestamp=conversion_timestamp,
@@ -117,9 +120,9 @@ class Synthetic(Dataset):
                     filter=row["filter"],
                     key=str(row["key"]),
                     epsilon=row["epsilon"],
+                    user_id=conversion_user_id
                 )
 
-                conversion_user_id = row["user_id"]
                 return conversion, conversion_timestamp, conversion_user_id
 
             except StopIteration:
@@ -167,6 +170,7 @@ class Criteo(Dataset):
                     7 * (impression_date.isocalendar().week - 1)
                 ) + impression_date.isocalendar().weekday
                 impression_epoch = impression_day // self.config.num_days_per_epoch
+                impression_user_id = row["user_id"]
 
                 impression = Impression(
                     timestamp=impression_timestamp,
@@ -174,8 +178,8 @@ class Criteo(Dataset):
                     destination=row["partner_id"],
                     filter=row["filter"],
                     key=str(row["key"]),
+                    user_id=impression_user_id
                 )
-                impression_user_id = row["user_id"]
                 return impression, impression_timestamp, impression_user_id
 
             except StopIteration:
@@ -216,6 +220,8 @@ class Criteo(Dataset):
                     earliest_attribution_day // self.config.num_days_per_epoch,
                     conversion_epoch,
                 )
+                
+                conversion_user_id = row["user_id"]
 
                 conversion = Conversion(
                     timestamp=conversion_timestamp,
@@ -230,9 +236,9 @@ class Criteo(Dataset):
                     filter=row["filter"],
                     key=str(row["key"]),
                     epsilon=row["epsilon"],
+                    user_id=conversion_user_id
                 )
 
-                conversion_user_id = row["user_id"]
                 return conversion, conversion_timestamp, conversion_user_id
 
             except StopIteration:

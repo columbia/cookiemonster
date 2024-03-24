@@ -83,7 +83,7 @@ class Evaluation:
 
                     if batch.size() == self.config.scheduling_batch_size_per_query:
                         # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)
-                        if self.config.baseline == IPA:
+                        if self.config.user.baseline == IPA:
                             origin_filters = maybe_initialize_filters(
                                 self.global_filters_per_origin,
                                 event.destination,
@@ -93,9 +93,11 @@ class Evaluation:
                             filter_result = origin_filters.pay_all_or_nothing(
                                 event.epochs_window, event.epsilon
                             )
+                            self.logger.log_event_budget(event, user_id, filter_result)
+
                             if not filter_result.succeeded():
                                 # Not enough budget to run this query - don't schedule the batch
-                                self.logger.log_event(
+                                self.logger.log_event_bias(
                                     event.timestamp,
                                     event.destination,
                                     query_id,
@@ -113,22 +115,23 @@ class Evaluation:
                         )
                         query_output = sum(batch.values)
                         unbiased_query_output = sum(batch.unbiased_values)
-                        bias = math.abs(query_output - unbiased_query_output)
+                        bias = abs(query_output - unbiased_query_output)
                         logger.info(
                             colored(
                                 f"Query bias: {bias}, true output: {query_output}",
                                 "green",
                             )
                         )
-                        self.logger.log_event(
+                        self.logger.log_event_bias(
                             event.timestamp, event.destination, query_id, bias
                         )
 
                         # Reset the batch
                         del per_query_batch[query_id]
 
+        merged_event_loggers = self.logger + get_log_events_across_users()
         logs = process_logs(
-            self.logger.logs + get_log_events_across_users(),
+            merged_event_loggers.logs,
             OmegaConf.to_object(self.config),
         )
         if self.config.logs.save:

@@ -77,14 +77,14 @@ class BudgetAccountant:
         # Check if all blocks have enough remaining budget
         for block in blocks:
             # Check if epoch has enough budget
-            if not self.filter.can_run(block, BasicBudget(epsilon)):
+            if not self.can_run(block, BasicBudget(epsilon)):
                 return BudgetAccountantResult(
                     kInsufficientBudgetError, total_budget_consumed
                 )
 
         # Consume budget from all blocks
         for block in blocks:
-            self.filter.consume_block_budget(block, BasicBudget(epsilon))
+            self.consume_block_budget(block, BasicBudget(epsilon))
             total_budget_consumed += epsilon
 
         return BudgetAccountantResult(kOk, total_budget_consumed)
@@ -97,8 +97,8 @@ class BudgetAccountant:
 
         for block in blocks:
             # Maybe initialize epoch
-            if self.filter.get_block_budget(block) is None:
-                self.filter.add_new_block_budget(block, initial_budget)
+            if self.get_block_budget(block) is None:
+                self.add_new_block_budget(block, initial_budget)
 
     def dump(self):
         budgets = [
