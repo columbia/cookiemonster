@@ -45,8 +45,9 @@ def generate_poisson_distribution(n):
 
 
 def generate_random_date(start_date, num_days):
-    start_seconds = int((start_date - datetime.datetime(1970, 1, 1)).total_seconds())
+    # start_seconds = int((start_date - datetime.datetime(1970, 1, 1)).total_seconds())
     # end_seconds = int((end_date - datetime.datetime(1970, 1, 1)).total_seconds())
+    start_seconds = 0
     end_seconds = start_seconds + (num_days * 24 * 60 * 60)
     random_seconds = random.randint(start_seconds, end_seconds)
     return datetime.datetime.utcfromtimestamp(random_seconds)
@@ -287,7 +288,7 @@ def generate_conversion_records(config, publisher_user_profile, ad_exposure_reco
 
     # Cap value to 30 to bound user contribution
     data[conv_amount] = [
-        min(np.random.lognormal(mean=value, sigma=0.2), config.cap_value) for value in mean_values
+        min(np.random.lognormal(mean=value, sigma=0.2), config.cap_value).round(decimals=0) for value in mean_values
     ]
 
     return pd.DataFrame(data)
@@ -439,6 +440,8 @@ def create_synthetic_dataset(config: Dict[str, Any]):
 
     epsilon_per_query = set_epsilon_given_accuracy(a, b, s, n)
     total_synthetic_conversions_df["epsilon"] = epsilon_per_query
+
+    total_synthetic_conversions_df["aggregatable_cap_value"] = config.cap_value
 
     # # Sort impressions and conversions
     total_synthetic_impressions_df = total_synthetic_impressions_df.sort_values(
