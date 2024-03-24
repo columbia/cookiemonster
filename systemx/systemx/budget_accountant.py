@@ -8,9 +8,7 @@ class BudgetAccountantKey:
 
 
 class BudgetAccountant:
-    def __init__(self, config) -> None:
-        self.config = config
-        self.epsilon = float(self.config.initial_budget)
+    def __init__(self) -> None:
         self.filter: Dict[str, float] = {}
 
     def get_blocks_count(self):
@@ -32,9 +30,9 @@ class BudgetAccountant:
     def get_all_block_budgets(self):
         return {block: budget.epsilon for block, budget in self.filter.items()}
 
-    def add_new_block_budget(self, block):
+    def add_new_block_budget(self, block, initial_budget):
         assert block not in self.filter
-        budget = BasicBudget(self.epsilon)
+        budget = BasicBudget(initial_budget)
         self.update_block_budget(block, budget)
 
     def can_run(self, blocks: Union[int, List[int], Tuple[int, int]], run_budget):

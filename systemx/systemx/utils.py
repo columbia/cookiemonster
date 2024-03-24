@@ -9,9 +9,19 @@ REPO_ROOT = Path(__file__).parent.parent
 LOGS_PATH = REPO_ROOT.joinpath("logs")
 RAY_LOGS = LOGS_PATH.joinpath("ray")
 
+kInsufficientBudgetError = "InsufficientBudgetError"
+kOk = "OK"
+kNulledReport = "Null"
 
-def attribution_window_to_list(attribution_window: Tuple[int, int]) -> List[int]:
-    return list(range(attribution_window[0], attribution_window[1] + 1))
+IPA = "ipa"
+USER_EPOCH_ARA = "user_epoch_ara"
+SYSTEMX = "systemx"
+MONOEPOCH = "monoepoch"
+MULTIEPOCH = "multiepoch"
+
+
+def epoch_window_to_list(epoch_window: Tuple[int, int]) -> List[int]:
+    return list(range(epoch_window[0], epoch_window[1] + 1))
 
 
 def get_data_path(path):
@@ -27,33 +37,18 @@ def load_logs(log_path: str, relative_path=True) -> dict:
     return logs
 
 
-def process_logs(
-    log: List[Dict[str, Dict[str, float]]], config: Dict[str, Any]
-) -> dict:
-
-    destination_mappings = {}
-    remaining_budget_per_user_per_destination_per_epoch = []
-
-    for user in log:
-        user_data = {}
-        for destination, filter in user.items():
-            if destination not in destination_mappings:
-                destination_mappings[destination] = len(destination_mappings)
-
-            user_data[destination_mappings[destination]] = filter
-
-        remaining_budget_per_user_per_destination_per_epoch.append(user_data)
+def process_logs(logs: Dict[str, List[Dict[str, Any]]], config: Dict[str, Any]) -> dict:
 
     proceessed_logs = {
-        "remaining_budget_per_user_per_destination_per_epoch": remaining_budget_per_user_per_destination_per_epoch,
-        "initial_budget": config["user"]["initial_budget"],
+        "destination_logs": logs,
+        "baseline": config["user"]["baseline"],
         "optimization": config["user"]["optimization"],
         "num_days_per_epoch": config["dataset"]["num_days_per_epoch"],
         "num_days_attribution_window": config["dataset"]["num_days_attribution_window"],
+        "initial_budget": config["user"]["initial_budget"],
         "dataset": config["dataset"]["name"],
         "config": config,
     }
-
     return proceessed_logs
 
 

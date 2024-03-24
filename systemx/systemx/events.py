@@ -7,7 +7,15 @@ class Event:
 
 
 class Impression(Event):
-    def __init__(self, epoch: int, destination: str, filter: str, key: str):
+    def __init__(
+        self,
+        timestamp: int,
+        epoch: int,
+        destination: str,
+        filter: str,
+        key: str,
+    ):
+        self.timestamp = timestamp
         self.epoch = epoch
         self.destination = destination
         self.filter = filter
@@ -19,6 +27,12 @@ class Impression(Event):
             return True
         return False
 
+    def belongs_in_attribution_window(self, attribution_window):
+        return (
+            self.timestamp >= attribution_window[0]
+            and self.timestamp <= attribution_window[1]
+        )
+
     def __str__(self):
         return f"|Impression| Epoch: {self.epoch}, Destination: {self.destination}"
 
@@ -26,8 +40,11 @@ class Impression(Event):
 class Conversion(Event):
     def __init__(
         self,
+        timestamp: int,
+        epoch: int,
         destination: str,
         attribution_window: Tuple[int, int],
+        epochs_window: Tuple[int, int],
         attribution_logic: str,
         partitioning_logic: str,
         aggregatable_value: float,
@@ -37,8 +54,11 @@ class Conversion(Event):
         epsilon: float,
         metadata: Optional[Dict[str, Any]] = None,
     ):
+        self.timestamp = timestamp
+        self.epoch = epoch
         self.destination = destination
         self.attribution_window = attribution_window
+        self.epochs_window = epochs_window
         self.attribution_logic = attribution_logic
         self.partitioning_logic = partitioning_logic
         self.aggregatable_value = aggregatable_value
@@ -49,4 +69,4 @@ class Conversion(Event):
         self.epsilon = epsilon
 
     def __str__(self):
-        return f"|Conversion| Attribution-Window: {self.attribution_window}, Destination: {self.destination}, Value: {self.aggregatable_value}"
+        return f"|Conversion| Attribution-Window in Timestamps: {self.attribution_window}, Epochs window: {self.epochs_window}, Destination: {self.destination}, Value: {self.aggregatable_value}"
