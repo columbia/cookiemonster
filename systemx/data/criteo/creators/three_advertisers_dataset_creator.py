@@ -1,8 +1,12 @@
-import math
-
 from systemx.data.criteo.creators.base_creator import BaseCreator, pd
+from systemx.data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
 
 class ThreeAdversitersDatasetCreator(BaseCreator):
+    """
+    Rather than querying across all advertisers, we handpick three advertisers to focus on.
+    The conversions here expect count queries.
+    """
+    
     def __init__(self) -> None:
         super().__init__("criteo_impressions_three_advertisers.csv", "criteo_conversions_three_advertisers.csv")
 
@@ -93,27 +97,16 @@ class ThreeAdversitersDatasetCreator(BaseCreator):
         cap_value = 5
         conversions.loc[conversions["count"] > cap_value, "count"] = cap_value
 
-
-        def get_epsilon_from_accuracy(n):
-            s = cap_value
-            a = 0.05
-            b = 0.01
-            return s * math.log(1 / b) / (n * a)
-
-
         # Get epsilons from accuracy
         x = (
             conversions.groupby(["partner_id", "product_id_group"])
             .size()
             .reset_index(name="count")
         )
-        x["epsilon"] = x["count"].apply(get_epsilon_from_accuracy)
+        x["epsilon"] = x["count"].apply(lambda c: get_epsilon_from_accuracy_for_counts(c, cap_value))
         x = x.drop(columns=["count"])
         conversions = conversions.merge(x, on=["partner_id", "product_id_group"], how="left")
 
         conversions["aggregatable_cap_value"] = cap_value
         conversions["key"] = "purchaseCount"
         return conversions
-
-if __name__ == "__main__":
-    ThreeAdversitersDatasetCreator().create_datasets()
