@@ -288,7 +288,7 @@ def generate_conversion_records(config, publisher_user_profile, ad_exposure_reco
 
     # Cap value to 30 to bound user contribution
     data[conv_amount] = [
-        min(np.random.lognormal(mean=value, sigma=0.2), config.cap_value).round(decimals=0) for value in mean_values
+        min(np.random.lognormal(mean=value, sigma=0.2).round(decimals=0), config.cap_value) for value in mean_values
     ]
 
     return pd.DataFrame(data)
