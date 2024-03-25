@@ -41,7 +41,7 @@ class EventLogger:
         filter_result: BudgetAccountantResult,
     ):
         self.log_event_budget_internal(
-            event.id,   # virtual conversion time
+            event.id,  # virtual conversion time
             event.destination,
             user_id,
             event.epochs_window,

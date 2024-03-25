@@ -14,18 +14,18 @@ def get_df(path):
 def analyze_budget_consumption(path):
 
     def get_logs(row):
-        
+
         budget_logs_per_destination = row["logs"]["budget"]
         records = []
-        
-        for destination, destination_logs in budget_logs_per_destination.items():    
+
+        for destination, destination_logs in budget_logs_per_destination.items():
 
             cumulative_avg_budget_per_user = {}
             users = set()
             for log in destination_logs:
                 users.add(log["user_id"])
             num_users = len(users)
-            
+
             for log in destination_logs:
 
                 timestamp = log["timestamp"]
@@ -35,29 +35,31 @@ def analyze_budget_consumption(path):
                 if user_id not in cumulative_avg_budget_per_user:
                     cumulative_avg_budget_per_user[user_id] = 0
                 cumulative_avg_budget_per_user[user_id] += total_budget_consumed
-                
 
-                max_avg_budget_consumed = max(cumulative_avg_budget_per_user.values()) / 93
-                avg_avg_budget_consumed = sum(cumulative_avg_budget_per_user.values()) / num_users
-                
+                max_avg_budget_consumed = (
+                    max(cumulative_avg_budget_per_user.values()) / 93
+                )
+                avg_avg_budget_consumed = (
+                    sum(cumulative_avg_budget_per_user.values()) / num_users
+                )
+
                 records.append(
-                        {
-                            "destination_id": destination,
-                            "num_reports": timestamp,
-                            "max_avg_budget_conusmed": max_avg_budget_consumed,
-                            "avg_avg_budget_consumed": avg_avg_budget_consumed,
-                            "status": log["status"],
-                            "baseline": row["baseline"],
-                            "optimization": row["optimization"],
-                            "num_days_per_epoch": row["num_days_per_epoch"],
-                            "num_days_attribution_window": row[
-                                "num_days_attribution_window"
-                            ],
-                        }
+                    {
+                        "destination_id": destination,
+                        "num_reports": timestamp,
+                        "max_avg_budget_conusmed": max_avg_budget_consumed,
+                        "avg_avg_budget_consumed": avg_avg_budget_consumed,
+                        "status": log["status"],
+                        "baseline": row["baseline"],
+                        "optimization": row["optimization"],
+                        "num_days_per_epoch": row["num_days_per_epoch"],
+                        "num_days_attribution_window": row[
+                            "num_days_attribution_window"
+                        ],
+                    }
                 )
 
         return pd.DataFrame.from_records(records)
-
 
     dfs = []
     df = get_df(path)

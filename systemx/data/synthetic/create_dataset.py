@@ -51,7 +51,9 @@ def generate_random_dates(num_days, num_samples):
     start_seconds = 0
     end_seconds = start_seconds + (num_days * 24 * 60 * 60)
     # random_seconds = random.randint(start_seconds, end_seconds)
-    random_seconds = np.random.randint(start_seconds, end_seconds, size=num_samples, dtype=int)
+    random_seconds = np.random.randint(
+        start_seconds, end_seconds, size=num_samples, dtype=int
+    )
     return random_seconds
 
 
@@ -130,6 +132,7 @@ def generate_ad_exposure_records(config, publisher_user_profile):
     data[attribute_columns[7]] = generate_column_right_skewed(10000, records_size)
     return pd.DataFrame(data)
 
+
 def get_converted_users(config, publisher_user_profile, ad_exposure_records):
     id_attribute = "device_id"
     probabilities = [0.01] * config.num_users
@@ -184,6 +187,7 @@ def get_converted_users(config, publisher_user_profile, ad_exposure_records):
     )
     return converted_users.tolist()
 
+
 def generate_conversion_records(config, publisher_user_profile, ad_exposure_records):
 
     device_id = "device_id"
@@ -208,10 +212,18 @@ def generate_conversion_records(config, publisher_user_profile, ad_exposure_reco
 
     publisher_user_profile["means"] = 1.0
 
-    publisher_user_profile.loc[mask_1, "means"] += 0.04 * publisher_user_profile.loc[mask_1, "pub_profile_1"] / 9
-    publisher_user_profile.loc[mask_2, "means"] += 0.04 * publisher_user_profile.loc[mask_2, "pub_profile_2"] / 999
-    publisher_user_profile.loc[mask_3, "means"] += 0.04 * publisher_user_profile.loc[mask_3, "pub_profile_3"] / 9999
-    publisher_user_profile.loc[mask_4, "means"] += 0.04 * publisher_user_profile.loc[mask_4, "pub_profile_4"] / 99999
+    publisher_user_profile.loc[mask_1, "means"] += (
+        0.04 * publisher_user_profile.loc[mask_1, "pub_profile_1"] / 9
+    )
+    publisher_user_profile.loc[mask_2, "means"] += (
+        0.04 * publisher_user_profile.loc[mask_2, "pub_profile_2"] / 999
+    )
+    publisher_user_profile.loc[mask_3, "means"] += (
+        0.04 * publisher_user_profile.loc[mask_3, "pub_profile_3"] / 9999
+    )
+    publisher_user_profile.loc[mask_4, "means"] += (
+        0.04 * publisher_user_profile.loc[mask_4, "pub_profile_4"] / 99999
+    )
 
     mask_1 = ad_exposure_records["exp_attribute_5"] == 1
     mask_2 = ad_exposure_records["exp_attribute_6"] > 0
@@ -220,19 +232,33 @@ def generate_conversion_records(config, publisher_user_profile, ad_exposure_reco
 
     ad_exposure_records["scaleup"] = 0.0
     ad_exposure_records.loc[mask_1, "scaleup"] += 0.04
-    ad_exposure_records.loc[mask_2, "scaleup"] += 0.04 * ad_exposure_records.loc[mask_2, "exp_attribute_6"] / 9
-    ad_exposure_records.loc[mask_3, "scaleup"] += 0.04 * ad_exposure_records.loc[mask_3, "exp_attribute_7"] / 999
-    ad_exposure_records.loc[mask_4, "scaleup"] += 0.04 * ad_exposure_records.loc[mask_4, "exp_attribute_8"] / 9999
+    ad_exposure_records.loc[mask_2, "scaleup"] += (
+        0.04 * ad_exposure_records.loc[mask_2, "exp_attribute_6"] / 9
+    )
+    ad_exposure_records.loc[mask_3, "scaleup"] += (
+        0.04 * ad_exposure_records.loc[mask_3, "exp_attribute_7"] / 999
+    )
+    ad_exposure_records.loc[mask_4, "scaleup"] += (
+        0.04 * ad_exposure_records.loc[mask_4, "exp_attribute_8"] / 9999
+    )
 
-    scaleup = ad_exposure_records.groupby("device_id")["scaleup"].sum().reset_index(name="scaleup")
-    publisher_user_profile = publisher_user_profile.merge(scaleup, how='inner', on='device_id')
+    scaleup = (
+        ad_exposure_records.groupby("device_id")["scaleup"]
+        .sum()
+        .reset_index(name="scaleup")
+    )
+    publisher_user_profile = publisher_user_profile.merge(
+        scaleup, how="inner", on="device_id"
+    )
 
     publisher_user_profile["means"] += publisher_user_profile["scaleup"]
 
     data = {}
     # data[conv_record_id] = [generate_uuid() for _ in range(records_size)]
     conversions_per_device = np.ones(config.num_users).astype(int)
-    data[device_id] = np.repeat(publisher_user_profile[device_id], conversions_per_device)
+    data[device_id] = np.repeat(
+        publisher_user_profile[device_id], conversions_per_device
+    )
     mean_values = np.repeat(publisher_user_profile["means"], conversions_per_device)
 
     data[conv_timestamp] = generate_random_dates(config.num_days, config.num_users)
@@ -246,9 +272,13 @@ def generate_conversion_records(config, publisher_user_profile, ad_exposure_reco
     # data[attribute_columns[6]] = generate_column_right_skewed(1000, records_size)
     # data[attribute_columns[7]] = generate_column_right_skewed(10000, records_size)
 
-
     # Cap value to bound user contribution
-    data[conv_amount] = np.round(np.random.lognormal(mean=mean_values, sigma=0.2, size=np.sum(conversions_per_device)), 1)
+    data[conv_amount] = np.round(
+        np.random.lognormal(
+            mean=mean_values, sigma=0.2, size=np.sum(conversions_per_device)
+        ),
+        1,
+    )
     data[conv_amount] = np.clip(data[conv_amount], a_min=None, a_max=config.cap_value)
 
     return pd.DataFrame(data)
@@ -351,12 +381,6 @@ def create_synthetic_dataset(config: Dict[str, Any]):
     config = OmegaConf.create(config)
     advertiser_id = generate_uuid()
 
-    processes = []
-    manager = Manager()
-    results = manager.dict()
-
-    advertiser_id = generate_uuid()
-
     total_synthetic_impressions = []
     total_synthetic_conversions = []
 
@@ -376,6 +400,9 @@ def create_synthetic_dataset(config: Dict[str, Any]):
         print("Processing query number: ", product_id)
         create_data_for_query(product_id, publisher_user_profile, results)
 
+    # processes = []
+    # manager = Manager()
+    # results = manager.dict()
     # for product_id in range(config.num_disjoint_queries):
     #     processes.append(
     #         Process(

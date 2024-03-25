@@ -14,7 +14,7 @@ class Dataset:
         self.config = config
         self.impressions_data = pd.read_csv(self.config.impressions_path)
         self.conversions_data = pd.read_csv(self.config.conversions_path)
-        
+
         self.conversions_counter = 0
 
     @classmethod

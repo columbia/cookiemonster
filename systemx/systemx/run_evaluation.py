@@ -96,7 +96,9 @@ class Evaluation:
                             filter_result = origin_filters.pay_all_or_nothing(
                                 event.epochs_window, event.epsilon
                             )
-                            self.logger.log_event_budget(event, "all_users", filter_result)
+                            self.logger.log_event_budget(
+                                event, "all_users", filter_result
+                            )
 
                             if not filter_result.succeeded():
                                 # Not enough budget to run this query - don't schedule the batch
