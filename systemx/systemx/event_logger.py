@@ -12,7 +12,7 @@ class EventLogger:
         self,
         timestamp: int,
         destination: str,
-        user_id: int,
+        user_id: Any,
         epochs_window: Tuple[int, int],
         attribution_window: Tuple[int, int],
         total_budget_consumed: float,
@@ -41,7 +41,7 @@ class EventLogger:
         filter_result: BudgetAccountantResult,
     ):
         self.log_event_budget_internal(
-            event.timestamp,
+            event.id,   # virtual conversion time
             event.destination,
             user_id,
             event.epochs_window,
@@ -50,8 +50,9 @@ class EventLogger:
             filter_result.status,
         )
 
-
-    def log_event_bias(self, timestamp: int, destination: str, query_id: str, bias: float):
+    def log_event_bias(
+        self, timestamp: int, destination: str, query_id: str, bias: float
+    ):
         logs = self.logs["bias"]
 
         if destination not in logs:

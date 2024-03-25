@@ -43,6 +43,7 @@ class Conversion(Event):
     def __init__(
         self,
         timestamp: int,
+        id: int,
         epoch: int,
         destination: str,
         attribution_window: Tuple[int, int],
@@ -58,6 +59,7 @@ class Conversion(Event):
         metadata: Optional[Dict[str, Any]] = None,
     ):
         self.timestamp = timestamp
+        self.id = id
         self.epoch = epoch
         self.destination = destination
         self.attribution_window = attribution_window

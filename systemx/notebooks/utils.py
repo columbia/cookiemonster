@@ -1,9 +1,6 @@
 import pandas as pd
-# import modin as pd
 import plotly.express as px
 from plotly.offline import iplot
-# from multiprocessing import Manager, Process
-
 from systemx.utils import LOGS_PATH
 from experiments.ray.analysis import load_ray_experiment
 
@@ -15,39 +12,60 @@ def get_df(path):
 
 
 def analyze_budget_consumption(path):
-    df = get_df(path)
-    budget_logs_per_destination = df["logs"]["budget"]
 
     def get_logs(row):
-        logs = []
-        for destination, destination_logs in budget_logs_per_destination.items():
-            cumulative_budget_consumed = 0
-            for i, log in enumerate(destination_logs):
-                cumulative_budget_consumed += log["total_budget_consumed"]
-                logs.append(
-                    {
-                        "destination_id": destination,
-                        "conversion_timestamp": i,
-                        "total_budget_consumed": log["total_budget_consumed"],
-                        "cumulative_budget_consumed": cumulative_budget_consumed,
-                        # "user_id": log["user_id"],
-                        # "epoch_window": log["epoch_window"],
-                        "status": log["status"],
-                        "baseline": row["baseline"],
-                        "optimization": row["optimization"],
-                        "num_days_per_epoch": row["num_days_per_epoch"],
-                        # "num_days_attribution_window": row[
-                            # "num_days_attribution_window"
-                        # ],
-                    }
+        
+        budget_logs_per_destination = row["logs"]["budget"]
+        records = []
+        
+        for destination, destination_logs in budget_logs_per_destination.items():    
+
+            cumulative_avg_budget_per_user = {}
+            users = set()
+            for log in destination_logs:
+                users.add(log["user_id"])
+            num_users = len(users)
+            
+            for log in destination_logs:
+
+                timestamp = log["timestamp"]
+                user_id = log["user_id"]
+                total_budget_consumed = log["total_budget_consumed"]
+
+                if user_id not in cumulative_avg_budget_per_user:
+                    cumulative_avg_budget_per_user[user_id] = 0
+                cumulative_avg_budget_per_user[user_id] += total_budget_consumed
+                
+
+                max_avg_budget_consumed = max(cumulative_avg_budget_per_user.values()) / 93
+                avg_avg_budget_consumed = sum(cumulative_avg_budget_per_user.values()) / num_users
+                
+                records.append(
+                        {
+                            "destination_id": destination,
+                            "num_reports": timestamp,
+                            "max_avg_budget_conusmed": max_avg_budget_consumed,
+                            "avg_avg_budget_consumed": avg_avg_budget_consumed,
+                            "status": log["status"],
+                            "baseline": row["baseline"],
+                            "optimization": row["optimization"],
+                            "num_days_per_epoch": row["num_days_per_epoch"],
+                            "num_days_attribution_window": row[
+                                "num_days_attribution_window"
+                            ],
+                        }
                 )
-        return pd.DataFrame.from_records(logs)
+
+        return pd.DataFrame.from_records(records)
+
 
     dfs = []
+    df = get_df(path)
     for _, row in df.iterrows():
         dfs.append(get_logs(row))
 
     return pd.concat(dfs)
+
 
 def analyze_bias(path):
     df = get_df(path)
@@ -55,7 +73,7 @@ def analyze_bias(path):
 
     def get_logs(row):
         logs = []
-        for destination, destination_logs in bias_logs_per_destination.items():            
+        for destination, destination_logs in bias_logs_per_destination.items():
             total_bias = 0
             for i, log in enumerate(destination_logs):
                 total_bias += log["bias"]
@@ -71,7 +89,7 @@ def analyze_bias(path):
                         "optimization": row["optimization"],
                         "num_days_per_epoch": row["num_days_per_epoch"],
                         # "num_days_attribution_window": row[
-                            # "num_days_attribution_window"
+                        # "num_days_attribution_window"
                         # ],
                     }
                 )

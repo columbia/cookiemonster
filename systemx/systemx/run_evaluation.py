@@ -96,12 +96,12 @@ class Evaluation:
                             filter_result = origin_filters.pay_all_or_nothing(
                                 event.epochs_window, event.epsilon
                             )
-                            self.logger.log_event_budget(event, user_id, filter_result)
+                            self.logger.log_event_budget(event, "all_users", filter_result)
 
                             if not filter_result.succeeded():
                                 # Not enough budget to run this query - don't schedule the batch
                                 self.logger.log_event_bias(
-                                    event.timestamp,
+                                    event.id,
                                     event.destination,
                                     query_id,
                                     math.inf,
@@ -126,7 +126,7 @@ class Evaluation:
                             )
                         )
                         self.logger.log_event_bias(
-                            event.timestamp, event.destination, query_id, bias
+                            event.id, event.destination, query_id, bias
                         )
 
                         # Reset the batch

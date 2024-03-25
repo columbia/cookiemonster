@@ -14,6 +14,8 @@ class Dataset:
         self.config = config
         self.impressions_data = pd.read_csv(self.config.impressions_path)
         self.conversions_data = pd.read_csv(self.config.conversions_path)
+        
+        self.conversions_counter = 0
 
     @classmethod
     def create(cls, config: OmegaConf):
@@ -63,7 +65,7 @@ class Synthetic(Dataset):
                     destination=row["advertiser_id"],
                     filter=row["filter"],
                     key=str(row["key"]),
-                    user_id=impression_user_id
+                    user_id=impression_user_id,
                 )
                 return impression, impression_timestamp, impression_user_id
 
@@ -74,6 +76,7 @@ class Synthetic(Dataset):
             try:
                 _, row = next(conversions_reader)
                 conversion_timestamp = row["timestamp"]
+                self.conversions_counter += 1
 
                 num_seconds_attribution_window = (
                     self.config.num_days_attribution_window * 24 * 60 * 60
@@ -104,11 +107,12 @@ class Synthetic(Dataset):
                     earliest_attribution_day // self.config.num_days_per_epoch,
                     conversion_epoch,
                 )
-                
+
                 conversion_user_id = row["user_id"]
 
                 conversion = Conversion(
                     timestamp=conversion_timestamp,
+                    id=self.conversions_counter,
                     epoch=conversion_epoch,
                     destination=row["advertiser_id"],
                     attribution_window=attribution_window,
@@ -120,7 +124,7 @@ class Synthetic(Dataset):
                     filter=row["filter"],
                     key=str(row["key"]),
                     epsilon=row["epsilon"],
-                    user_id=conversion_user_id
+                    user_id=conversion_user_id,
                 )
 
                 return conversion, conversion_timestamp, conversion_user_id
@@ -178,7 +182,7 @@ class Criteo(Dataset):
                     destination=row["partner_id"],
                     filter=row["filter"],
                     key=str(row["key"]),
-                    user_id=impression_user_id
+                    user_id=impression_user_id,
                 )
                 return impression, impression_timestamp, impression_user_id
 
@@ -190,6 +194,7 @@ class Criteo(Dataset):
                 _, row = next(conversions_reader)
                 # conversion_day = row["conversion_day"]
                 conversion_timestamp = row["conversion_timestamp"]
+                self.conversions_counter += 1
 
                 num_seconds_attribution_window = (
                     self.config.num_days_attribution_window * 24 * 60 * 60
@@ -220,11 +225,12 @@ class Criteo(Dataset):
                     earliest_attribution_day // self.config.num_days_per_epoch,
                     conversion_epoch,
                 )
-                
+
                 conversion_user_id = row["user_id"]
 
                 conversion = Conversion(
                     timestamp=conversion_timestamp,
+                    id=self.conversions_counter,
                     epoch=conversion_epoch,
                     destination=row["partner_id"],
                     attribution_window=attribution_window,
@@ -236,7 +242,7 @@ class Criteo(Dataset):
                     filter=row["filter"],
                     key=str(row["key"]),
                     epsilon=row["epsilon"],
-                    user_id=conversion_user_id
+                    user_id=conversion_user_id,
                 )
 
                 return conversion, conversion_timestamp, conversion_user_id
