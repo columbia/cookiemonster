@@ -8,7 +8,7 @@ class ThreeAdversitersDatasetCreator(BaseCreator):
     """
     
     def __init__(self) -> None:
-        super().__init__("criteo_impressions_three_advertisers.csv", "criteo_conversions_three_advertisers.csv")
+        super().__init__("criteo_three_advertisers_impressions.csv", "criteo_three_advertisers_conversions.csv")
 
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:

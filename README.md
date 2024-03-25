@@ -54,7 +54,7 @@ Use the notebooks in `adsprivate/systemx/notebooks` to check how to analyze the 
 
 ### Run one experiment at a time
 ```bash
-python3 systemx/systemx/run_evaluation.py --config systemx/config/config.json
+python3 systemx/systemx/run_evaluation.py --omegaconf systemx/config/config.json
 ```
 
 The results will be stored inside the `adsprivate/systemx/logs` directory.

@@ -5,15 +5,16 @@ from ray_runner import grid_run
 app = typer.Typer()
 
 
-def budget_consumption(dataset):
+def budget_consumption(dataset: str, dataset_prefix: str | None):
     logs_dir = f"{dataset}/optimizations"
     config = {
+        "scheduling_batch_size_per_query": 20000,
         "baseline": ["ipa", "user_epoch_ara", "systemx"],
         "optimization": ["multiepoch"],
-        "dataset_name": "{dataset}",
-        "impressions_path": "{dataset}/{dataset}_impressions.csv",
-        "conversions_path": "{dataset}/{dataset}_conversions.csv",
-        "num_days_per_epoch": 1,  # [1, 15, 30],
+        "dataset_name": f"{dataset}",
+        "impressions_path": f"{dataset}/{dataset}{f'_{dataset_prefix}' if dataset_prefix else ''}_impressions.csv",
+        "conversions_path": f"{dataset}/{dataset}{f'_{dataset_prefix}' if dataset_prefix else ''}_conversions.csv",
+        "num_days_per_epoch": [1],  # [1, 15, 30],
         "num_days_attribution_window": 30,
         "workload_size": [100],
         "initial_budget": [100000000],
@@ -31,11 +32,12 @@ def budget_consumption(dataset):
 def run(
     exp: str = "budget_consumption",
     dataset: str = "synthetic",
+    dataset_prefix: str | None = None,
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
     os.environ["TUNE_DISABLE_AUTO_CALLBACK_LOGGERS"] = "1"
-    globals()[f"{exp}"](dataset)
+    globals()[f"{exp}"](dataset, dataset_prefix)
 
 
 if __name__ == "__main__":

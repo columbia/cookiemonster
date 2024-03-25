@@ -17,6 +17,7 @@ def run_and_report(config: dict, replace=False) -> None:
 
 
 def grid_run(
+    scheduling_batch_size_per_query: int,
     baseline: List[str],
     optimization: List[str],
     dataset_name: str,
@@ -33,6 +34,7 @@ def grid_run(
 
     config = {
         "sensitivity_metric": "L1",
+        "scheduling_batch_size_per_query": scheduling_batch_size_per_query,
         "user": {
             "sensitivity_metric": "L1",
             "baseline": tune.grid_search(baseline),
