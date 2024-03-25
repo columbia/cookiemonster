@@ -55,7 +55,6 @@ class Evaluation:
 
             if isinstance(result, ConversionResult):
                 convs += 1
-                print(convs)
                 # Add report to its corresponding batch
                 report = result.final_report
                 unbiased_report = result.unbiased_final_report
@@ -82,7 +81,6 @@ class Evaluation:
                 # Check if the new report triggers scheduling / aggregation
                 for query_id in report.histogram.keys():
                     batch = per_query_batch[query_id]
-                    print("batch size", batch.size())
 
                     if batch.size() == self.config.scheduling_batch_size_per_query:
                         # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)

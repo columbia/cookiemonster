@@ -1,12 +1,12 @@
 import uuid
 import math
 import typer
-import datetime
+# import datetime
 import numpy as np
 import pandas as pd
 from typing import Dict, Any
 from omegaconf import OmegaConf
-from multiprocessing import Manager, Process
+# from multiprocessing import Manager, Process
 import numpy as np
 
 app = typer.Typer()
@@ -47,10 +47,8 @@ def generate_poisson_distribution(n):
 def generate_random_dates(num_days, num_samples):
     # start_date = datetime.datetime(2024, 1, 1)
     # start_seconds = int((start_date - datetime.datetime(1970, 1, 1)).total_seconds())
-    # end_seconds = int((end_date - datetime.datetime(1970, 1, 1)).total_seconds())
     start_seconds = 0
     end_seconds = start_seconds + (num_days * 24 * 60 * 60)
-    # random_seconds = random.randint(start_seconds, end_seconds)
     random_seconds = np.random.randint(
         start_seconds, end_seconds, size=num_samples, dtype=int
     )
@@ -58,50 +56,16 @@ def generate_random_dates(num_days, num_samples):
 
 
 def generate_publisher_user_profile(config):
-    id_attribute = "device_id"
-    attribute_columns = [
-        "pub_profile_1",
-        "pub_profile_2",
-        "pub_profile_3",
-        "pub_profile_4",
-        # "pub_profile_5",
-        # "pub_profile_6",
-        # "pub_profile_7",
-        # "pub_profile_8",
-    ]
-    segment = "pub_segment"
-
     data = {}
-    data[id_attribute] = [generate_uuid() for _ in range(config.num_users)]
-    data[attribute_columns[0]] = generate_column_uniform(2, config.num_users)
-    data[attribute_columns[1]] = generate_column_uniform(10, config.num_users)
-    data[attribute_columns[2]] = generate_column_uniform(1000, config.num_users)
-    data[attribute_columns[3]] = generate_column_uniform(10000, config.num_users)
-    # data[attribute_columns[4]] = generate_column_right_skewed(2, config.num_users)
-    # data[attribute_columns[5]] = generate_column_right_skewed(10, config.num_users)
-    # data[attribute_columns[6]] = generate_column_right_skewed(1000, config.num_users)
-    # data[attribute_columns[7]] = generate_column_right_skewed(10000, config.num_users)
-    data[segment] = [val // 1000 + 1 for val in range(config.num_users)]
-
+    data["device_id"] = list(range(config.num_users))
+    data["pub_profile_1"] = generate_column_uniform(2, config.num_users)
+    data["pub_profile_2"] = generate_column_uniform(10, config.num_users)
+    data["pub_profile_3"] = generate_column_uniform(1000, config.num_users)
+    data["pub_profile_4"] = generate_column_uniform(10000, config.num_users)
     return pd.DataFrame(data)
 
 
 def generate_ad_exposure_records(config, publisher_user_profile):
-    device_id = "device_id"
-    # exp_record_id = "exp_record_id"
-    exp_timestamp = "exp_timestamp"
-    # exp_ad_interaction = "exp_ad_interaction"
-    attribute_columns = [
-        "exp_attribute_1",
-        "exp_attribute_2",
-        "exp_attribute_3",
-        "exp_attribute_4",
-        "exp_attribute_5",
-        "exp_attribute_6",
-        "exp_attribute_7",
-        "exp_attribute_8",
-    ]
-
     # lognormal_distribution = generate_log_normal_distribution(config.num_users)
     # records_size = sum(lognormal_distribution)
 
@@ -116,95 +80,18 @@ def generate_ad_exposure_records(config, publisher_user_profile):
     records_size = sum(normal_distribution)
 
     data = {}
-    # data[exp_record_id] = [generate_uuid() for _ in range(records_size)]
-    data[device_id] = np.repeat(publisher_user_profile[device_id], normal_distribution)
-    data[exp_timestamp] = generate_random_dates(config.num_days, records_size)
-    # data[exp_ad_interaction] = np.random.choice(
-    #     ["view", "click"], size=records_size, p=[0.99, 0.01]
-    # )
-    # data[attribute_columns[0]] = generate_column_uniform(2, records_size)
-    # data[attribute_columns[1]] = generate_column_uniform(10, records_size)
-    # data[attribute_columns[1]] = generate_column_uniform(10000, records_size)
-    # data[attribute_columns[3]] = generate_column_uniform(10000, records_size)
-    data[attribute_columns[4]] = generate_column_right_skewed(2, records_size)
-    data[attribute_columns[5]] = generate_column_right_skewed(10, records_size)
-    data[attribute_columns[6]] = generate_column_right_skewed(1000, records_size)
-    data[attribute_columns[7]] = generate_column_right_skewed(10000, records_size)
+    data["device_id"] = np.repeat(publisher_user_profile["device_id"], normal_distribution)
+    data["exp_timestamp"] = generate_random_dates(config.num_days, records_size)
+    data["exp_attribute_5"] = generate_column_right_skewed(2, records_size)
+    data["exp_attribute_6"] = generate_column_right_skewed(10, records_size)
+    data["exp_attribute_7"] = generate_column_right_skewed(1000, records_size)
+    data["exp_attribute_8"] = generate_column_right_skewed(10000, records_size)
     return pd.DataFrame(data)
-
-
-def get_converted_users(config, publisher_user_profile, ad_exposure_records):
-    id_attribute = "device_id"
-    probabilities = [0.01] * config.num_users
-
-    # Set conversion probabilities for each user
-    for i in range(config.num_users):
-        scaleup = 0
-        probability = 0.01
-        if publisher_user_profile.loc[i]["pub_profile_1"] == 1:
-            scaleup += probability * 0.02
-        if publisher_user_profile.loc[i]["pub_profile_2"] > 0:
-            scaleup += (
-                probability * 0.02 * publisher_user_profile.loc[i]["pub_profile_2"] / 9
-            )
-        if publisher_user_profile.loc[i]["pub_profile_3"] > 0:
-            scaleup += (
-                probability
-                * 0.02
-                * publisher_user_profile.loc[i]["pub_profile_3"]
-                / 999
-            )
-        if publisher_user_profile.loc[i]["pub_profile_4"] > 0:
-            scaleup += (
-                probability
-                * 0.02
-                * publisher_user_profile.loc[i]["pub_profile_4"]
-                / 9999
-            )
-        probabilities[i] += scaleup
-
-    for _, record in ad_exposure_records.iterrows():
-        id = record[id_attribute]
-        probability = 0.01
-        scaleup = 0
-        if record["exp_attribute_5"] == 1:
-            scaleup += probability * 0.02
-        if record["exp_attribute_6"] > 0:
-            scaleup += probability * 0.02 * record["exp_attribute_6"] / 9
-        if record["exp_attribute_7"] > 0:
-            scaleup += probability * 0.02 * record["exp_attribute_7"] / 999
-        if record["exp_attribute_8"] > 0:
-            scaleup += probability * 0.02 * record["exp_attribute_8"] / 9999
-        device_index = publisher_user_profile.loc[
-            publisher_user_profile[id_attribute] == id
-        ].index[0]
-        probabilities[device_index] += scaleup
-
-    publisher_user_profile["probability"] = probabilities
-    converted_users_count = config.num_users * config.conversion_rate_per_query
-    converted_users = publisher_user_profile[id_attribute].sample(
-        n=converted_users_count, weights=publisher_user_profile["probability"]
-    )
-    return converted_users.tolist()
 
 
 def generate_conversion_records(config, publisher_user_profile, ad_exposure_records):
 
-    device_id = "device_id"
-    # conv_record_id = "conv_record_id"
-    conv_timestamp = "conv_timestamp"
-    # attribute_columns = [
-    #     "conv_attribute_1",
-    #     "conv_attribute_2",
-    #     "conv_attribute_3",
-    #     "conv_attribute_4",
-    #     "conv_attribute_5",
-    #     "conv_attribute_6",
-    #     "conv_attribute_7",
-    #     "conv_attribute_8",
-    # ]
-    conv_amount = "conv_amount"
-
+    # Build conversion profile for each user
     mask_1 = publisher_user_profile["pub_profile_1"] == 1
     mask_2 = publisher_user_profile["pub_profile_2"] > 0
     mask_3 = publisher_user_profile["pub_profile_3"] > 0
@@ -253,68 +140,33 @@ def generate_conversion_records(config, publisher_user_profile, ad_exposure_reco
 
     publisher_user_profile["means"] += publisher_user_profile["scaleup"]
 
+    # For each user we generate <max_user_contribution_per_query> conversions for each scheduling cycle
     data = {}
-    # data[conv_record_id] = [generate_uuid() for _ in range(records_size)]
-    conversions_per_device = np.ones(config.num_users).astype(int)
-    data[device_id] = np.repeat(
-        publisher_user_profile[device_id], conversions_per_device
-    )
-    mean_values = np.repeat(publisher_user_profile["means"], conversions_per_device)
 
-    data[conv_timestamp] = generate_random_dates(config.num_days, config.num_users)
+    batch_size = config.num_users * config.max_user_contribution_per_query
+    records_size = batch_size * config.num_schedules
+    data["conv_timestamp"] = np.sort(generate_random_dates(config.num_days, records_size))
+    
+    batch = np.ones(config.num_users).astype(int) * config.max_user_contribution_per_query
+    distinct_devices_batch = np.repeat(publisher_user_profile["device_id"].values, batch)
+    distinct_devices_mean_values = np.repeat(publisher_user_profile["means"].values, batch)
 
-    # data[attribute_columns[0]] = generate_column_uniform(2, records_size)
-    # data[attribute_columns[1]] = generate_column_uniform(10, records_size)
-    # data[attribute_columns[2]] = generate_column_uniform(1000, records_size)
-    # data[attribute_columns[3]] = generate_column_uniform(10000, records_size)
-    # data[attribute_columns[4]] = generate_column_right_skewed(2, records_size)
-    # data[attribute_columns[5]] = generate_column_right_skewed(10, records_size)
-    # data[attribute_columns[6]] = generate_column_right_skewed(1000, records_size)
-    # data[attribute_columns[7]] = generate_column_right_skewed(10000, records_size)
+    device_ids = []
+    conv_amounts = []
+
+    for _ in range(config.num_schedules):
+        # We ensure that a user doesn't appear more than <max_user_contribution_per_query> times within a batch
+        # Shuffle users so they don't appear continuous within a batch
+        indices = np.arange(batch_size)
+        np.random.shuffle(indices)
+        device_ids.append(distinct_devices_batch[indices])
+        conv_amounts.append(np.round(np.random.lognormal(mean=distinct_devices_mean_values[indices], sigma=0.2, size=batch_size), 1))
+    
+    data["device_id"] = np.hstack(device_ids)
+    data["conv_amount"] = np.hstack(conv_amounts)
 
     # Cap value to bound user contribution
-    data[conv_amount] = np.round(
-        np.random.lognormal(
-            mean=mean_values, sigma=0.2, size=np.sum(conversions_per_device)
-        ),
-        1,
-    )
-    data[conv_amount] = np.clip(data[conv_amount], a_min=None, a_max=config.cap_value)
-
-    return pd.DataFrame(data)
-
-
-def generate_advertiser_user_profile(converted_users):
-    id_attribute = "device_id"
-    attribute_columns = [
-        "conv_profile_1",
-        "conv_profile_2",
-        "conv_profile_3",
-        "conv_profile_4",
-        "conv_profile_5",
-        "conv_profile_6",
-        "conv_profile_7",
-        "conv_profile_8",
-    ]
-    segment = "conv_segment"
-
-    converted_users_count = len(converted_users)
-
-    data = {}
-    data[id_attribute] = converted_users.tolist()
-    data[attribute_columns[0]] = generate_column_uniform(2, converted_users_count)
-    data[attribute_columns[1]] = generate_column_uniform(10, converted_users_count)
-    data[attribute_columns[2]] = generate_column_uniform(1000, converted_users_count)
-    data[attribute_columns[3]] = generate_column_uniform(10000, converted_users_count)
-    data[attribute_columns[4]] = generate_column_right_skewed(2, converted_users_count)
-    data[attribute_columns[5]] = generate_column_right_skewed(10, converted_users_count)
-    data[attribute_columns[6]] = generate_column_right_skewed(
-        1000, converted_users_count
-    )
-    data[attribute_columns[7]] = generate_column_right_skewed(
-        10000, converted_users_count
-    )
-    data[segment] = [val // 1000 + 1 for val in range(converted_users_count)]
+    data["conv_amount"] = np.clip(data["conv_amount"], a_min=None, a_max=config.cap_value)
 
     return pd.DataFrame(data)
 
@@ -322,15 +174,15 @@ def generate_advertiser_user_profile(converted_users):
 def create_synthetic_dataset(config: Dict[str, Any]):
     """
     Dataset constraints:
-    a) Each user must contribute at most with one report per query
-    b) We need  Q disjoint queries (say Q different product ids or some other feature) for an advertiser
+    a) Each user must contribute at most with <max_user_contribution_per_query> reports per query batch
+    b) We need Q disjoint queries (say Q different product ids or some other feature) for an advertiser
     c) we have one advertiser
     d) the total conversion reports for each query is K (this means we probably need many many users)
-    e) each user produces impressions for the product ids with a frequency R
+    e) each user produces impressions for the product ids with a frequency I
     f) say a total of D days
 
     Some possible values:
-    Q = 100, K=20K, R= [value that yields no impressions at all, value that yields at least one impression per day], D = 90
+    Q = 100, K=20K, I= [value that yields no impressions at all, value that yields at least one impression per day], D = 90
     """
 
     def create_data_for_query(product_id, publisher_user_profile, results):
@@ -344,12 +196,10 @@ def create_synthetic_dataset(config: Dict[str, Any]):
         impressions = impressions[["device_id", "exp_timestamp"]]
         conversions = conversions[["device_id", "conv_timestamp", "conv_amount"]]
 
-        # Enforce constraints
         impressions = impressions.rename(
             columns={
                 "device_id": "user_id",
-                "exp_timestamp": "timestamp",
-                "exp_attribute_9": "product_id",
+                "exp_timestamp": "timestamp"
             }
         )
 
@@ -357,8 +207,7 @@ def create_synthetic_dataset(config: Dict[str, Any]):
             columns={
                 "device_id": "user_id",
                 "conv_timestamp": "timestamp",
-                "exp_attribute_9": "product_id",
-                "conv_amount": "amount",
+                "conv_amount": "amount"
             }
         )
 
@@ -379,19 +228,17 @@ def create_synthetic_dataset(config: Dict[str, Any]):
         results[product_id] = {"impressions": impressions, "conversions": conversions}
 
     config = OmegaConf.create(config)
-    advertiser_id = generate_uuid()
+    advertiser_id = 1 # generate_uuid()
 
     total_synthetic_impressions = []
     total_synthetic_conversions = []
 
-    config.num_conversions_per_query = (
-        config.scheduled_batch_size * config.num_schedules
-    )
+    # config.num_conversions_per_query = (
+    #     config.scheduled_batch_size * config.num_schedules
+    # )
 
-    # One conversion max allowed per user each query
-    config.num_users = (
-        config.num_conversions_per_query // config.conversion_rate_per_query
-    )
+    # <max_user_contribution_per_query> conversions allowed per user for each batch
+    config.num_users = config.scheduled_batch_size // config.max_user_contribution_per_query
 
     publisher_user_profile = generate_publisher_user_profile(config)
 
@@ -427,7 +274,7 @@ def create_synthetic_dataset(config: Dict[str, Any]):
 
     [a, b] = config.accuracy
     s = config.cap_value
-    n = config.num_conversions_per_query
+    n = config.scheduled_batch_size
 
     def set_epsilon_given_accuracy(a, b, s, n):
         return s * math.log(1 / b) / (n * a)
@@ -437,13 +284,13 @@ def create_synthetic_dataset(config: Dict[str, Any]):
 
     total_synthetic_conversions_df["aggregatable_cap_value"] = config.cap_value
 
-    # # Sort impressions and conversions
+    # Sort impressions and conversions
     total_synthetic_impressions_df = total_synthetic_impressions_df.sort_values(
         by=["timestamp"]
     )
-    total_synthetic_conversions_df = total_synthetic_conversions_df.sort_values(
-        by=["timestamp"]
-    )
+    # total_synthetic_conversions_df = total_synthetic_conversions_df.sort_values(
+    #     by=["timestamp"]
+    # )
 
     total_synthetic_impressions_df.to_csv(
         "synthetic_impressions.csv", header=True, index=False

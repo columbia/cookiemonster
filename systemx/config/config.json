@@ -1,9 +1,9 @@
 {
     "sensitivity_metric": "L1",
-    "scheduling_batch_size_per_query": 2000,
+    "scheduling_batch_size_per_query": 20000,
     "user": {
         "sensitivity_metric": "L1",
-        "baseline": "user_epoch_ara",
+        "baseline": "ipa",
         "optimization": "multiepoch",
         "initial_budget": 10
     },
