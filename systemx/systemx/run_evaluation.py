@@ -41,7 +41,7 @@ class Evaluation:
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
-
+        convs = 0
         event_reader = self.dataset.event_reader()
         while res := next(event_reader):
             (user_id, event) = res
@@ -54,6 +54,8 @@ class Evaluation:
             result = self.users[user_id].process_event(event)
 
             if isinstance(result, ConversionResult):
+                convs += 1
+                print(convs)
                 # Add report to its corresponding batch
                 report = result.final_report
                 unbiased_report = result.unbiased_final_report
@@ -80,6 +82,7 @@ class Evaluation:
                 # Check if the new report triggers scheduling / aggregation
                 for query_id in report.histogram.keys():
                     batch = per_query_batch[query_id]
+                    print("batch size", batch.size())
 
                     if batch.size() == self.config.scheduling_batch_size_per_query:
                         # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)
@@ -88,7 +91,7 @@ class Evaluation:
                                 self.global_filters_per_origin,
                                 event.destination,
                                 event.epochs_window,
-                                float(self.config.initial_budget),
+                                float(self.config.user.initial_budget),
                             )
                             filter_result = origin_filters.pay_all_or_nothing(
                                 event.epochs_window, event.epsilon
@@ -103,9 +106,9 @@ class Evaluation:
                                     query_id,
                                     math.inf,
                                 )
-                                logger.info(colored(f"Query bias: {bias}", "red"))
-                                # # Reset the batch
-                                # del per_query_batch[query_id]
+                                logger.info(colored(f"Query bias: {math.inf}", "red"))
+                                # Reset the batch
+                                del per_query_batch[query_id]
                                 continue
 
                         # Schedule the batch

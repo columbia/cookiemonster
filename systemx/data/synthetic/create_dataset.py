@@ -383,7 +383,7 @@ def create_synthetic_dataset(config: Dict[str, Any]):
         conversions["product_id"] = product_id
 
         # Set keys
-        impressions["key"] = "_"
+        impressions["key"] = ""
         conversions["key"] = "purchaseValue"
 
         # Set filters

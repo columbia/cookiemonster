@@ -3,7 +3,7 @@
     "per_day_impressions_rate" : 0.036,
     "num_disjoint_queries" : 100,
     "num_days": 90,
-    "num_schedules" : 1,
+    "num_schedules" : 5,
     "scheduled_batch_size" : 20000,
     "accuracy": [0.05, 0.01],
     "cap_value": 5

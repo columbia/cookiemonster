@@ -1,10 +1,10 @@
 from omegaconf import OmegaConf
-from typing import Dict, List, Any, Union, Tuple
+from typing import Dict, List, Any, Union
 
 from systemx.event_logger import EventLogger
 from systemx.report import Partition, Report
 from systemx.events import Impression, Conversion
-from systemx.budget_accountant import BudgetAccountant, BudgetAccountantResult
+from systemx.budget_accountant import BudgetAccountant
 
 from systemx.utils import maybe_initialize_filters, compute_global_sensitivity
 
