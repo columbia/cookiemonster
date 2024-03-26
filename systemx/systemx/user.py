@@ -1,7 +1,7 @@
 from omegaconf import OmegaConf
 from typing import Dict, List, Any, Union
 
-from systemx.event_logger import EventLogger
+from systemx.event_logger import EventLogger, log_budget_helper
 from systemx.report import Partition, Report
 from systemx.events import Impression, Conversion
 from systemx.budget_accountant import BudgetAccountant
@@ -147,7 +147,7 @@ class User:
                 if not filter_result.succeeded():
                     partition.null_report()
 
-                User.logger.log_event_budget(conversion, self.id, filter_result)
+                log_budget_helper(User.logger, conversion, self.id, filter_result)
 
         # Aggregate partition reports to create a final report
         final_report = Report()

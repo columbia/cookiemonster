@@ -7,7 +7,7 @@ from termcolor import colored
 from omegaconf import OmegaConf
 
 from systemx.dataset import Dataset
-from systemx.event_logger import EventLogger
+from systemx.event_logger import EventLogger, log_budget_helper
 from systemx.budget_accountant import BudgetAccountant
 from systemx.user import User, get_log_events_across_users, ConversionResult
 from systemx.utils import process_logs, save_logs, IPA, maybe_initialize_filters
@@ -41,7 +41,6 @@ class Evaluation:
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
-        convs = 0
         event_reader = self.dataset.event_reader()
         while res := next(event_reader):
             (user_id, event) = res
@@ -54,7 +53,11 @@ class Evaluation:
             result = self.users[user_id].process_event(event)
 
             if isinstance(result, ConversionResult):
-                convs += 1
+
+                self.logger.log_range(
+                    "epoch_range", event.destination, *event.epochs_window
+                )
+
                 # Add report to its corresponding batch
                 report = result.final_report
                 unbiased_report = result.unbiased_final_report
@@ -94,13 +97,12 @@ class Evaluation:
                             filter_result = origin_filters.pay_all_or_nothing(
                                 event.epochs_window, event.epsilon
                             )
-                            self.logger.log_event_budget(
-                                event, "all_users", filter_result
-                            )
+                            log_budget_helper(self.logger, event, 0, filter_result)
 
                             if not filter_result.succeeded():
                                 # Not enough budget to run this query - don't schedule the batch
-                                self.logger.log_event_bias(
+                                self.logger.log(
+                                    "bias",
                                     event.id,
                                     event.destination,
                                     query_id,
@@ -125,8 +127,9 @@ class Evaluation:
                                 "green",
                             )
                         )
-                        self.logger.log_event_bias(
-                            event.id, event.destination, query_id, bias
+
+                        self.logger.log(
+                            "bias", event.id, event.destination, query_id, bias
                         )
 
                         # Reset the batch

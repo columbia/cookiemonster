@@ -25,6 +25,7 @@ def grid_run(
     num_days_per_epoch: List[int],
     num_days_attribution_window: int,
     workload_size: List[int],
+    scheduling_batch_size_per_query: int,
     initial_budget: float,
     logs_dir: str,
     loguru_level: str,
@@ -33,6 +34,7 @@ def grid_run(
 
     config = {
         "sensitivity_metric": "L1",
+        "scheduling_batch_size_per_query": scheduling_batch_size_per_query,
         "user": {
             "sensitivity_metric": "L1",
             "baseline": tune.grid_search(baseline),

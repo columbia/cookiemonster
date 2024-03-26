@@ -1,66 +1,45 @@
-from typing import Dict, Any, Union, Tuple
+import math
+from typing import Dict, Any, Union
 from systemx.events import Impression, Conversion
 from systemx.budget_accountant import BudgetAccountantResult
+
+
+def log_budget_helper(
+    logger: "EventLogger",
+    event: Union[Impression, Conversion],
+    user_id: Any,
+    filter_result: BudgetAccountantResult,
+):
+    logger.log(
+        "budget",
+        event.id,
+        event.destination,
+        user_id,
+        event.epochs_window,
+        event.attribution_window,
+        filter_result.total_budget_consumed,
+        filter_result.status,
+    )
 
 
 class EventLogger:
     def __init__(self):
         # TODO: Possibly add support for mlflow logging
-        self.logs: Dict[str, Any] = {"budget": {}, "bias": {}}
+        self.logs: Dict[str, Any] = {}
 
-    def log_event_budget_internal(
-        self,
-        timestamp: int,
-        destination: str,
-        user_id: Any,
-        epochs_window: Tuple[int, int],
-        attribution_window: Tuple[int, int],
-        total_budget_consumed: float,
-        status: str,
-    ):
-        logs = self.logs["budget"]
+    def log(self, key, *data):
+        if key not in self.logs:
+            self.logs[key] = []
+        self.logs[key].append(data)
 
-        if destination not in logs:
-            logs[destination] = []
-
-        logs[destination].append(
-            {
-                "timestamp": timestamp,
-                "user_id": user_id,
-                "epochs_window": epochs_window,
-                "attribution_window": attribution_window,
-                "total_budget_consumed": total_budget_consumed,
-                "status": status,
-            }
-        )
-
-    def log_event_budget(
-        self,
-        event: Union[Impression, Conversion],
-        user_id: Any,
-        filter_result: BudgetAccountantResult,
-    ):
-        self.log_event_budget_internal(
-            event.id,  # virtual conversion time
-            event.destination,
-            user_id,
-            event.epochs_window,
-            event.attribution_window,
-            filter_result.total_budget_consumed,
-            filter_result.status,
-        )
-
-    def log_event_bias(
-        self, timestamp: int, destination: str, query_id: str, bias: float
-    ):
-        logs = self.logs["bias"]
-
-        if destination not in logs:
-            logs[destination] = []
-
-        logs[destination].append(
-            {"timestamp": timestamp, "query_id": query_id, "bias": bias}
-        )
+    def log_range(self, key, destination, a, b):
+        if key not in self.logs:
+            self.logs[key] = {}
+        if destination not in self.logs[key]:
+            self.logs[key][destination] = {"min": math.inf, "max": 0}
+        logs_key_destination = self.logs[key][destination]
+        logs_key_destination["min"] = min(logs_key_destination["min"], a)
+        logs_key_destination["max"] = max(logs_key_destination["max"], b)
 
     def __add__(self, other: "EventLogger") -> "EventLogger":
         new_logger = EventLogger()

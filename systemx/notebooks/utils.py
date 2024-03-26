@@ -1,7 +1,10 @@
+import numpy as np
 import pandas as pd
+import plotly.io as pio
 import plotly.express as px
 from plotly.offline import iplot
 from systemx.utils import LOGS_PATH
+from multiprocessing import Manager, Process
 from experiments.ray.analysis import load_ray_experiment
 
 
@@ -13,42 +16,41 @@ def get_df(path):
 
 def analyze_budget_consumption(path):
 
-    def get_logs(row):
+    def get_logs(row, results, i):
+        logs = row["logs"]["budget"]
+        per_destination_epoch_range = row["logs"]["epoch_range"]
 
-        budget_logs_per_destination = row["logs"]["budget"]
+        df = pd.DataFrame.from_records(
+            logs,
+            columns=[
+                "timestamp",
+                "destination",
+                "user",
+                "epochs_window",
+                "attribution_window",
+                "budget_consumed",
+                "status",
+            ],
+        )
+
         records = []
+        for destination, destination_df in df.groupby(["destination"]):
 
-        for destination, destination_logs in budget_logs_per_destination.items():
+            num_users = destination_df["user"].nunique()
+            epoch_range = per_destination_epoch_range[str(destination[0])]
+            min_epoch = epoch_range["min"]
+            max_epoch = epoch_range["max"]
+            num_epochs = max_epoch - min_epoch + 1
 
-            cumulative_avg_budget_per_user = {}
-            users = set()
-            for log in destination_logs:
-                users.add(log["user_id"])
-            num_users = len(users)
-
-            for log in destination_logs:
-
-                timestamp = log["timestamp"]
-                user_id = log["user_id"]
-                total_budget_consumed = log["total_budget_consumed"]
-
-                if user_id not in cumulative_avg_budget_per_user:
-                    cumulative_avg_budget_per_user[user_id] = 0
-                cumulative_avg_budget_per_user[user_id] += total_budget_consumed
-
-                max_avg_budget_consumed = (
-                    max(cumulative_avg_budget_per_user.values()) / 93
-                )
-                avg_avg_budget_consumed = (
-                    sum(cumulative_avg_budget_per_user.values()) / num_users
-                )
-
+            users = np.zeros(num_users)
+            for _, log in destination_df.iterrows():
+                users[log["user"]] += log["budget_consumed"]
                 records.append(
                     {
-                        "destination_id": destination,
-                        "num_reports": timestamp,
-                        "max_avg_budget_conusmed": max_avg_budget_consumed,
-                        "avg_avg_budget_consumed": avg_avg_budget_consumed,
+                        "destination": destination[0],
+                        "num_reports": log["timestamp"],
+                        "max_budget_conusmed": np.max(users) / num_epochs,
+                        "avg_budget_consumed": np.mean(users) / num_epochs,
                         "status": log["status"],
                         "baseline": row["baseline"],
                         "optimization": row["optimization"],
@@ -58,7 +60,63 @@ def analyze_budget_consumption(path):
                         ],
                     }
                 )
+        results[i] = pd.DataFrame.from_records(records)
 
+    dfs = []
+    df = get_df(path)
+
+    # In Parallel
+    processes = []
+    results = Manager().dict()
+    for i, row in df.iterrows():
+        print(i)
+        processes.append(
+            Process(
+                target=get_logs,
+                args=(row, results, i),
+            )
+        )
+        processes[i].start()
+
+    for process in processes:
+        process.join()
+
+    # # Sequentially
+    # results = {}
+    # for i, row in df.iterrows():
+    #     if i == 1:
+    #         get_logs(row, results, i)
+
+    for result in results.values():
+        dfs.append(result)
+
+    return pd.concat(dfs)
+
+
+def analyze_bias(path):
+
+    def get_logs(row):
+        logs = row["logs"]["bias"]
+        df = pd.DataFrame.from_records(
+            logs, columns=["timestamp", "destination", "query_id", "bias"]
+        )
+
+        records = []
+        for destination, destination_df in df.groupby(["destination"]):
+
+            workload_bias = destination_df["bias"].sum()
+            # print(log)
+            records.append(
+                {
+                    "destination": destination[0],
+                    "workload_bias": workload_bias,
+                    "workload_size": row["workload_size"],
+                    "baseline": row["baseline"],
+                    "optimization": row["optimization"],
+                    "num_days_per_epoch": row["num_days_per_epoch"],
+                    "num_days_attribution_window": row["num_days_attribution_window"],
+                }
+            )
         return pd.DataFrame.from_records(records)
 
     dfs = []
@@ -69,65 +127,72 @@ def analyze_budget_consumption(path):
     return pd.concat(dfs)
 
 
-def analyze_bias(path):
-    df = get_df(path)
-    bias_logs_per_destination = df["logs"]["bias"]
-
-    def get_logs(row):
-        logs = []
-        for destination, destination_logs in bias_logs_per_destination.items():
-            total_bias = 0
-            for i, log in enumerate(destination_logs):
-                total_bias += log["bias"]
-                logs.append(
-                    {
-                        "destination_id": destination,
-                        "conversion_timestamp": i,
-                        "bias": total_bias,
-                        # "user_id": log["user_id"],
-                        # "epoch_window": log["epoch_window"],
-                        "status": log["status"],
-                        "baseline": row["baseline"],
-                        "optimization": row["optimization"],
-                        "num_days_per_epoch": row["num_days_per_epoch"],
-                        # "num_days_attribution_window": row[
-                        # "num_days_attribution_window"
-                        # ],
-                    }
-                )
-        return pd.DataFrame.from_records(logs)
-
-    dfs = []
-    for _, row in df.iterrows():
-        dfs.append(get_logs(row))
-
-    return pd.concat(dfs)
-
-
 def plot_budget_consumption(df):
-    df["key"] = (
-        df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
-    )
+    # df["key"] = (
+    #     df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
+    # )
 
-    def plot_budget_consumption_across_time(df):
+    custom_order = ["ipa", "user_epoch_ara", "systemx"]
+
+    def max_budget(df):
         fig = px.line(
             df,
-            x="conversion_timestamp",
-            y="cumulative_budget_consumed",
-            color="key",
-            title=f"Total Budget Consumption",
+            x="num_reports",
+            y="max_budget_conusmed",
+            color="baseline",
+            title=f"Cumulative Budget Consumption",
             width=1100,
-            height=1600,
-            # facet_row="num_days_per_epoch",
+            height=600,
+            # markers=True,
+            facet_row="destination",
+            category_orders={"baseline": custom_order},
         )
         return fig
 
-    figures = (
-        df.groupby("destination_id")
-        .apply(plot_budget_consumption_across_time, include_groups=False)
-        .reset_index(name="figures")["figures"]
-    )
+    def avg_budget(df):
+        fig = px.line(
+            df,
+            x="num_reports",
+            y="avg_budget_consumed",
+            color="baseline",
+            title=f"Cumulative Budget Consumption",
+            width=1100,
+            height=600,
+            # markers=True,
+            facet_row="destination",
+            category_orders={"baseline": custom_order},
+        )
+        return fig
 
-    # for figure in figures.values:
-    # iplot(figure)
-    iplot(figures.values[0])
+    # figures = (
+    #     df.groupby("destination_id")
+    #     .apply(plot_budget_consumption_across_time, include_groups=False)
+    #     .reset_index(name="figures")["figures"]
+    # )
+    # iplot(figures.values[0])
+
+    pio.show(max_budget(df), renderer="png", include_plotlyjs=False)
+    pio.show(avg_budget(df), renderer="png", include_plotlyjs=False)
+
+    # max_budget(df).show()
+    # avg_budget(df).show()
+    # iplot(max_budget(df))
+    # iplot(avg_budget(df))
+
+
+def plot_bias(df):
+    def bias(df):
+        fig = px.line(
+            df,
+            x="workload_size",
+            y="workload_bias",
+            color="baseline",
+            title=f"Total Workload Bias",
+            width=1100,
+            height=600,
+            markers=True,
+            facet_row="destination",
+        )
+        return fig
+
+    iplot(bias(df))

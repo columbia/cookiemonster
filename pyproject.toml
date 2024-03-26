@@ -18,6 +18,8 @@ rich = "^13.7.1"
 plotly = "^5.19.0"
 matplotlib = "^3.8.3"
 nbclean = "^0.3.2"
+nb-clean = "^3.2.0"
+kaleido = "0.2.1"
 
 [tool.poetry.dev-dependencies]
 
