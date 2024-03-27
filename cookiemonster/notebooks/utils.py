@@ -45,13 +45,23 @@ def analyze_budget_consumption(path):
         for destination, destination_df in df.groupby(["destination"]):
 
             num_touched_users = destination_df["user"].nunique()
-            max_user_id = destination_df["user"].max()+1
+            max_user_id = destination_df["user"].max() + 1
             epoch_range = per_destination_epoch_range[str(destination[0])]
             min_epoch = epoch_range["min"]
             max_epoch = epoch_range["max"]
             num_epochs = max_epoch - min_epoch + 1
 
-            print(i, "Touched Users:", num_touched_users, "Total users:", max_user_id, "Min epoch:", min_epoch,"Max epoch:", max_epoch)
+            print(
+                i,
+                "Touched Users:",
+                num_touched_users,
+                "Total users:",
+                max_user_id,
+                "Min epoch:",
+                min_epoch,
+                "Max epoch:",
+                max_epoch,
+            )
 
             # Array bigger than the size of touched users but I will ignore them
             users = np.zeros(max_user_id)
@@ -64,7 +74,8 @@ def analyze_budget_consumption(path):
                         "destination": destination[0],
                         "num_reports": log["timestamp"],
                         "max_budget_conusmed": np.max(users) / num_epochs,
-                        "avg_budget_consumed": np.sum(users) / (num_epochs * num_touched_users),
+                        "avg_budget_consumed": np.sum(users)
+                        / (num_epochs * num_touched_users),
                         "status": log["status"],
                         "baseline": row["baseline"],
                         "optimization": row["optimization"],

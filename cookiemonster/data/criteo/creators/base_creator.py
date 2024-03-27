@@ -10,20 +10,32 @@ else:
 
 os.environ["MODIN_ENGINE"] = "ray"
 
+
 class BaseCreator(ABC):
-    
-    data_file = os.path.join(os.path.dirname(__file__), os.getenv("CRITEO_DATA_FILE_PATH", "../Criteo_Conversion_Search/CriteoSearchData"))
+
+    data_file = os.path.join(
+        os.path.dirname(__file__),
+        os.getenv(
+            "CRITEO_DATA_FILE_PATH", "../Criteo_Conversion_Search/CriteoSearchData"
+        ),
+    )
 
     def __init__(self, impressions_filename: str, conversions_filename: str):
         self.df: pd.DataFrame | None = None
         self.impressions: pd.DataFrame | None = None
         self.conversions: pd.DataFame | None = None
-        self.impressions_filename = os.path.join(os.path.dirname(__file__), '..', impressions_filename)
-        self.conversions_filename = os.path.join(os.path.dirname(__file__), '..', conversions_filename)
+        self.impressions_filename = os.path.join(
+            os.path.dirname(__file__), "..", impressions_filename
+        )
+        self.conversions_filename = os.path.join(
+            os.path.dirname(__file__), "..", conversions_filename
+        )
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
         stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s]: %(message)s"))
+        stream_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s]: %(message)s")
+        )
         self.logger.addHandler(stream_handler)
 
     def _read_dataframe(self) -> pd.DataFrame:
@@ -102,7 +114,7 @@ class BaseCreator(ABC):
         )
         df = df.drop(columns=columns_to_drop)
         return df
-    
+
     @abstractmethod
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         pass
@@ -131,10 +143,10 @@ class BaseCreator(ABC):
         self.logger.info("writing the datasets out to the file paths specified")
         df_and_fp = [
             (self.impressions, self.impressions_filename),
-            (self.conversions, self.conversions_filename)
+            (self.conversions, self.conversions_filename),
         ]
-        
-        for (df, filepath) in df_and_fp:
+
+        for df, filepath in df_and_fp:
             if os.path.exists(filepath):
                 os.remove(filepath)
 

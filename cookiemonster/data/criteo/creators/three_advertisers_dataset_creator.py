@@ -1,15 +1,20 @@
 from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
-from cookiemonster.data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
+from cookiemonster.data.criteo.creators.epsilon_calculator import (
+    get_epsilon_from_accuracy_for_counts,
+)
+
 
 class ThreeAdversitersDatasetCreator(BaseCreator):
     """
     Rather than querying across all advertisers, we handpick three advertisers to focus on.
     The conversions here expect count queries.
     """
-    
-    def __init__(self) -> None:
-        super().__init__("criteo_impressions_three_advertisers.csv", "criteo_conversions_three_advertisers.csv")
 
+    def __init__(self) -> None:
+        super().__init__(
+            "criteo_impressions_three_advertisers.csv",
+            "criteo_conversions_three_advertisers.csv",
+        )
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(subset=["product_id", "partner_id", "user_id"])
@@ -22,7 +27,9 @@ class ThreeAdversitersDatasetCreator(BaseCreator):
 
         df.loc[(df["Sale"] == 1) & (df["Time_delay_for_conversion"] == -1), "Sale"] = 0
 
-        df["conversion_timestamp"] = df["Time_delay_for_conversion"] + df["click_timestamp"]
+        df["conversion_timestamp"] = (
+            df["Time_delay_for_conversion"] + df["click_timestamp"]
+        )
         # df["conversion_datetime"] = df["conversion_timestamp"].apply(
         #     lambda x: datetime.fromtimestamp(x)
         # )
@@ -50,7 +57,6 @@ class ThreeAdversitersDatasetCreator(BaseCreator):
         df["filter"] = "product_group_id=" + df["product_id_group"].astype(str)
         return df
 
-
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
         # Get impressions
         impressions = df[
@@ -66,7 +72,6 @@ class ThreeAdversitersDatasetCreator(BaseCreator):
         impressions = impressions.sort_values(by=["click_timestamp"])
         impressions["key"] = ""
         return impressions
-    
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         # Get conversions
@@ -86,11 +91,14 @@ class ThreeAdversitersDatasetCreator(BaseCreator):
 
         # Process SalesAmountInEuro to not be smaller than product_price
         conversions.loc[
-            conversions["SalesAmountInEuro"] < conversions["product_price"], "SalesAmountInEuro"
+            conversions["SalesAmountInEuro"] < conversions["product_price"],
+            "SalesAmountInEuro",
         ] = conversions["product_price"]
 
         # Compute counts
-        conversions["count"] = conversions["SalesAmountInEuro"] // conversions["product_price"]
+        conversions["count"] = (
+            conversions["SalesAmountInEuro"] // conversions["product_price"]
+        )
         conversions = conversions.drop(columns=["product_price", "SalesAmountInEuro"])
 
         # Cap Counts
@@ -103,9 +111,13 @@ class ThreeAdversitersDatasetCreator(BaseCreator):
             .size()
             .reset_index(name="count")
         )
-        x["epsilon"] = x["count"].apply(lambda c: get_epsilon_from_accuracy_for_counts(c, cap_value))
+        x["epsilon"] = x["count"].apply(
+            lambda c: get_epsilon_from_accuracy_for_counts(c, cap_value)
+        )
         x = x.drop(columns=["count"])
-        conversions = conversions.merge(x, on=["partner_id", "product_id_group"], how="left")
+        conversions = conversions.merge(
+            x, on=["partner_id", "product_id_group"], how="left"
+        )
 
         conversions["aggregatable_cap_value"] = cap_value
         conversions["key"] = "purchaseCount"

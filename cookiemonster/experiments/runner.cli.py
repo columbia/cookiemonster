@@ -7,6 +7,7 @@ import multiprocessing
 
 app = typer.Typer()
 
+
 def experiments_start_and_join(experiments):
     for p in experiments:
         time.sleep(5)
@@ -14,15 +15,17 @@ def experiments_start_and_join(experiments):
     for p in experiments:
         p.join()
 
+
 def get_path(path_base, conversions_rate, impression_rate):
     return f"{path_base}_conv_rate_{conversions_rate}_impr_rate_{impression_rate}.csv"
 
+
 def budget_consumption_vary_conversions_rate(dataset):
-    
+
     logs_dir = f"{dataset}/budget_consumption"
 
     experiments = []
-    
+
     impressions_path_base = f"{dataset}/{dataset}_impressions"
     conversions_path_base = f"{dataset}/{dataset}_conversions"
 
@@ -33,8 +36,12 @@ def budget_consumption_vary_conversions_rate(dataset):
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
-        "impressions_path": get_path(impressions_path_base, conversions_rate, impression_rate),
-        "conversions_path": get_path(conversions_path_base, conversions_rate, impression_rate),
+        "impressions_path": get_path(
+            impressions_path_base, conversions_rate, impression_rate
+        ),
+        "conversions_path": get_path(
+            conversions_path_base, conversions_rate, impression_rate
+        ),
         "num_days_per_epoch": [1],  # [1, 15, 30],
         "num_days_attribution_window": 30,
         "workload_size": [4],
@@ -50,10 +57,14 @@ def budget_consumption_vary_conversions_rate(dataset):
             target=lambda config: grid_run(**config), args=(deepcopy(config),)
         )
     )
-    
+
     conversions_rate = 1
-    config["impressions_path"] = get_path(impressions_path_base, conversions_rate, impression_rate)
-    config["conversions_path"] = get_path(conversions_path_base, conversions_rate, impression_rate)
+    config["impressions_path"] = get_path(
+        impressions_path_base, conversions_rate, impression_rate
+    )
+    config["conversions_path"] = get_path(
+        conversions_path_base, conversions_rate, impression_rate
+    )
 
     experiments.append(
         multiprocessing.Process(
