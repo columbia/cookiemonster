@@ -1,6 +1,7 @@
 {
-    "max_user_contribution_per_query" : 1,
-    "per_day_impressions_rate" : 0.036,
+    "per_day_user_impressions_rate" : 0.036,
+    "user_conversions_rate" : 1,
+    "user_contributions_per_query" : 1,
     "num_disjoint_queries" : 100,
     "num_days": 90,
     "num_schedules" : 5,

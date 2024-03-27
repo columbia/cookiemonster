@@ -70,7 +70,7 @@ def generate_ad_exposure_records(start_date, config, publisher_user_profile):
     # lognormal_distribution = generate_log_normal_distribution(config.num_users)
     # records_size = sum(lognormal_distribution)
 
-    num_impressions_per_user = config.per_day_impressions_rate * config.num_days
+    num_impressions_per_user = config.per_day_user_impressions_rate * config.num_days
     normal_distribution = np.absolute(
         np.ceil(
             np.random.normal(
@@ -147,38 +147,38 @@ def generate_conversion_records(
 
     publisher_user_profile["means"] += publisher_user_profile["scaleup"]
 
-    # For each user we generate <max_user_contribution_per_query> conversions for each scheduling cycle
+    num_converted_users = int(config.user_conversions_rate * config.num_users)
+    # For each converted user we generate <user_contributions_per_query> conversions for each scheduling cycle
     data = {}
 
-    batch_size = config.num_users * config.max_user_contribution_per_query
+    batch_size = num_converted_users * config.user_contributions_per_query
     records_size = batch_size * config.num_schedules
     data["conv_timestamp"] = np.sort(
         generate_random_dates(start_date, config.num_days, records_size)
     )
 
     batch = (
-        np.ones(config.num_users).astype(int) * config.max_user_contribution_per_query
-    )
-    distinct_devices_batch = np.repeat(
-        publisher_user_profile["device_id"].values, batch
-    )
-    distinct_devices_mean_values = np.repeat(
-        publisher_user_profile["means"].values, batch
+        np.ones(num_converted_users).astype(int) * config.user_contributions_per_query
     )
 
     device_ids = []
     conv_amounts = []
 
     for _ in range(config.num_schedules):
-        # We ensure that a user doesn't appear more than <max_user_contribution_per_query> times within a batch
-        # Shuffle users so they don't appear continuous within a batch
-        indices = np.arange(batch_size)
-        np.random.shuffle(indices)
-        device_ids.append(distinct_devices_batch[indices])
+        # Randomly select users to convert
+        converted_devices = publisher_user_profile.sample(
+            n=num_converted_users, replace=False
+        )
+        distinct_devices_batch = np.repeat(converted_devices["device_id"].values, batch)
+        distinct_devices_mean_values = np.repeat(
+            converted_devices["means"].values, batch
+        )
+        # We ensure that a user doesn't appear more than <user_contributions_per_query> times within a batch
+        device_ids.append(distinct_devices_batch)
         conv_amounts.append(
             np.round(
                 np.random.lognormal(
-                    mean=distinct_devices_mean_values[indices],
+                    mean=distinct_devices_mean_values,
                     sigma=0.2,
                     size=batch_size,
                 ),
@@ -200,7 +200,7 @@ def generate_conversion_records(
 def create_synthetic_dataset(config: Dict[str, Any]):
     """
     Dataset constraints:
-    a) Each user must contribute at most with <max_user_contribution_per_query> reports per query batch
+    a) Each user must contribute at most with <user_contributions_per_query> reports per query batch
     b) We need Q disjoint queries (say Q different product ids or some other feature) for an advertiser
     c) we have one advertiser
     d) the total conversion reports for each query is K (this means we probably need many many users)
@@ -261,15 +261,13 @@ def create_synthetic_dataset(config: Dict[str, Any]):
     total_synthetic_impressions = []
     total_synthetic_conversions = []
 
-    # config.num_conversions_per_query = (
-    #     config.scheduled_batch_size * config.num_schedules
-    # )
-
-    # <max_user_contribution_per_query> conversions allowed per user for each batch
-    config.num_users = (
-        config.scheduled_batch_size // config.max_user_contribution_per_query
+    # <user_contributions_per_query> conversions allowed per user for each batch
+    config.num_users = math.ceil(
+        config.scheduled_batch_size
+        / (config.user_contributions_per_query * config.user_conversions_rate)
     )
 
+    print("Number of users: ", config.num_users)
     publisher_user_profile = generate_publisher_user_profile(config)
 
     results = {}
@@ -323,10 +321,14 @@ def create_synthetic_dataset(config: Dict[str, Any]):
     # )
 
     total_synthetic_impressions_df.to_csv(
-        "synthetic_impressions.csv", header=True, index=False
+        f"synthetic_impressions_conv_rate_{config.user_conversions_rate}_impr_rate_{config.per_day_user_impressions_rate}.csv",
+        header=True,
+        index=False,
     )
     total_synthetic_conversions_df.to_csv(
-        "synthetic_conversions.csv", header=True, index=False
+        f"synthetic_conversions_conv_rate_{config.user_conversions_rate}_impr_rate_{config.per_day_user_impressions_rate}.csv",
+        header=True,
+        index=False,
     )
 
 
