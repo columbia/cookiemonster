@@ -6,8 +6,8 @@ from ray import train
 from loguru import logger
 from rich.pretty import pretty_repr
 
-from systemx.utils import RAY_LOGS, get_data_path
-from systemx.run_evaluation import Evaluation
+from cookiemonster.utils import RAY_LOGS, get_data_path
+from cookiemonster.run_evaluation import Evaluation
 
 
 def run_and_report(config: dict, replace=False) -> None:

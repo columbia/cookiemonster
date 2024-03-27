@@ -5,7 +5,7 @@ logs
 
 criteo/**
 demo-scraper/.env
-systemx/data/criteo/Criteo_Conversion_Search
+cookiemonster/data/criteo/Criteo_Conversion_Search
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

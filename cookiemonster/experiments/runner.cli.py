@@ -30,7 +30,7 @@ def budget_consumption_vary_conversions_rate(dataset):
 
     conversions_rate = 0.1
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "systemx"],
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
         "impressions_path": get_path(impressions_path_base, conversions_rate, impression_rate),

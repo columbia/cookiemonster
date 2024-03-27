@@ -1,7 +1,7 @@
 import math
 from typing import Dict, Any, Union
-from systemx.events import Impression, Conversion
-from systemx.budget_accountant import BudgetAccountantResult
+from cookiemonster.events import Impression, Conversion
+from cookiemonster.budget_accountant import BudgetAccountantResult
 
 
 def log_budget_helper(

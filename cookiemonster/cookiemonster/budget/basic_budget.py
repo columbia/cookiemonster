@@ -1,7 +1,7 @@
 import numpy as np
 from collections import namedtuple
 
-from systemx.budget.budget import Budget
+from cookiemonster.budget.budget import Budget
 
 MAX_DUMP_DIGITS = 50
 DELTA = 1e-7

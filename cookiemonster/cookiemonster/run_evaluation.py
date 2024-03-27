@@ -6,11 +6,11 @@ from typing import Dict, Any
 from termcolor import colored
 from omegaconf import OmegaConf
 
-from systemx.dataset import Dataset
-from systemx.event_logger import EventLogger, log_budget_helper
-from systemx.budget_accountant import BudgetAccountant
-from systemx.user import User, get_log_events_across_users, ConversionResult
-from systemx.utils import process_logs, save_logs, IPA, maybe_initialize_filters
+from cookiemonster.dataset import Dataset
+from cookiemonster.event_logger import EventLogger, log_budget_helper
+from cookiemonster.budget_accountant import BudgetAccountant
+from cookiemonster.user import User, get_log_events_across_users, ConversionResult
+from cookiemonster.utils import process_logs, save_logs, IPA, maybe_initialize_filters
 
 app = typer.Typer()
 
@@ -149,7 +149,7 @@ class Evaluation:
 
 @app.command()
 def run_evaluation(
-    omegaconf: str = "systemx/config/config.json",
+    omegaconf: str = "cookiemonster/config/config.json",
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level

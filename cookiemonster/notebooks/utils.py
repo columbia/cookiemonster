@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.io as pio
 import plotly.express as px
 from plotly.offline import iplot
-from systemx.utils import LOGS_PATH
+from cookiemonster.utils import LOGS_PATH
 from multiprocessing import Manager, Process
 from experiments.ray.analysis import load_ray_experiment
 
@@ -148,7 +148,7 @@ def plot_budget_consumption(df):
     #     df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
     # )
 
-    custom_order = ["ipa", "user_epoch_ara", "systemx"]
+    custom_order = ["ipa", "user_epoch_ara", "cookiemonster"]
 
     def max_budget(df):
         fig = px.line(

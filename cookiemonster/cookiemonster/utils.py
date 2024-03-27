@@ -4,8 +4,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Any, Union
 
-from systemx.budget import BasicBudget
-from systemx.budget_accountant import BudgetAccountant
+from cookiemonster.budget import BasicBudget
+from cookiemonster.budget_accountant import BudgetAccountant
 
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -17,7 +17,7 @@ kNulledReport = "Null"
 
 IPA = "ipa"
 USER_EPOCH_ARA = "user_epoch_ara"
-SYSTEMX = "systemx"
+cookiemonster = "cookiemonster"
 MONOEPOCH = "monoepoch"
 MULTIEPOCH = "multiepoch"
 

@@ -1,17 +1,17 @@
 from omegaconf import OmegaConf
 from typing import Dict, List, Any, Union
 
-from systemx.event_logger import EventLogger, log_budget_helper
-from systemx.report import Partition, Report
-from systemx.events import Impression, Conversion
-from systemx.budget_accountant import BudgetAccountant
+from cookiemonster.event_logger import EventLogger, log_budget_helper
+from cookiemonster.report import Partition, Report
+from cookiemonster.events import Impression, Conversion
+from cookiemonster.budget_accountant import BudgetAccountant
 
-from systemx.utils import maybe_initialize_filters, compute_global_sensitivity
+from cookiemonster.utils import maybe_initialize_filters, compute_global_sensitivity
 
-from systemx.utils import (
+from cookiemonster.utils import (
     IPA,
     USER_EPOCH_ARA,
-    SYSTEMX,
+    cookiemonster,
     MONOEPOCH,
     MULTIEPOCH,
 )
@@ -102,7 +102,7 @@ class User:
                         partition.epochs_window, conversion.epsilon
                     )
 
-                elif self.config.baseline == SYSTEMX:
+                elif self.config.baseline == cookiemonster:
                     if partition.epochs_window_size() == 1:
                         # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity (Assuming Laplace)
                         noise_scale = global_sensitivity / conversion.epsilon

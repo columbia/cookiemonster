@@ -5,7 +5,7 @@ from omegaconf import OmegaConf
 from typing import Dict, Any, Union, Tuple
 from datetime import datetime
 
-from systemx.events import Impression, Conversion
+from cookiemonster.events import Impression, Conversion
 
 
 class Dataset:

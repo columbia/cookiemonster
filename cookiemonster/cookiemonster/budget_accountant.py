@@ -1,5 +1,5 @@
 from typing import Dict, List, Union, Tuple
-from systemx.budget import BasicBudget
+from cookiemonster.budget import BasicBudget
 
 kOk = "OK"
 kInsufficientBudgetError = "InsufficientBudgetError"

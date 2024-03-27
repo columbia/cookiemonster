@@ -13,11 +13,11 @@
 
 - `demo`: creating servers for adtech, advertiser, publisher using the extended API. 
 
-- `systemx`: A lightweight implementation of the on-device DP budgeting that we use to run experiments.
+- `cookiemonster`: A lightweight implementation of the on-device DP budgeting that we use to run experiments.
     - `data`: Contains datasets that we used for the evaluation. Run the corresponding `create_dataset.py` scripts to create each dataset.
     - `experiments`: Contains scripts that use Ray.tune to run many experiments in parallel.
     - `notebooks`: Contains notebooks that we use to analyze the results of the experiments
-     - `systemx`: Contains the main functionality of the on-device  DP budgeting
+     - `cookiemonster`: Contains the main functionality of the on-device  DP budgeting
 
 ## Install dependencies
 
@@ -31,13 +31,13 @@ poetry shell
 
 Criteo:
 ```bash
-cd adsprivate/systemx/data/criteo
+cd adsprivate/cookiemonster/data/criteo
 wget http://go.criteo.net/criteo-research-search-conversion.tar.gz
 tar -xzf criteo-research-search-conversion.tar.gz
 python3 create_dataset.py
 ```
 
-## Run `systemx` experiments
+## Run `cookiemonster` experiments
 
 Enter repo:
 ```bash
@@ -46,18 +46,18 @@ cd adsprivate
 
 ### Run many experiments in parallel
 ```bash
-PYTHONPATH="systemx" python3 systemx/experiments/runner.cli.py
+PYTHONPATH="cookiemonster" python3 cookiemonster/experiments/runner.cli.py
 ```
 
-The results will be stored inside the `adsprivate/systemx/logs` directory.
-Use the notebooks in `adsprivate/systemx/notebooks` to check how to analyze the results.
+The results will be stored inside the `adsprivate/cookiemonster/logs` directory.
+Use the notebooks in `adsprivate/cookiemonster/notebooks` to check how to analyze the results.
 
 ### Run one experiment at a time
 ```bash
-python3 systemx/systemx/run_evaluation.py --config systemx/config/config.json
+python3 cookiemonster/cookiemonster/run_evaluation.py --config cookiemonster/config/config.json
 ```
 
-The results will be stored inside the `adsprivate/systemx/logs` directory.
+The results will be stored inside the `adsprivate/cookiemonster/logs` directory.
 
 
 ## Setup `chromium`

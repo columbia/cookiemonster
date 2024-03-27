@@ -1,5 +1,5 @@
-from systemx.data.criteo.creators.base_creator import BaseCreator, pd
-from systemx.data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
+from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
+from cookiemonster.data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
 
 class ThreeAdversitersDatasetCreator(BaseCreator):
     """

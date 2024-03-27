@@ -1,6 +1,6 @@
 from typer import Typer
 
-from systemx.data.criteo.creators import registered_dataset_creators
+from cookiemonster.data.criteo.creators import registered_dataset_creators
     
 app = Typer()
 

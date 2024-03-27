@@ -9,8 +9,8 @@
     },
     "dataset": {
         "name": "synthetic",
-        "impressions_path": "systemx/data/synthetic/synthetic_impressions_conv_rate_1_impr_rate_0.036.csv",
-        "conversions_path": "systemx/data/synthetic/synthetic_conversions.csv",
+        "impressions_path": "cookiemonster/data/synthetic/synthetic_impressions_conv_rate_1_impr_rate_0.036.csv",
+        "conversions_path": "cookiemonster/data/synthetic/synthetic_conversions.csv",
         "num_days_per_epoch": 1,
         "num_days_attribution_window": 30,
         "workload_size": 1
