@@ -69,7 +69,7 @@ Use the notebooks in `adsprivate/cookiemonster/notebooks` to check how to analyz
 
 ### Run one experiment at a time
 ```bash
-python3 cookiemonster/cookiemonster/run_evaluation.py --config cookiemonster/config/config.json
+python3 cookiemonster/cookiemonster/run_evaluation.py --omegaconf cookiemonster/config/config.json
 ```
 
 The results will be stored inside the `adsprivate/cookiemonster/logs` directory.
