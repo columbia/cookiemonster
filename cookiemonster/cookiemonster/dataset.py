@@ -56,7 +56,9 @@ class Synthetic(Dataset):
                 impression_day = (
                     7 * (impression_date.isocalendar().week - 1)
                 ) + impression_date.isocalendar().weekday
-                impression_epoch = impression_day // self.config.num_days_per_epoch
+                impression_epoch = math.ceil(
+                    impression_day / self.config.num_days_per_epoch
+                )
                 impression_user_id = row["user_id"]
 
                 impression = Impression(
@@ -102,9 +104,13 @@ class Synthetic(Dataset):
                     7 * (conversion_date.isocalendar().week - 1)
                 ) + conversion_date.isocalendar().weekday
 
-                conversion_epoch = conversion_day // self.config.num_days_per_epoch
+                conversion_epoch = math.ceil(
+                    conversion_day / self.config.num_days_per_epoch
+                )
                 epochs_window = (
-                    earliest_attribution_day // self.config.num_days_per_epoch,
+                    math.ceil(
+                        earliest_attribution_day / self.config.num_days_per_epoch
+                    ),
                     conversion_epoch,
                 )
 
@@ -173,7 +179,9 @@ class Criteo(Dataset):
                 impression_day = (
                     7 * (impression_date.isocalendar().week - 1)
                 ) + impression_date.isocalendar().weekday
-                impression_epoch = impression_day // self.config.num_days_per_epoch
+                impression_epoch = math.ceil(
+                    impression_day / self.config.num_days_per_epoch
+                )
                 impression_user_id = row["user_id"]
 
                 impression = Impression(
@@ -220,9 +228,13 @@ class Criteo(Dataset):
                     7 * (conversion_date.isocalendar().week - 1)
                 ) + conversion_date.isocalendar().weekday
 
-                conversion_epoch = conversion_day // self.config.num_days_per_epoch
+                conversion_epoch = math.ceil(
+                    conversion_day / self.config.num_days_per_epoch
+                )
                 epochs_window = (
-                    earliest_attribution_day // self.config.num_days_per_epoch,
+                    math.ceil(
+                        earliest_attribution_day / self.config.num_days_per_epoch
+                    ),
                     conversion_epoch,
                 )
 

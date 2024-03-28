@@ -1,4 +1,5 @@
 import re
+import math
 import numpy as np
 import pandas as pd
 import plotly.io as pio
@@ -18,16 +19,36 @@ def get_df(path):
 def analyze_budget_consumption(path):
 
     def get_logs(row, results, i):
-        logs = row["logs"]["budget"]
+        
 
+        scheduling_timestamps = [timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]]
+
+
+        # Obtain conversions and impressions rate from dataset paths
         pattern = r"_conv_rate_([0-9.]+)_impr_rate_([0-9.]+)\.csv"
         match = re.search(pattern, row["config"]["dataset"]["impressions_path"])
         if match:
             conv_rate = match.group(1)
             impr_rate = match.group(2)
+        else:
+            raise ValueError("Could not find conversion and impression rates in path")
 
-        per_destination_epoch_range = row["logs"]["epoch_range"]
+        # if conv_rate != "1.0" or row["baseline"] != "user_epoch_ara":
+        #     return
 
+        # Find the epochs "touched" in this experiment
+        per_destination_touched_epochs = {}
+        for [destination, epoch_min, epoch_max] in row["logs"]["epoch_range"]:
+            if destination not in per_destination_touched_epochs:
+                per_destination_touched_epochs[destination] = (math.inf, 0)
+
+            epoch_range = per_destination_touched_epochs[destination]
+            per_destination_touched_epochs[destination] = (
+                min(epoch_range[0], epoch_min),
+                max(epoch_range[1], epoch_max),
+            )
+
+        logs = row["logs"]["budget"]
         df = pd.DataFrame.from_records(
             logs,
             columns=[
@@ -35,7 +56,6 @@ def analyze_budget_consumption(path):
                 "destination",
                 "user",
                 "epochs_window",
-                "attribution_window",
                 "budget_consumed",
                 "status",
             ],
@@ -44,49 +64,65 @@ def analyze_budget_consumption(path):
         records = []
         for destination, destination_df in df.groupby(["destination"]):
 
+            # Find the users "touched" in this experiment
             num_touched_users = destination_df["user"].nunique()
             max_user_id = destination_df["user"].max() + 1
-            epoch_range = per_destination_epoch_range[str(destination[0])]
-            min_epoch = epoch_range["min"]
-            max_epoch = epoch_range["max"]
-            num_epochs = max_epoch - min_epoch + 1
+            epoch_range = per_destination_touched_epochs[destination[0]]
+            num_touched_epochs = epoch_range[1] - epoch_range[0] + 1
+            max_epoch_index = epoch_range[1] + 1
 
             print(
                 i,
                 "Touched Users:",
                 num_touched_users,
+                "Max User id:",
+                max_user_id,
+                "Conversion rate:",
+                conv_rate,
+                "Impression rate:",
+                impr_rate,
                 "Total users:",
                 max_user_id,
                 "Min epoch:",
-                min_epoch,
+                epoch_range[0],
                 "Max epoch:",
-                max_epoch,
+                epoch_range[1],
             )
 
-            # Array bigger than the size of touched users but I will ignore them
-            users = np.zeros(max_user_id)
+            # Array bigger than the size of touched users but extra users are zeroed so they will be ignored
+            users_epochs = np.zeros((max_user_id, max_epoch_index))
 
             for _, log in destination_df.iterrows():
-                users[log["user"]] += log["budget_consumed"]
+                user = log["user"]
+                budget_per_epoch = log["budget_consumed"]
 
-                records.append(
-                    {
-                        "destination": destination[0],
-                        "num_reports": log["timestamp"],
-                        "max_budget_conusmed": np.max(users) / num_epochs,
-                        "avg_budget_consumed": np.sum(users)
-                        / (num_epochs * num_touched_users),
-                        "status": log["status"],
-                        "baseline": row["baseline"],
-                        "optimization": row["optimization"],
-                        "num_days_per_epoch": row["num_days_per_epoch"],
-                        "num_days_attribution_window": row[
-                            "num_days_attribution_window"
-                        ],
-                        "converstion_rate": conv_rate,
-                        "impression_rate": impr_rate,
-                    }
-                )
+                # print(budget_per_epoch)
+                for epoch, budget_consumed in budget_per_epoch.items():
+                    users_epochs[user][int(epoch)] += budget_consumed
+
+                if log["timestamp"] in scheduling_timestamps:
+                    # print(log["timestamp"])                    
+                    sum_across_epochs = np.sum(users_epochs, axis=1)
+
+                    records.append(
+                        {
+                            "destination": destination[0],
+                            "num_reports": log["timestamp"],
+                            "max_avg_budget": np.max(sum_across_epochs / num_touched_epochs),
+                            "avg_max_budget": np.sum(np.max(users_epochs, axis=0)) / num_touched_epochs,
+                            "avg_avg_budget": np.sum(sum_across_epochs)
+                            / (num_touched_epochs * num_touched_users),
+                            "status": log["status"],
+                            "baseline": row["baseline"],
+                            # "optimization": row["optimization"],
+                            # "num_days_per_epoch": row["num_days_per_epoch"],
+                            # "num_days_attribution_window": row[
+                            # "num_days_attribution_window"
+                            # ],
+                            "conversion_rate": conv_rate,
+                            "impression_rate": impr_rate,
+                        }
+                    )
         results[i] = pd.DataFrame.from_records(records)
 
     dfs = []
@@ -108,16 +144,16 @@ def analyze_budget_consumption(path):
     for process in processes:
         process.join()
 
-    # # Sequentially
+    # # # Sequentially
     # results = {}
     # for i, row in df.iterrows():
-    #     if i == 1:
-    #         get_logs(row, results, i)
+    #     get_logs(row, results, i)
 
     for result in results.values():
         dfs.append(result)
 
-    return pd.concat(dfs)
+    dfs = pd.concat(dfs)
+    return dfs
 
 
 def analyze_bias(path):
@@ -159,37 +195,63 @@ def plot_budget_consumption(df):
     #     df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
     # )
 
-    custom_order = ["ipa", "user_epoch_ara", "cookiemonster"]
+    custom_order_baselines = ["ipa", "user_epoch_ara", "cookiemonster"]
+    custom_order_rates = ["0.1", "0.25", "0.5", "0.75", "1.0"]
 
-    def max_budget(df):
+    def max_avg_budget(df):
         fig = px.line(
             df,
             x="num_reports",
-            y="max_budget_conusmed",
+            y="max_avg_budget",
             color="baseline",
             title=f"Cumulative Budget Consumption",
             width=1100,
-            height=600,
+            height=1200,
             # markers=True,
             facet_col="destination",
-            facet_row="converstion_rate",
-            category_orders={"baseline": custom_order},
+            facet_row="conversion_rate",
+            category_orders={
+                "baseline": custom_order_baselines,
+                "conversion_rate": custom_order_rates,
+            },
         )
         return fig
 
-    def avg_budget(df):
+    def avg_max_budget(df):
         fig = px.line(
             df,
             x="num_reports",
-            y="avg_budget_consumed",
+            y="avg_max_budget",
             color="baseline",
             title=f"Cumulative Budget Consumption",
             width=1100,
-            height=600,
+            height=1200,
             # markers=True,
             facet_col="destination",
-            facet_row="converstion_rate",
-            category_orders={"baseline": custom_order},
+            facet_row="conversion_rate",
+            category_orders={
+                "baseline": custom_order_baselines,
+                "conversion_rate": custom_order_rates,
+            },
+        )
+        return fig
+    
+    def avg_avg_budget(df):
+        fig = px.line(
+            df,
+            x="num_reports",
+            y="avg_avg_budget",
+            color="baseline",
+            title=f"Cumulative Budget Consumption",
+            width=1100,
+            height=1200,
+            # markers=True,
+            facet_col="destination",
+            facet_row="conversion_rate",
+            category_orders={
+                "baseline": custom_order_baselines,
+                "conversion_rate": custom_order_rates,
+            },
         )
         return fig
 
@@ -200,8 +262,9 @@ def plot_budget_consumption(df):
     # )
     # iplot(figures.values[0])
 
-    pio.show(max_budget(df), renderer="png", include_plotlyjs=False)
-    pio.show(avg_budget(df), renderer="png", include_plotlyjs=False)
+    pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
+    pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
+    pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
 
     # max_budget(df).show()
     # avg_budget(df).show()
@@ -225,3 +288,8 @@ def plot_bias(df):
         return fig
 
     iplot(bias(df))
+
+
+if __name__ == "__main__":
+    path = "ray/synthetic/budget_consumption_varying_conversions_rate_test"
+    df = analyze_budget_consumption(path)

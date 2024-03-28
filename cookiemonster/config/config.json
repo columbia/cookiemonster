@@ -3,17 +3,17 @@
     "scheduling_batch_size_per_query": 20000,
     "user": {
         "sensitivity_metric": "L1",
-        "baseline": "ipa",
+        "baseline": "user_epoch_ara",
         "optimization": "multiepoch",
         "initial_budget": 10
     },
     "dataset": {
         "name": "synthetic",
-        "impressions_path": "cookiemonster/data/synthetic/synthetic_impressions_conv_rate_1_impr_rate_0.036.csv",
-        "conversions_path": "cookiemonster/data/synthetic/synthetic_conversions.csv",
-        "num_days_per_epoch": 1,
+        "impressions_path": "cookiemonster/data/synthetic/synthetic_impressions_conv_rate_1.0_impr_rate_0.1.csv",
+        "conversions_path": "cookiemonster/data/synthetic/synthetic_conversions_conv_rate_1.0_impr_rate_0.1.csv",
+        "num_days_per_epoch": 14,
         "num_days_attribution_window": 30,
-        "workload_size": 1
+        "workload_size": 4
     },
     "logs": {
         "verbose": false,

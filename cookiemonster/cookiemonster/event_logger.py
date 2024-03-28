@@ -1,4 +1,3 @@
-import math
 from typing import Dict, Any, Union
 from cookiemonster.events import Impression, Conversion
 from cookiemonster.budget_accountant import BudgetAccountantResult
@@ -16,8 +15,7 @@ def log_budget_helper(
         event.destination,
         user_id,
         event.epochs_window,
-        event.attribution_window,
-        filter_result.total_budget_consumed,
+        filter_result.budget_consumed,
         filter_result.status,
     )
 
@@ -31,15 +29,6 @@ class EventLogger:
         if key not in self.logs:
             self.logs[key] = []
         self.logs[key].append(data)
-
-    def log_range(self, key, destination, a, b):
-        if key not in self.logs:
-            self.logs[key] = {}
-        if destination not in self.logs[key]:
-            self.logs[key][destination] = {"min": math.inf, "max": 0}
-        logs_key_destination = self.logs[key][destination]
-        logs_key_destination["min"] = min(logs_key_destination["min"], a)
-        logs_key_destination["max"] = max(logs_key_destination["max"], b)
 
     def __add__(self, other: "EventLogger") -> "EventLogger":
         new_logger = EventLogger()

@@ -7,7 +7,7 @@ from termcolor import colored
 from omegaconf import OmegaConf
 
 from cookiemonster.dataset import Dataset
-from cookiemonster.event_logger import EventLogger, log_budget_helper
+from cookiemonster.event_logger import EventLogger
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.user import User, get_log_events_across_users, ConversionResult
 from cookiemonster.utils import process_logs, save_logs, IPA, maybe_initialize_filters
@@ -17,6 +17,7 @@ app = typer.Typer()
 
 class QueryBatch:
     def __init__(self, query_id, epsilon) -> None:
+        self.epochs_window = (math.inf, 0)
         self.query_id = query_id
         self.epsilon = epsilon
         self.values = []
@@ -24,6 +25,13 @@ class QueryBatch:
 
     def size(self):
         return len(self.values)
+
+    def upate_epochs_window(self, epochs_window):
+        (a, b) = epochs_window
+        self.epochs_window = (
+            min(a, self.epochs_window[0]),
+            max(b, self.epochs_window[1]),
+        )
 
 
 class Evaluation:
@@ -53,11 +61,6 @@ class Evaluation:
             result = self.users[user_id].process_event(event)
 
             if isinstance(result, ConversionResult):
-
-                self.logger.log_range(
-                    "epoch_range", event.destination, *event.epochs_window
-                )
-
                 # Add report to its corresponding batch
                 report = result.final_report
                 unbiased_report = result.unbiased_final_report
@@ -76,28 +79,43 @@ class Evaluation:
                     else:
                         # All reports for the same query should have the same global epsilon
                         assert per_query_batch[query_id].epsilon == event.epsilon
-                    per_query_batch[query_id].values.append(value)
-                    per_query_batch[query_id].unbiased_values.append(
-                        unbiased_report.histogram[query_id]
-                    )
+
+                    batch = per_query_batch[query_id]
+                    batch.values.append(value)
+                    batch.unbiased_values.append(unbiased_report.histogram[query_id])
+                    batch.upate_epochs_window(event.epochs_window)
 
                 # Check if the new report triggers scheduling / aggregation
                 for query_id in report.histogram.keys():
                     batch = per_query_batch[query_id]
 
                     if batch.size() == self.config.scheduling_batch_size_per_query:
+
+                        self.logger.log("scheduling_timestamps", event.id)
+                        self.logger.log(
+                            "epoch_range", event.destination, *batch.epochs_window
+                        )
+
                         # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)
                         if self.config.user.baseline == IPA:
                             origin_filters = maybe_initialize_filters(
                                 self.global_filters_per_origin,
                                 event.destination,
-                                event.epochs_window,
+                                batch.epochs_window,
                                 float(self.config.user.initial_budget),
                             )
                             filter_result = origin_filters.pay_all_or_nothing(
-                                event.epochs_window, event.epsilon
+                                batch.epochs_window, batch.epsilon
                             )
-                            log_budget_helper(self.logger, event, 0, filter_result)
+                            self.logger.log(
+                                "budget",
+                                event.id,
+                                event.destination,
+                                0,
+                                batch.epochs_window,
+                                filter_result.budget_consumed,
+                                filter_result.status,
+                            )
 
                             if not filter_result.succeeded():
                                 # Not enough budget to run this query - don't schedule the batch

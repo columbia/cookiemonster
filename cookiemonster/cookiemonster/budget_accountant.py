@@ -1,3 +1,4 @@
+import math
 from typing import Dict, List, Union, Tuple
 from cookiemonster.budget import BasicBudget
 
@@ -11,9 +12,11 @@ class BudgetAccountantKey:
 
 
 class BudgetAccountantResult:
-    def __init__(self, status: str, total_budget_consumed: float) -> None:
+    def __init__(
+        self, status: str, budget_consumed: Union[float, Dict[int, float]]
+    ) -> None:
         self.status = status
-        self.total_budget_consumed = total_budget_consumed
+        self.budget_consumed = budget_consumed
 
     def succeeded(self):
         return self.status == kOk
@@ -72,22 +75,20 @@ class BudgetAccountant:
         if isinstance(blocks, tuple):
             blocks = block_window_to_list(blocks)
 
-        total_budget_consumed = 0
-
         # Check if all blocks have enough remaining budget
         for block in blocks:
             # Check if epoch has enough budget
             if not self.can_run(block, BasicBudget(epsilon)):
-                return BudgetAccountantResult(
-                    kInsufficientBudgetError, total_budget_consumed
-                )
+                return BudgetAccountantResult(kInsufficientBudgetError, math.inf)
 
         # Consume budget from all blocks
+        budgets_consumed = {}
         for block in blocks:
             self.consume_block_budget(block, BasicBudget(epsilon))
-            total_budget_consumed += epsilon
+            budgets_consumed[block] = epsilon
+            # total_budget_consumed += epsilon
 
-        return BudgetAccountantResult(kOk, total_budget_consumed)
+        return BudgetAccountantResult(kOk, budgets_consumed)
 
     def maybe_initialize_filter(
         self, blocks: Union[Tuple[int, int], List[int]], initial_budget: float

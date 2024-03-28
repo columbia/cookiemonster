@@ -49,6 +49,7 @@ def generate_poisson_distribution(n):
 def generate_random_dates(start_date, num_days, num_samples):
     # start_seconds = 0
     start_seconds = int((start_date - datetime.datetime(1969, 12, 31)).total_seconds())
+    # end_seconds = int((end_date - datetime.datetime(1969, 12, 31)).total_seconds())
     end_seconds = start_seconds + (num_days * 24 * 60 * 60)
     random_seconds = np.random.randint(
         start_seconds, end_seconds, size=num_samples, dtype=int
@@ -66,7 +67,7 @@ def generate_publisher_user_profile(config):
     return pd.DataFrame(data)
 
 
-def generate_ad_exposure_records(start_date, config, publisher_user_profile):
+def generate_ad_exposure_records(start_date, num_days, config, publisher_user_profile):
     # lognormal_distribution = generate_log_normal_distribution(config.num_users)
     # records_size = sum(lognormal_distribution)
 
@@ -84,9 +85,7 @@ def generate_ad_exposure_records(start_date, config, publisher_user_profile):
     data["device_id"] = np.repeat(
         publisher_user_profile["device_id"], normal_distribution
     )
-    data["exp_timestamp"] = generate_random_dates(
-        start_date, config.num_days, records_size
-    )
+    data["exp_timestamp"] = generate_random_dates(start_date, num_days, records_size)
     data["exp_attribute_5"] = generate_column_right_skewed(2, records_size)
     data["exp_attribute_6"] = generate_column_right_skewed(10, records_size)
     data["exp_attribute_7"] = generate_column_right_skewed(1000, records_size)
@@ -95,7 +94,7 @@ def generate_ad_exposure_records(start_date, config, publisher_user_profile):
 
 
 def generate_conversion_records(
-    start_date, config, publisher_user_profile, ad_exposure_records
+    start_date, num_days, config, publisher_user_profile, ad_exposure_records
 ):
 
     # Build conversion profile for each user
@@ -154,7 +153,7 @@ def generate_conversion_records(
     batch_size = num_converted_users * config.user_contributions_per_query
     records_size = batch_size * config.num_schedules
     data["conv_timestamp"] = np.sort(
-        generate_random_dates(start_date, config.num_days, records_size)
+        generate_random_dates(start_date, num_days, records_size)
     )
 
     batch = (
@@ -197,7 +196,7 @@ def generate_conversion_records(
     return pd.DataFrame(data)
 
 
-def create_synthetic_dataset(config: Dict[str, Any]):
+def create_synthetic_dataset(config: OmegaConf):
     """
     Dataset constraints:
     a) Each user must contribute at most with <user_contributions_per_query> reports per query batch
@@ -214,14 +213,20 @@ def create_synthetic_dataset(config: Dict[str, Any]):
     def create_data_for_query(product_id, publisher_user_profile, results):
 
         impressions_start_date = datetime.datetime(2024, 1, 1)
+        num_days = config.num_days - 1
         impressions = generate_ad_exposure_records(
-            impressions_start_date, config, publisher_user_profile
+            impressions_start_date, num_days, config, publisher_user_profile
         )
 
         # Give impressions a head start of 1 month so that conversions always have an available attribution window of 30 days
         conversions_start_date = datetime.datetime(2024, 1, 31)
+        num_days = config.num_days - 31
         conversions = generate_conversion_records(
-            conversions_start_date, config, publisher_user_profile, impressions
+            conversions_start_date,
+            num_days,
+            config,
+            publisher_user_profile,
+            impressions,
         )
         # Process impressions and conversions
         impressions = impressions[["device_id", "exp_timestamp"]]
@@ -255,7 +260,6 @@ def create_synthetic_dataset(config: Dict[str, Any]):
 
         results[product_id] = {"impressions": impressions, "conversions": conversions}
 
-    config = OmegaConf.create(config)
     advertiser_id = 1  # generate_uuid()
 
     total_synthetic_impressions = []
@@ -298,7 +302,13 @@ def create_synthetic_dataset(config: Dict[str, Any]):
         total_synthetic_conversions.append(data["conversions"])
 
     total_synthetic_impressions_df = pd.concat(total_synthetic_impressions)
+    total_synthetic_impressions_df = total_synthetic_impressions_df.sort_values(
+        ["timestamp"]
+    )
     total_synthetic_conversions_df = pd.concat(total_synthetic_conversions)
+    total_synthetic_conversions_df = total_synthetic_conversions_df.sort_values(
+        ["timestamp"]
+    )
 
     [a, b] = config.accuracy
     s = config.cap_value
@@ -311,14 +321,6 @@ def create_synthetic_dataset(config: Dict[str, Any]):
     total_synthetic_conversions_df["epsilon"] = epsilon_per_query
 
     total_synthetic_conversions_df["aggregatable_cap_value"] = config.cap_value
-
-    # Sort impressions and conversions
-    total_synthetic_impressions_df = total_synthetic_impressions_df.sort_values(
-        by=["timestamp"]
-    )
-    # total_synthetic_conversions_df = total_synthetic_conversions_df.sort_values(
-    #     by=["timestamp"]
-    # )
 
     total_synthetic_impressions_df.to_csv(
         f"synthetic_impressions_conv_rate_{config.user_conversions_rate}_impr_rate_{config.per_day_user_impressions_rate}.csv",
@@ -333,9 +335,20 @@ def create_synthetic_dataset(config: Dict[str, Any]):
 
 
 @app.command()
-def create_dataset(omegaconf: str = "config.json"):
-    omegaconf = OmegaConf.load(omegaconf)
-    return create_synthetic_dataset(omegaconf)
+def create_dataset(
+    omegaconf: str = "config.json",
+    per_day_user_impressions_rate: float = None,
+    user_conversions_rate: float = None,
+):
+    config = OmegaConf.create(OmegaConf.load(omegaconf))
+
+    if user_conversions_rate:
+        config.user_conversions_rate = user_conversions_rate
+    if per_day_user_impressions_rate:
+        config.per_day_user_impressions_rate = per_day_user_impressions_rate
+
+    print(config)
+    return create_synthetic_dataset(config)
 
 
 if __name__ == "__main__":

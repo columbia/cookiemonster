@@ -17,7 +17,7 @@ kNulledReport = "Null"
 
 IPA = "ipa"
 USER_EPOCH_ARA = "user_epoch_ara"
-cookiemonster = "cookiemonster"
+COOKIEMONSTER = "cookiemonster"
 MONOEPOCH = "monoepoch"
 MULTIEPOCH = "multiepoch"
 

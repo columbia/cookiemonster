@@ -37,6 +37,21 @@ tar -xzf criteo-research-search-conversion.tar.gz
 python3 create_dataset.py
 ```
 
+Synthetic:
+```bash
+cd adsprivate/cookiemonster/data/synthetic
+
+python3 create_dataset.py --user-conversions-rate 0.1 &&
+python3 create_dataset.py --user-conversions-rate 0.25 &&
+python3 create_dataset.py --user-conversions-rate 0.5 &&
+python3 create_dataset.py --user-conversions-rate 0.75 &&
+python3 create_dataset.py --user-conversions-rate 1.0
+
+python3 create_dataset.py --per-day-user-impressions-rate 0.25 &&
+python3 create_dataset.py --per-day-user-impressions-rate 0.5 &&
+python3 create_dataset.py --per-day-user-impressions-rate 0.75 &&
+python3 create_dataset.py --per-day-user-impressions-rate 1.0
+```
 ## Run `cookiemonster` experiments
 
 Enter repo:

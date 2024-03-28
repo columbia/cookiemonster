@@ -1,9 +1,10 @@
 import os
 import time
 import typer
+import multiprocessing
 from copy import deepcopy
 from ray_runner import grid_run
-import multiprocessing
+
 
 app = typer.Typer()
 
@@ -22,27 +23,21 @@ def get_path(path_base, conversions_rate, impression_rate):
 
 def budget_consumption_vary_conversions_rate(dataset):
 
-    logs_dir = f"{dataset}/budget_consumption"
+    logs_dir = f"{dataset}/budget_consumption_varying_conversions_rate"
 
     experiments = []
 
     impressions_path_base = f"{dataset}/{dataset}_impressions"
     conversions_path_base = f"{dataset}/{dataset}_conversions"
 
-    impression_rate = 0.036
+    impression_rate = 0.1
+    conversions_rates = [0.1, 0.25, 0.5, 0.75, 1.0]
 
-    conversions_rate = 0.1
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
-        "impressions_path": get_path(
-            impressions_path_base, conversions_rate, impression_rate
-        ),
-        "conversions_path": get_path(
-            conversions_path_base, conversions_rate, impression_rate
-        ),
-        "num_days_per_epoch": [1],  # [1, 15, 30],
+        "num_days_per_epoch": [7],  # [1, 15, 30],
         "num_days_attribution_window": 30,
         "workload_size": [4],
         "scheduling_batch_size_per_query": 20000,
@@ -52,25 +47,63 @@ def budget_consumption_vary_conversions_rate(dataset):
         "mlflow_experiment_id": "",
     }
 
-    experiments.append(
-        multiprocessing.Process(
-            target=lambda config: grid_run(**config), args=(deepcopy(config),)
+    for conversions_rate in conversions_rates:
+        config["impressions_path"] = get_path(
+            impressions_path_base, conversions_rate, impression_rate
         )
-    )
-
-    conversions_rate = 1
-    config["impressions_path"] = get_path(
-        impressions_path_base, conversions_rate, impression_rate
-    )
-    config["conversions_path"] = get_path(
-        conversions_path_base, conversions_rate, impression_rate
-    )
-
-    experiments.append(
-        multiprocessing.Process(
-            target=lambda config: grid_run(**config), args=(deepcopy(config),)
+        config["conversions_path"] = get_path(
+            conversions_path_base, conversions_rate, impression_rate
         )
-    )
+        experiments.append(
+            multiprocessing.Process(
+                target=lambda config: grid_run(**config), args=(deepcopy(config),)
+            )
+        )
+
+    experiments_start_and_join(experiments)
+
+    # analyze(f"ray/{logs_dir}")
+
+
+def budget_consumption_vary_impressions_rate(dataset):
+
+    logs_dir = f"{dataset}/budget_consumption_varying_impressions_rate"
+
+    experiments = []
+
+    impressions_path_base = f"{dataset}/{dataset}_impressions"
+    conversions_path_base = f"{dataset}/{dataset}_conversions"
+
+    conversion_rate = 1
+    impression_rates = [0.1, 0.25, 0.5, 0.75, 1]
+
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "optimization": ["multiepoch"],
+        "dataset_name": f"{dataset}",
+        "num_days_per_epoch": [14],  # [1, 15, 30],
+        "num_days_attribution_window": 30,
+        "workload_size": [4],
+        "scheduling_batch_size_per_query": 20000,
+        "initial_budget": [100000000],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "mlflow_experiment_id": "",
+    }
+
+    for impression_rate in impression_rates:
+        config["impressions_path"] = get_path(
+            impressions_path_base, conversion_rate, impression_rate
+        )
+        config["conversions_path"] = get_path(
+            conversions_path_base, conversion_rate, impression_rate
+        )
+        experiments.append(
+            multiprocessing.Process(
+                target=lambda config: grid_run(**config), args=(deepcopy(config),)
+            )
+        )
+
     experiments_start_and_join(experiments)
 
     # analyze(f"ray/{logs_dir}")

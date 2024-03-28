@@ -1,9 +1,9 @@
 {
-    "per_day_user_impressions_rate" : 0.036,
-    "user_conversions_rate" : 1,
+    "per_day_user_impressions_rate" : 0.1,
+    "user_conversions_rate" : 1.0,
     "user_contributions_per_query" : 1,
     "num_disjoint_queries" : 100,
-    "num_days": 90,
+    "num_days": 120,
     "num_schedules" : 5,
     "scheduled_batch_size" : 20000,
     "accuracy": [0.05, 0.01],

@@ -11,7 +11,7 @@ from cookiemonster.utils import maybe_initialize_filters, compute_global_sensiti
 from cookiemonster.utils import (
     IPA,
     USER_EPOCH_ARA,
-    cookiemonster,
+    COOKIEMONSTER,
     MONOEPOCH,
     MULTIEPOCH,
 )
@@ -102,7 +102,7 @@ class User:
                         partition.epochs_window, conversion.epsilon
                     )
 
-                elif self.config.baseline == cookiemonster:
+                elif self.config.baseline == COOKIEMONSTER:
                     if partition.epochs_window_size() == 1:
                         # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity (Assuming Laplace)
                         noise_scale = global_sensitivity / conversion.epsilon
