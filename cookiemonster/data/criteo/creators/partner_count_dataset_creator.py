@@ -14,7 +14,7 @@ class PartnerCountDatasetCreator(BaseCreator):
 
     def __init__(self) -> None:
         super().__init__(
-            "partner_counts_impressions.csv", "partner_counts_conversions.csv"
+            "criteo_partner_counts_impressions.csv", "criteo_partner_counts_conversions.csv"
         )
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:

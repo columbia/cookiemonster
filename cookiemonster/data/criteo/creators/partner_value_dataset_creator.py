@@ -10,7 +10,7 @@ class PartnerValueDatasetCreator(BaseCreator):
     """
 
     def __init__(self) -> None:
-        super().__init__("criteo_impressions.csv", "criteo_conversions.csv")
+        super().__init__("criteo_partner_values_impressions.csv", "criteo_partner_values_conversions.csv")
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(subset=["product_id", "partner_id"])
