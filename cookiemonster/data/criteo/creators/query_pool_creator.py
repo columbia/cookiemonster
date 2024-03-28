@@ -63,13 +63,27 @@ class QueryPoolDatasetCreator(BaseCreator):
     
     def _augment_df_with_synthetic_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
+        # Step 1. Add on the max number of added dimensions we are going to need
+
+        max_N = 0
+        for each advertiser:
+            M = count of conversions for that advertiser
+            N = M // QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED
+            if max_N < N:
+                max_N = N
+        
+        for i in range(1, max_N + 1):
+            conversions[f"bucket{i}"] = -1
+
+        # Step 2. Populate the appropriate dimensions with synthetic values
+        
         for each advertiser:
             M = count of conversions
             N = M // QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED
             for i in range(N, 0, -1):
                 generate i group values that we can assign out
-                uniformly distribute the group values across all M conversions; if not conversion, -1.
-                merge the new dimension series into df.
+                uniformly distribute the group values across all M conversions; if not conversion, set it to -1.
+                replace the current placeholder column with the new dimension series in the df.
         """
         return df
     
