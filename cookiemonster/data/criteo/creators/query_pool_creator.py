@@ -7,8 +7,8 @@ from cookiemonster.data.criteo.creators.epsilon_calculator import get_epsilon_fr
 @dataclass
 class ScalarQuery:
     partner_id: str
-    dimension: str
-    value: str 
+    dimension_name: str
+    dimension_value: str 
     
 class QueryPoolDatasetCreator(BaseCreator):
 
@@ -83,8 +83,8 @@ class QueryPoolDatasetCreator(BaseCreator):
                     if count >= QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED:
                         scalar_query = ScalarQuery(
                             partner_id=advertiser,
-                            dimension=dimension,
-                            value=value,
+                            dimension_name=dimension,
+                            dimension_value=value,
                         )
                         self.query_counts[scalar_query] = count
         """
@@ -113,8 +113,8 @@ class QueryPoolDatasetCreator(BaseCreator):
             for each dimension in self.dimensions:
                 scalar_query = scalar_query = ScalarQuery(
                     partner_id=conversion.partner_id,
-                    dimension=dimension,
-                    value=conversion[dimension],
+                    dimension_name=dimension,
+                    dimension_value=conversion[dimension],
                 )
                 count = self.query_counts(scalar_query)
                 if count:
