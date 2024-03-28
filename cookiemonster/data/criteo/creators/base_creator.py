@@ -86,23 +86,6 @@ class BaseCreator(ABC):
             "partner_id": "-1",
             "user_id": "-1",
         }
-        columns_to_drop = [
-            "product_category1",
-            "product_category2",
-            "product_category3",
-            "product_category4",
-            "product_category5",
-            "product_category6",
-            "product_category7",
-            "nb_clicks_1week",
-            "device_type",
-            "product_title",
-            "product_brand",
-            "product_gender",
-            "audience_id",
-            "product_age_group",
-            "product_country",
-        ]
 
         df = pd.read_csv(
             BaseCreator.data_file,
@@ -112,7 +95,6 @@ class BaseCreator(ABC):
             header=None,
             sep="\t",
         )
-        df = df.drop(columns=columns_to_drop)
         return df
 
     @abstractmethod

@@ -58,7 +58,7 @@ class PartnerCountDatasetCreator(BaseCreator):
             ["click_timestamp", "click_day", "user_id", "partner_id", "filter"]
         ]
         impressions = impressions.sort_values(by=["click_timestamp"])
-        impressions["key"] = "purchaseValue"
+        impressions["key"] = "-"
         return impressions
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
