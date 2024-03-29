@@ -22,7 +22,15 @@ def get_epsilon_for_high_probability_relative_error_wrt_prior(
 ):
     return sensitivity * math.log(1 / failure_probability) / (relative_error * expected_result)
     
-
+def get_epsilon_for_high_probability_relative_error_wrt_avg_prior(
+    sensitivity: float, batch_size: int, expected_average_result: float, relative_error: float, failure_probability: float
+):
+    return get_epsilon_for_high_probability_relative_error_wrt_prior(
+        sensitivity=sensitivity, expected_result=batch_size * expected_average_result,
+        relative_error=relative_error, failure_probability=failure_probability
+    )
+    
+    
 def get_epsilon_for_high_probability_absolute_error(
     sensitivity: float, absolute_error: float, failure_probability: float
 ):
