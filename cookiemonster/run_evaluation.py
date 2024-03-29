@@ -167,7 +167,7 @@ class Evaluation:
 
 @app.command()
 def run_evaluation(
-    omegaconf: str = "cookiemonster/config/config.json",
+    omegaconf: str = "config/config.json",
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
