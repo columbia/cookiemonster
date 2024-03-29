@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import os
 
-if os.getenv("LOCAL", "false").lower() == "true":
+if os.getenv("USE_PANDAS", "false").lower() == "true":
     import pandas as pd
 else:
     import modin.pandas as pd
@@ -22,8 +22,6 @@ class BaseCreator(ABC):
 
     def __init__(self, impressions_filename: str, conversions_filename: str):
         self.df: pd.DataFrame | None = None
-        self.impressions: pd.DataFrame | None = None
-        self.conversions: pd.DataFame | None = None
         self.impressions_filename = os.path.join(
             os.path.dirname(__file__), "..", impressions_filename
         )
@@ -34,7 +32,7 @@ class BaseCreator(ABC):
         self.logger.setLevel(logging.INFO)
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s]: %(message)s")
+            logging.Formatter("%(asctime)s %(levelname)s %(filename)s:%(lineno)s -- %(message)s")
         )
         self.logger.addHandler(stream_handler)
 
@@ -86,23 +84,6 @@ class BaseCreator(ABC):
             "partner_id": "-1",
             "user_id": "-1",
         }
-        columns_to_drop = [
-            "product_category1",
-            "product_category2",
-            "product_category3",
-            "product_category4",
-            "product_category5",
-            "product_category6",
-            "product_category7",
-            "nb_clicks_1week",
-            "device_type",
-            "product_title",
-            "product_brand",
-            "product_gender",
-            "audience_id",
-            "product_age_group",
-            "product_country",
-        ]
 
         df = pd.read_csv(
             BaseCreator.data_file,
@@ -112,7 +93,6 @@ class BaseCreator(ABC):
             header=None,
             sep="\t",
         )
-        df = df.drop(columns=columns_to_drop)
         return df
 
     @abstractmethod
@@ -135,15 +115,15 @@ class BaseCreator(ABC):
         self.df = self.specialize_df(self.df)
 
         self.logger.info("creating the impressions...")
-        self.impressions = self.create_impressions(self.df)
+        impressions = self.create_impressions(self.df)
 
         self.logger.info("creating the conversions...")
-        self.conversions = self.create_conversions(self.df)
+        conversions = self.create_conversions(self.df)
 
         self.logger.info("writing the datasets out to the file paths specified")
         df_and_fp = [
-            (self.impressions, self.impressions_filename),
-            (self.conversions, self.conversions_filename),
+            (impressions, self.impressions_filename),
+            (conversions, self.conversions_filename),
         ]
 
         for df, filepath in df_and_fp:

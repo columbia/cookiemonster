@@ -51,6 +51,25 @@ class PartnerCountDatasetCreator(BaseCreator):
 
         filter = "-"
         df["filter"] = filter
+
+        df.drop(columns=[
+            "product_category1",
+            "product_category2",
+            "product_category3",
+            "product_category4",
+            "product_category5",
+            "product_category6",
+            "product_category7",
+            "nb_clicks_1week",
+            "device_type",
+            "product_title",
+            "product_brand",
+            "product_gender",
+            "audience_id",
+            "product_age_group",
+            "product_country",
+        ])
+
         return df
 
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -58,7 +77,7 @@ class PartnerCountDatasetCreator(BaseCreator):
             ["click_timestamp", "click_day", "user_id", "partner_id", "filter"]
         ]
         impressions = impressions.sort_values(by=["click_timestamp"])
-        impressions["key"] = "purchaseValue"
+        impressions["key"] = "-"
         return impressions
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
