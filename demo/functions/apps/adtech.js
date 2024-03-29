@@ -137,7 +137,7 @@ adtech.get('/register-source-href', (req, res) => {
     expiry: '604800',
     // debug_key as legacyMeasurementCookie is a simple approach for demo purposes. In a real system, you may make debug_key a unique ID, and map it to additional source-time information that you deem useful for debugging or performance comparison.
     debug_key: legacyMeasurementCookie,
-    epoch: '1',
+    epoch: '2',
     filter_data: {
       campaignId: ['123']
     },
@@ -197,7 +197,7 @@ adtech.get('/conversion', (req, res) => {
 
   const globalEpsilon = 0.1
   const attributionWindow = {epoch_start: 1, epoch_end: 2}
-  const attributionLogic = "uniform"
+  const attributionLogic = "last_touch"
   const partitioningLogic = ""
   
   // Debug report (common to event-level and aggregate)

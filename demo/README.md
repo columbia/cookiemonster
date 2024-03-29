@@ -6,14 +6,13 @@
 
 ### Set up (one time only)
 1. If it's not yet installed on your machine, install [node.js](https://nodejs.org/en/download/).
-   Check here: https://deb.nodesource.com/ and try >=v20
+   Install using this: https://deb.nodesource.com/ and try >=v20
 2. Install the latest Firebase CLI by running the following in your terminal: `npm install -g firebase-tools`. The version known to work with this README.md is 13.3.0.
-3. In your terminal, run `git clone https://github.com/columbia/attribution-reporting-demo.git && cd attribution-reporting`. 
-4. In your terminal, run `cd functions && npm install && cd ..`. This command will install all the required dependencies for you to locally run the `attribution-reporting` demo.
-5. `firebase login`
+3. In your terminal, run `git clone https://github.com/columbia/adsprivate.git && cd adsprivate/demo`. 
+4. In your terminal, run `npm install && cd functions && npm install && cd ..`. This command will install all the required dependencies for you to locally run the `attribution-reporting` demo.
 
 ### Run locally
-1. Locally start the demo: in your terminal, navigate to `attribution-reporting` and run `firebase emulators:start --project none`.
+1. Locally start the demo: in your terminal, navigate to `demo` and run `firebase emulators:start --project none`.
     * You should now have multiple servers running: home(:8080), adtech(:8085), advertiser(:8086), publisher(:8087) server.
     * Make sure you see the following output and port mappings in your terminal. If the port mappings differ, see the [#Troubleshooting](#troubleshooting) section.
 
