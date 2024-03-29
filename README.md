@@ -21,11 +21,14 @@
 
 ## Install dependencies
 
+Edit: do this after `cd cookiemonster`?
+
 ```bash
 pip install poetry
 poetry install
 poetry shell
 ```
+
 
 ## Create datasets
 
