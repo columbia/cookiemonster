@@ -23,7 +23,7 @@ class BaseCreator(ABC):
     def __init__(self, impressions_filename: str, conversions_filename: str):
         self.df: pd.DataFrame | None = None
         self.impressions: pd.DataFrame | None = None
-        self.conversions: pd.DataFame | None = None
+        self.conversions: pd.DataFrame | None = None
         self.impressions_filename = os.path.join(
             os.path.dirname(__file__), "..", impressions_filename
         )
