@@ -1,5 +1,3 @@
-# adsprivate
-
 # CookieMonster: Effective On-Device DP Budgeting for Private Attribution Measurement Systems
 
 ## Repo Structure
