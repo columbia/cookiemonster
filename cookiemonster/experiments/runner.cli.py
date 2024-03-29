@@ -67,15 +67,15 @@ def budget_consumption_vary_conversions_rate(dataset):
 
 def budget_consumption_vary_impressions_rate(dataset):
 
-    logs_dir = f"{dataset}/budget_consumption_varying_impressions_rate"
+    logs_dir = f"{dataset}/budget_consumption_varying_impressions_rate_14"
 
     experiments = []
 
     impressions_path_base = f"{dataset}/{dataset}_impressions"
     conversions_path_base = f"{dataset}/{dataset}_conversions"
 
-    conversion_rate = 1
-    impression_rates = [0.1, 0.25, 0.5, 0.75, 1]
+    conversion_rate = 1.0
+    impression_rates = [0.1, 0.25, 0.5, 0.75, 1.0]
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
@@ -106,6 +106,40 @@ def budget_consumption_vary_impressions_rate(dataset):
 
     experiments_start_and_join(experiments)
 
+    # analyze(f"ray/{logs_dir}")
+
+
+def budget_consumption_vary_epoch_granularity(dataset):
+
+    logs_dir = f"{dataset}/budget_consumption_varying_epoch_granularity"
+
+    impressions_path_base = f"{dataset}/{dataset}_impressions"
+    conversions_path_base = f"{dataset}/{dataset}_conversions"
+
+    conversion_rate = 1.0
+    impression_rate = 0.1
+
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "optimization": ["multiepoch"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": get_path(
+            impressions_path_base, conversion_rate, impression_rate
+        ),
+        "conversions_path": get_path(
+            conversions_path_base, conversion_rate, impression_rate
+        ),
+        "num_days_per_epoch": [1, 7, 14, 21, 28],
+        "num_days_attribution_window": 30,
+        "workload_size": [4],
+        "scheduling_batch_size_per_query": 20000,
+        "initial_budget": [100000000],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "mlflow_experiment_id": "",
+    }
+
+    grid_run(**config)
     # analyze(f"ray/{logs_dir}")
 
 
