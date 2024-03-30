@@ -7,7 +7,7 @@ from data.criteo.creators.partner_value_dataset_creator import (
 from data.criteo.creators.partner_count_dataset_creator import (
     PartnerCountDatasetCreator,
 )
-from cookiemonster.data.criteo.creators.query_pool_creator import (
+from data.criteo.creators.query_pool_creator import (
     QueryPoolDatasetCreator,
 )
 

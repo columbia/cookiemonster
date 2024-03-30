@@ -245,7 +245,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         
         # TODO: [PM] should this be conversion_count (number of records in the query)
         # or sum of the counts of the products within the query? looking at three_advertisers_dataset_creator,
-        # it seems like it's conversion_count. but, need to confirm.
+        # and synthetic dataset, it seems like it's conversion_count. but, need to confirm.
         conversions = conversions.assign(
             epsilon=conversions["conversion_count"].apply(
                 lambda c: get_epsilon_from_accuracy_for_counts(c, max_purchase_counts)

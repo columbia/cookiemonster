@@ -1,5 +1,4 @@
 {
-    "min_conversions_required_for_dp": 3000,
     "user": {
         "sensitivity_metric": "L1",
         "baseline": "user_epoch_ara",

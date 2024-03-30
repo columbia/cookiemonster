@@ -7,7 +7,7 @@ app = Typer()
 
 
 @app.command()
-def create_dataset(datasettype: str = "partner-values", config: str = "config/config.json"):
+def create_dataset(datasettype: str = "partner-values", config: str = "config.json"):
     omegaconf = OmegaConf.load(config)
     dataset_creator = registered_dataset_creators.get(datasettype)
     if not dataset_creator:
