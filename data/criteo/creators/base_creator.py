@@ -22,7 +22,9 @@ class BaseCreator(ABC):
         ),
     )
 
-    def __init__(self, config: DictConfig, impressions_filename: str, conversions_filename: str):
+    def __init__(
+        self, config: DictConfig, impressions_filename: str, conversions_filename: str
+    ):
         self.config = config
         self.df: pd.DataFrame | None = None
         self.impressions_filename = os.path.join(

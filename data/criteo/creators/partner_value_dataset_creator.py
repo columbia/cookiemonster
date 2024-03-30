@@ -13,7 +13,8 @@ class PartnerValueDatasetCreator(BaseCreator):
 
     def __init__(self, config: DictConfig) -> None:
         super().__init__(
-            config, "criteo_partner_values_impressions.csv",
+            config,
+            "criteo_partner_values_impressions.csv",
             "criteo_partner_values_conversions.csv",
         )
 
