@@ -84,6 +84,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         
         synthetics_map = {} # (advert, product_id, buckets) -> value
         max_min_upper_bound = 0
+        lower_bound = 2
         for advertiser in df[self.advertiser_column_name].unique():
             advertiser_chunk = df.loc[df[self.advertiser_column_name] == advertiser]
             conversion_count = advertiser_chunk.loc[advertiser_chunk.Sale == 1].shape[0]
@@ -94,19 +95,22 @@ class QueryPoolDatasetCreator(BaseCreator):
             upper_bound_num_buckets = conversion_count // self.min_conversions_required_for_dp
             min_upper_bound = min(upper_bound_unique_products, upper_bound_num_buckets)
 
-            if min_upper_bound > max_min_upper_bound:
-                max_min_upper_bound = min_upper_bound
-
-            for buckets in range(2, min_upper_bound + 1):
-                values = []
-                for _ in range(buckets):
-                    synthetic_value = str(uuid4()).upper().replace('-', '')
-                    values.append(synthetic_value)
+            # only bother adding if we know we'll get usage out of it
+            if conversion_count // lower_bound >= self.min_conversions_required_for_dp:
                 
-                i = 0
-                for product in unique_products:
-                    synthetics_map[(advertiser, product, buckets)] = values[i % buckets]
-                    i += 1
+                if min_upper_bound > max_min_upper_bound:
+                    max_min_upper_bound = min_upper_bound
+
+                for buckets in range(lower_bound, min_upper_bound + 1):
+                    values = []
+                    for _ in range(buckets):
+                        synthetic_value = str(uuid4()).upper().replace('-', '')
+                        values.append(synthetic_value)
+                    
+                    i = 0
+                    for product in unique_products:
+                        synthetics_map[(advertiser, product, buckets)] = values[i % buckets]
+                        i += 1
 
         def lookup_synthetic_value(row: pd.Series, bucket: int):
             key = (row[self.advertiser_column_name], row[self.product_column_name], bucket)
@@ -115,7 +119,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.logger.info(f"adding {max_min_upper_bound-1} synthetic dimensions to the dataset...")
 
         to_add = {}
-        for curr_bucket in range(2, max_min_upper_bound + 1):
+        for curr_bucket in range(lower_bound, max_min_upper_bound + 1):
             to_add[f"synthetic_category{curr_bucket}"] = df.apply(
                 lambda row: lookup_synthetic_value(row, curr_bucket),
                 axis=1
