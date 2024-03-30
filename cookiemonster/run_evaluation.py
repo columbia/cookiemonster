@@ -11,6 +11,8 @@ from cookiemonster.event_logger import EventLogger
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.user import User, get_log_events_across_users, ConversionResult
 from cookiemonster.utils import process_logs, save_logs, IPA, maybe_initialize_filters
+from cookiemonster.aggregation_service import AggregationService
+from cookiemonster.aggregation_policy import AggregationPolicy
 
 app = typer.Typer()
 
@@ -46,6 +48,10 @@ class Evaluation:
         self.global_filters_per_origin: Dict[str, BudgetAccountant] = {}
 
         self.per_destination_per_query_batch: Dict[str, Dict[str, QueryBatch]] = {}
+
+        self.aggregation_service = AggregationService.create(self.config.aggregation_service)
+        self.aggregation_policy = AggregationPolicy.create(self.config.aggregation_policy)
+
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
@@ -133,6 +139,8 @@ class Evaluation:
 
                         # Schedule the batch
                         # TODO: move this to aggregation service
+                        # self.aggregation_policy.should_calculate_summary_reports(event):
+
                         logger.info(
                             colored(f"Scheduling query batch {query_id}", "green")
                         )

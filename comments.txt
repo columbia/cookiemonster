@@ -1,0 +1,4 @@
+1. added pyenv and .python-version to control 3.10.11 usage
+2. will need to add setup steps to readme (install pyenv, set poetry use 3.10.11, poetry install)
+3. will need to add setup step of copying Criteo_Conversion_Search dataset into the data/criteo folder. might be nice if we automate this.
+4. will need to document (if we want to use it) the dataset splitting step.
