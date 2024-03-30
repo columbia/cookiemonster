@@ -184,7 +184,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
     def _create_record_per_query(self, conversions: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("creating a conversion record per query...")
-        new_conversions = pd.DataFrame()
+        conversion_chunks = []
         for dimension in self._get_used_dimension_names():
             conversions = conversions.assign(
                 query_key=conversions.apply(
@@ -205,10 +205,9 @@ class QueryPoolDatasetCreator(BaseCreator):
                 )
             )
             
-            new_conversions = pd.concat([new_conversions, conversions_to_use])
+            conversion_chunks.append(conversions_to_use)
 
-        new_conversions = new_conversions.drop(columns=["included"])
-        return new_conversions
+        return pd.concat(conversion_chunks)
     
     @staticmethod
     def _compute_product_count(conversion):
@@ -251,7 +250,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         # and synthetic dataset, it seems like it's conversion_count. but, need to confirm.
         conversions = conversions.assign(
             epsilon=conversions["conversion_count"].apply(
-                lambda c: get_epsilon_from_accuracy_for_counts(c, max_purchase_counts)
+                lambda conversion_count: get_epsilon_from_accuracy_for_counts(conversion_count, max_purchase_counts)
             ),
             key=conversions.apply(
                 lambda conversion: f"{str.join('|', conversion.query_key)}|purchaseCount",
@@ -259,6 +258,12 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
             aggregatable_cap_value=max_purchase_counts,
         )
+
+        query_epsilons = str.join('', conversions.apply(
+            lambda conversion: f"\t{conversion['query_key']}, epsilon: {conversion['epsilon']}\n",
+            axis=1
+        ).unique())
+        self.logger.info(f"Query pool epsilons:\n{query_epsilons}")
 
         unused_dimension_names = set(self.dimension_names) - self._get_used_dimension_names()
         columns_we_created = ["query_key", "conversion_count"]
@@ -269,9 +274,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             *self.conversion_columns_to_drop,
         ]
 
-        conversions = conversions.drop(columns=to_drop)
-
-        return conversions
+        return conversions.drop(columns=to_drop)
 
     def log_descriptions_of_reports(self, conversions):
         counts = conversions["count"]
