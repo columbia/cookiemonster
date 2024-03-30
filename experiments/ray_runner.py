@@ -1,13 +1,12 @@
-from typing import Any, Dict, List
-
 import ray
 from ray import tune
 from ray import train
 from loguru import logger
+from typing import Any, Dict, List
 from rich.pretty import pretty_repr
 
-from cookiemonster.utils import RAY_LOGS, get_data_path
 from cookiemonster.run_evaluation import Evaluation
+from cookiemonster.utils import RAY_LOGS, get_data_path
 
 
 def run_and_report(config: dict, replace=False) -> None:
@@ -33,8 +32,6 @@ def grid_run(
 ):
 
     config = {
-        "sensitivity_metric": "L1",
-        "scheduling_batch_size_per_query": scheduling_batch_size_per_query,
         "user": {
             "sensitivity_metric": "L1",
             "baseline": tune.grid_search(baseline),
@@ -56,6 +53,11 @@ def grid_run(
             "mlflow": False,
             "mlflow_experiment_id": mlflow_experiment_id,
             "loguru_level": loguru_level,
+        },
+        "aggregation_service": "local_laplacian",
+        "aggregation_policy": {
+            "type": "count_conversion_policy",
+            "interval": scheduling_batch_size_per_query,
         },
     }
 

@@ -1,6 +1,4 @@
 {
-    "sensitivity_metric": "L1",
-    "scheduling_batch_size_per_query": 20000,
     "user": {
         "sensitivity_metric": "L1",
         "baseline": "user_epoch_ara",
@@ -23,9 +21,9 @@
         "mlflow_experiment_id": "",
         "loguru_level": "INFO"
     },
-    "aggregation_service": "local_naive",
+    "aggregation_service": "local_laplacian",
     "aggregation_policy": {
-        "type": "epoch_policy",
-        "interval": 2
+        "type": "count_conversion_policy",
+        "interval": 20000
     }
 }

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from omegaconf import DictConfig
 
-from cookiemonster.events import Impression, Conversion
+from cookiemonster.query_batch import QueryBatch
 
 
 class AggregationPolicyType(str, Enum):
@@ -23,7 +23,7 @@ class AggregationPolicy(ABC):
             )
 
     @abstractmethod
-    def should_calculate_summary_reports(self, event: Impression | Conversion) -> bool:
+    def should_calculate_summary_reports(self, query_batch: QueryBatch) -> bool:
         pass
 
 
@@ -35,14 +35,9 @@ class CountConversionPolicy(AggregationPolicy):
 
     def __init__(self, config: DictConfig) -> None:
         self.counts = config.interval
-        self.current = 0
 
-    def should_calculate_summary_reports(self, event: Impression | Conversion) -> bool:
-        if isinstance(event, Conversion):
-            self.current += 1
-            return self.current % self.counts == 0
-        else:
-            return False
+    def should_calculate_summary_reports(self, query_batch: QueryBatch) -> bool:
+        return query_batch.size() == self.counts
 
 
 class EpochPolicy(AggregationPolicy):
@@ -53,12 +48,8 @@ class EpochPolicy(AggregationPolicy):
 
     def __init__(self, config: DictConfig) -> None:
         self.epochs = config.interval
-        self.current = 0
 
-    def should_calculate_summary_reports(self, event: Impression | Conversion) -> bool:
-        if isinstance(event, Impression):
-            old = self.current
-            self.current = event.epoch
-            return self.current - old >= self.epochs
-        else:
-            return False
+    def should_calculate_summary_reports(self, query_batch: QueryBatch) -> bool:
+        return (
+            query_batch.epochs_window[1] - query_batch.epochs_window[0] >= self.epochs
+        )

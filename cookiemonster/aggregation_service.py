@@ -1,12 +1,23 @@
-from abc import abstractmethod
+import numpy as np
 from enum import Enum
+from abc import abstractmethod
+
+from cookiemonster.query_batch import QueryBatch
 
 
 class AggregationServiceType(str, Enum):
-    LOCAL_NAIVE = "local_naive"
     LOCAL_LAPLACIAN = "local_laplacian"
-    REMOTE_NAIVE = "remote_naive"
     REMOTE_LAPLACIAN = "remote_laplacian"
+
+
+class AggregationResult:
+    def __init__(
+        self, true_output, aggregation_output, aggregation_noisy_output
+    ) -> None:
+        self.true_output = true_output
+        self.aggregation_output = aggregation_output
+        self.aggregation_noisy_output = aggregation_noisy_output
+        # self.bias = abs(true_output - aggregation_output)
 
 
 class AggregationService:
@@ -16,54 +27,26 @@ class AggregationService:
             return LocalLaplacianAggregationService()
         elif aggregation_service == AggregationServiceType.REMOTE_LAPLACIAN:
             return RemoteLaplacianAggregationService()
-        elif aggregation_service == AggregationServiceType.REMOTE_NAIVE:
-            return RemoteNaiveAggregationService()
         else:
-            return LocalNaiveAggregationService()
+            raise ValueError("No support for the requested aggregation service")
 
     @abstractmethod
-    def create_summary_reports(
-        self, aggregatable_reports: dict[str, dict[str, float]]
-    ) -> dict[str, dict[str, float]]:
+    def create_summary_report(self, query_batch: QueryBatch) -> AggregationResult:
         pass
-
-
-class LocalNaiveAggregationService(AggregationService):
-
-    def create_summary_reports(
-        self, aggregatable_reports: dict[str, dict[str, float]]
-    ) -> dict[str, dict[str, float]]:
-        summary_reports: dict[str, dict[str, float]] = {}
-        for destination in aggregatable_reports:
-            summary_report: dict[str, float] = {}
-            for r in aggregatable_reports[destination]:
-                for bucket in r.histogram:
-                    if bucket not in summary_report:
-                        summary_report[bucket] = 0
-                    summary_report[bucket] += r.histogram[bucket]
-            summary_reports[destination] = summary_report
-        return summary_reports
 
 
 class LocalLaplacianAggregationService(AggregationService):
 
-    def create_summary_reports(
-        self, aggregatable_reports: dict[str, dict[str, float]]
-    ) -> dict[str, dict[str, float]]:
-        # TODO: we're using L1 sensitivity, but no global epsilon. where will we get the epsilon from?
-        raise NotImplementedError()
+    def create_summary_report(self, query_batch: QueryBatch) -> AggregationResult:
+        true_output = sum(query_batch.unbiased_values)
+        aggregation_output = sum(query_batch.values)
 
-
-class RemoteNaiveAggregationService(LocalNaiveAggregationService):
-    """
-    RemoteNaiveAggregationService - aggregation service that delegates summary report aggregation to remote processes
-    """
-
-    def create_summary_reports(
-        self, aggregatable_reports: dict[str, dict[str, float]]
-    ) -> dict[str, dict[str, float]]:
-        # TODO: send out to create summary reports per destination
-        return super().create_summary_reports()
+        noise_scale = query_batch.global_sensitivity / query_batch.global_epsilon
+        noise = np.random.laplace(scale=noise_scale)
+        aggregation_noisy_output = aggregation_output + noise
+        return AggregationResult(
+            true_output, aggregation_output, aggregation_noisy_output
+        )
 
 
 class RemoteLaplacianAggregationService(LocalLaplacianAggregationService):
@@ -71,8 +54,6 @@ class RemoteLaplacianAggregationService(LocalLaplacianAggregationService):
     RemoteLaplacianAggregationService - aggregation service that delegates summary report aggregation to remote processes
     """
 
-    def create_summary_reports(
-        self, aggregatable_reports: dict[str, dict[str, float]]
-    ) -> dict[str, dict[str, float]]:
-        # TODO: send out to create summary reports per destination
-        return super().create_summary_reports()
+    def create_summary_report(self, query_batch: QueryBatch) -> AggregationResult:
+        # TODO: send out to create summary report
+        return super().create_summary_report()

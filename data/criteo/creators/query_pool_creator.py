@@ -2,9 +2,12 @@ from datetime import datetime
 from uuid import uuid4
 
 from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
-from cookiemonster.data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
+from cookiemonster.data.criteo.creators.epsilon_calculator import (
+    get_epsilon_from_accuracy_for_counts,
+)
 
-QueryKey = tuple[str, str, str] # (partner_id, dimension_value, dimension_name)
+QueryKey = tuple[str, str, str]  # (partner_id, dimension_value, dimension_name)
+
 
 class QueryPoolDatasetCreator(BaseCreator):
 
@@ -17,12 +20,20 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.query_pool: dict[QueryKey, int] = {}
         self.dimension_names = [
-            'product_category1', 'product_category2', 'product_category3', 
-            'product_category4', 'product_category5', 'product_category6', 'product_category7',
-            'product_age_group', 'device_type', 'audience_id', 'product_gender', 'product_brand',
-            'product_country',
+            "product_category1",
+            "product_category2",
+            "product_category3",
+            "product_category4",
+            "product_category5",
+            "product_category6",
+            "product_category7",
+            "product_age_group",
+            "device_type",
+            "audience_id",
+            "product_gender",
+            "product_brand",
+            "product_country",
         ]
-
 
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("running basic df specialization...")
@@ -31,7 +42,8 @@ class QueryPoolDatasetCreator(BaseCreator):
             click_datetime=df["click_timestamp"].apply(
                 lambda x: datetime.fromtimestamp(x)
             ),
-            conversion_timestamp=df["Time_delay_for_conversion"] + df["click_timestamp"]
+            conversion_timestamp=df["Time_delay_for_conversion"]
+            + df["click_timestamp"],
         )
 
         df = df.assign(
@@ -40,7 +52,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
             conversion_datetime=df["conversion_timestamp"].apply(
                 lambda x: datetime.fromtimestamp(x)
-            )
+            ),
         )
 
         min_click_day = df["click_day"].min()
@@ -55,18 +67,18 @@ class QueryPoolDatasetCreator(BaseCreator):
         df["filter"] = "-"
         return df
 
-
     def _augment_df_with_synthetic_features(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("adding synthetic categorical features to the dataset...")
 
-        N = (df.loc[(df.Sale == 1)]
-             .groupby(['partner_id']).Sale.count()
-             .map(lambda m: m // QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED)
-             .max()
+        N = (
+            df.loc[(df.Sale == 1)]
+            .groupby(["partner_id"])
+            .Sale.count()
+            .map(lambda m: m // QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED)
+            .max()
         )
         self.logger.info(f"will add {N} synthetic dimensions to the dataset")
 
-        
         impressions = df.loc[(df.Sale != 1)]
         conversions = df.loc[(df.Sale == 1)]
         M = conversions.shape[0]
@@ -81,9 +93,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             chunks = []
             types = []
             for _ in range(1, i + 1):
-                type = str(uuid4()).upper().replace('-', '')
+                type = str(uuid4()).upper().replace("-", "")
                 types.append(type)
-                chunk = [type]*size
+                chunk = [type] * size
                 chunks += chunk
 
             type_length = len(types)
@@ -92,22 +104,24 @@ class QueryPoolDatasetCreator(BaseCreator):
 
             synthetics[curr] = chunks
 
-        
         # randomly shuffle the records so we can round robin the synthetic values
         conversions = conversions.sample(frac=1).reset_index(drop=True)
         conversions = pd.concat([conversions, synthetics], axis=1)
 
         # restore the original order of the df
-        enhanced_df = pd.concat([impressions, conversions]).sort_values(by=['click_timestamp'])
+        enhanced_df = pd.concat([impressions, conversions]).sort_values(
+            by=["click_timestamp"]
+        )
         return enhanced_df
-    
 
     def _populate_query_pools(self, df: pd.DataFrame) -> None:
         self.logger.info("populating the query pools...")
         conversions = df.loc[(df.Sale == 1)]
         for dimension_name in self.dimension_names:
             conversions = conversions.assign(dimension_name=dimension_name)
-            counts = conversions.groupby(['partner_id', dimension_name, 'dimension_name']).Sale.count()
+            counts = conversions.groupby(
+                ["partner_id", dimension_name, "dimension_name"]
+            ).Sale.count()
             counts = counts[counts >= QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED]
             if not counts.empty:
                 self.query_pool.update(counts.to_dict())
@@ -118,16 +132,16 @@ class QueryPoolDatasetCreator(BaseCreator):
         for key in keys:
             count = self.query_pool[key]
             (partner_id, dimension, dimension_name) = key
-            print(f"{count} many products purchased for partner_id ({partner_id}), {dimension_name} ({dimension})")
-
+            print(
+                f"{count} many products purchased for partner_id ({partner_id}), {dimension_name} ({dimension})"
+            )
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.dropna(subset=['partner_id', 'user_id', "product_id"])
+        df = df.dropna(subset=["partner_id", "user_id", "product_id"])
         df = self._augment_df_with_synthetic_features(df)
         self._populate_query_pools(df)
         df = self._run_basic_specialization(df)
         return df
-    
 
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
         impressions = df[
@@ -136,7 +150,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         impressions = impressions.sort_values(by=["click_timestamp"])
         impressions["key"] = "-"
         return impressions
-    
 
     def _create_record_per_query(self, conversions: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("creating a conversion record per query...")
@@ -145,48 +158,58 @@ class QueryPoolDatasetCreator(BaseCreator):
         for dimension in used_dimension_names:
             conversions = conversions.assign(
                 query_key=conversions.apply(
-                    lambda conversion: (conversion['partner_id'], conversion[dimension], dimension),
-                    axis=1
+                    lambda conversion: (
+                        conversion["partner_id"],
+                        conversion[dimension],
+                        dimension,
+                    ),
+                    axis=1,
                 )
             )
             conversions = conversions.assign(
                 included=conversions.query_key.isin(self.query_pool.keys())
             )
             conversions_to_use = conversions.loc[conversions.included]
-            
+
             conversions_to_use = conversions_to_use.assign(
                 query_count=conversions_to_use.apply(
-                    lambda conversion: self.query_pool[(conversion['partner_id'], conversion[dimension], dimension)],
-                    axis=1
+                    lambda conversion: self.query_pool[
+                        (conversion["partner_id"], conversion[dimension], dimension)
+                    ],
+                    axis=1,
                 )
             )
             new_conversions = pd.concat([new_conversions, conversions_to_use])
 
-        new_conversions = new_conversions.drop(columns=['included'])
+        new_conversions = new_conversions.drop(columns=["included"])
         return new_conversions
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = self._create_record_per_query(df.loc[df.Sale == 1])
-        
+
         conversions = conversions.assign(
             count=(
                 conversions["SalesAmountInEuro"] // conversions["product_price"]
             ).apply(lambda c: min(c, QueryPoolDatasetCreator.PURCHASE_COUNT_CAP_VALUE)),
             epsilon=conversions["query_count"].apply(
-                lambda c: get_epsilon_from_accuracy_for_counts(c, QueryPoolDatasetCreator.PURCHASE_COUNT_CAP_VALUE)
+                lambda c: get_epsilon_from_accuracy_for_counts(
+                    c, QueryPoolDatasetCreator.PURCHASE_COUNT_CAP_VALUE
+                )
             ),
             key="purchaseCount",
             aggregatable_cap_value=QueryPoolDatasetCreator.PURCHASE_COUNT_CAP_VALUE,
         )
 
-        conversions = conversions.drop(columns=[
-            "query_key",
-            "query_count",
-            "Time_delay_for_conversion",
-            "nb_clicks_1week",
-            "product_title",
-            "product_price",
-            "SalesAmountInEuro",
-        ])
+        conversions = conversions.drop(
+            columns=[
+                "query_key",
+                "query_count",
+                "Time_delay_for_conversion",
+                "nb_clicks_1week",
+                "product_title",
+                "product_price",
+                "SalesAmountInEuro",
+            ]
+        )
 
         return conversions

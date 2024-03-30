@@ -7,33 +7,22 @@ from termcolor import colored
 from omegaconf import OmegaConf
 
 from cookiemonster.dataset import Dataset
+from cookiemonster.query_batch import QueryBatch
 from cookiemonster.event_logger import EventLogger
 from cookiemonster.budget_accountant import BudgetAccountant
-from cookiemonster.user import User, get_log_events_across_users, ConversionResult
-from cookiemonster.utils import process_logs, save_logs, IPA, maybe_initialize_filters
-from cookiemonster.aggregation_service import AggregationService
 from cookiemonster.aggregation_policy import AggregationPolicy
+from cookiemonster.aggregation_service import AggregationService
+from cookiemonster.user import User, get_log_events_across_users, ConversionResult
+from cookiemonster.utils import (
+    process_logs,
+    save_logs,
+    IPA,
+    maybe_initialize_filters,
+    compute_global_sensitivity,
+)
+
 
 app = typer.Typer()
-
-
-class QueryBatch:
-    def __init__(self, query_id, epsilon) -> None:
-        self.epochs_window = (math.inf, 0)
-        self.query_id = query_id
-        self.epsilon = epsilon
-        self.values = []
-        self.unbiased_values = []
-
-    def size(self):
-        return len(self.values)
-
-    def upate_epochs_window(self, epochs_window):
-        (a, b) = epochs_window
-        self.epochs_window = (
-            min(a, self.epochs_window[0]),
-            max(b, self.epochs_window[1]),
-        )
 
 
 class Evaluation:
@@ -49,11 +38,12 @@ class Evaluation:
 
         self.per_destination_per_query_batch: Dict[str, Dict[str, QueryBatch]] = {}
 
-        self.aggregation_service = AggregationService.create(
-            self.config.aggregation_service
-        )
         self.aggregation_policy = AggregationPolicy.create(
             self.config.aggregation_policy
+        )
+
+        self.aggregation_service = AggregationService.create(
+            self.config.aggregation_service
         )
 
     def run(self):
@@ -82,24 +72,33 @@ class Evaluation:
                     event.destination
                 ]
 
+                # Compute global sensitivity based on the aggregatable cap value
+                global_sensitivity = compute_global_sensitivity(
+                    self.config.user.sensitivity_metric, event.aggregatable_cap_value
+                )
+
                 for query_id, value in report.histogram.items():
                     if query_id not in per_query_batch:
-                        per_query_batch[query_id] = QueryBatch(query_id, event.epsilon)
+                        per_query_batch[query_id] = QueryBatch(
+                            query_id, event.epsilon, global_sensitivity
+                        )
                     else:
-                        # All reports for the same query should have the same global epsilon
-                        assert per_query_batch[query_id].epsilon == event.epsilon
+                        # All reports for the same query should have the same global epsilon and sensitivity
+                        assert per_query_batch[query_id].global_epsilon == event.epsilon
+                        assert (
+                            per_query_batch[query_id].global_sensitivity
+                            == global_sensitivity
+                        )
 
-                    batch = per_query_batch[query_id]
-                    batch.values.append(value)
-                    batch.unbiased_values.append(unbiased_report.histogram[query_id])
-                    batch.upate_epochs_window(event.epochs_window)
+                    per_query_batch[query_id].update(
+                        value, unbiased_report.histogram[query_id], event.epochs_window
+                    )
 
                 # Check if the new report triggers scheduling / aggregation
                 for query_id in report.histogram.keys():
                     batch = per_query_batch[query_id]
 
-                    if batch.size() == self.config.scheduling_batch_size_per_query:
-
+                    if self.aggregation_policy.should_calculate_summary_reports(batch):
                         self.logger.log("scheduling_timestamps", event.id)
                         self.logger.log(
                             "epoch_range", event.destination, *batch.epochs_window
@@ -129,36 +128,42 @@ class Evaluation:
                             if not filter_result.succeeded():
                                 # Not enough budget to run this query - don't schedule the batch
                                 self.logger.log(
-                                    "bias",
+                                    "query_results",
                                     event.id,
                                     event.destination,
                                     query_id,
-                                    math.inf,
+                                    None,
+                                    None,
+                                    None,
                                 )
-                                logger.info(colored(f"Query bias: {math.inf}", "red"))
+                                logger.info(colored(f"IPA can't run query", "red"))
+
                                 # Reset the batch
                                 del per_query_batch[query_id]
                                 continue
 
                         # Schedule the batch
-                        # TODO: move this to aggregation service
-                        # self.aggregation_policy.should_calculate_summary_reports(event):
-
+                        aggregation_result = (
+                            self.aggregation_service.create_summary_report(batch)
+                        )
                         logger.info(
                             colored(f"Scheduling query batch {query_id}", "green")
                         )
-                        query_output = sum(batch.values)
-                        unbiased_query_output = sum(batch.unbiased_values)
-                        bias = abs(query_output - unbiased_query_output)
                         logger.info(
                             colored(
-                                f"Query bias: {bias}, true output: {query_output}",
+                                f"true_output: {aggregation_result.true_output}, aggregation_output: {aggregation_result.aggregation_output}, aggregation_noisy_output: {aggregation_result.aggregation_noisy_output}",
                                 "green",
                             )
                         )
 
                         self.logger.log(
-                            "bias", event.id, event.destination, query_id, bias
+                            "query_results",
+                            event.id,
+                            event.destination,
+                            query_id,
+                            aggregation_result.true_output,
+                            aggregation_result.aggregation_output,
+                            aggregation_result.aggregation_noisy_output,
                         )
 
                         # Reset the batch
