@@ -150,11 +150,12 @@ class QueryPoolDatasetCreator(BaseCreator):
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(subset=[self.advertiser_column_name, 'user_id', "product_id"])
         
-        # removing the outlier for now
-        # TODO: include the outlier when really running this
+        # TODO: [PM] should we include the outlier when really running this?
         # df = df[df.partner_id != 'E3DDEB04F8AFF944B11943BB57D2F620']
 
+        # TODO: [PM] uncomment this to augment the dataset with synthetic features
         # df = self._augment_df_with_synthetic_features(df)
+        
         self._populate_query_pools(df)
         df = self._run_basic_specialization(df)
         return df
@@ -185,6 +186,13 @@ class QueryPoolDatasetCreator(BaseCreator):
                 included=conversions.query_key.isin(self.query_pool.keys())
             )
             conversions_to_use = conversions.loc[conversions.included]
+
+            conversions_to_use = conversions_to_use.assign(
+                conversion_count=conversions_to_use.apply(
+                    lambda conversion: self.query_pool[(conversion[self.advertiser_column_name], conversion[dimension], dimension)],
+                    axis=1
+                )
+            )
             
             new_conversions = pd.concat([new_conversions, conversions_to_use])
 
@@ -203,6 +211,9 @@ class QueryPoolDatasetCreator(BaseCreator):
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
         purchase_counts = conversions.apply(QueryPoolDatasetCreator._compute_product_count, axis=1)
+
+        # TODO: [PM] what should we cap our purchase counts at? the dataset is _heavily_ right skewed, so
+        # capping at 5 seems too low. On the other hand, the mean is ~4.7.
         max_purchase_counts = purchase_counts.max()
 
         conversions = conversions.assign(count=purchase_counts)
@@ -211,8 +222,11 @@ class QueryPoolDatasetCreator(BaseCreator):
         
         conversions = self._create_record_per_query(conversions)
         
+        # TODO: [PM] should this be conversion_count (number of records in the query)
+        # or sum of the counts of the products within the query? looking at three_advertisers_dataset_creator,
+        # it seems like it's conversion_count. but, need to confirm.
         conversions = conversions.assign(
-            epsilon=purchase_counts.apply(
+            epsilon=conversions["conversion_count"].apply(
                 lambda c: get_epsilon_from_accuracy_for_counts(c, max_purchase_counts)
             ),
             key=conversions.apply(
@@ -223,7 +237,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
 
         unused_dimension_names = set(self.dimension_names) - self._get_used_dimension_names()
-        columns_we_created = ["query_key"]
+        columns_we_created = ["query_key", "conversion_count"]
 
         to_drop = [
             *unused_dimension_names,
