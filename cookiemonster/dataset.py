@@ -1,8 +1,7 @@
+import os
 import math
 import pandas as pd
-from loguru import logger
 from omegaconf import OmegaConf
-from typing import Dict, Any, Union, Tuple
 from datetime import datetime
 
 from cookiemonster.events import Impression, Conversion
@@ -12,9 +11,14 @@ class Dataset:
     def __init__(self, config: OmegaConf) -> None:
         """A sequence of Events"""
         self.config = config
-        self.impressions_data = pd.read_csv(self.config.impressions_path)
-        self.conversions_data = pd.read_csv(self.config.conversions_path)
-
+        impressions_filename = os.path.join(
+            os.path.dirname(__file__), "..", self.config.impressions_path
+        )
+        conversions_filename = os.path.join(
+            os.path.dirname(__file__), "..", self.config.conversions_path
+        )
+        self.impressions_data = pd.read_csv(impressions_filename)
+        self.conversions_data = pd.read_csv(conversions_filename)
         self.conversions_counter = 0
 
     @classmethod

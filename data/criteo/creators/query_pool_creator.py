@@ -18,10 +18,19 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.query_pool: dict[QueryKey, int] = {} # query -> number of conversions
         self.dimension_names = [
-            'product_category1', 'product_category2', 'product_category3', 
-            'product_category4', 'product_category5', 'product_category6', 'product_category7',
-            'product_age_group', 'device_type', 'audience_id', 'product_gender', 'product_brand',
-            'product_country',
+            "product_category1",
+            "product_category2",
+            "product_category3",
+            "product_category4",
+            "product_category5",
+            "product_category6",
+            "product_category7",
+            "product_age_group",
+            "device_type",
+            "audience_id",
+            "product_gender",
+            "product_brand",
+            "product_country",
         ]
         self.advertiser_column_name = 'partner_id'
         self.conversion_columns_to_drop = [
@@ -42,7 +51,8 @@ class QueryPoolDatasetCreator(BaseCreator):
             click_datetime=df["click_timestamp"].apply(
                 lambda x: datetime.fromtimestamp(x)
             ),
-            conversion_timestamp=df["Time_delay_for_conversion"] + df["click_timestamp"]
+            conversion_timestamp=df["Time_delay_for_conversion"]
+            + df["click_timestamp"],
         )
 
         df = df.assign(
@@ -51,7 +61,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
             conversion_datetime=df["conversion_timestamp"].apply(
                 lambda x: datetime.fromtimestamp(x)
-            )
+            ),
         )
 
         min_click_day = df["click_day"].min()
@@ -65,7 +75,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         df["conversion_day"] -= min_click_day
         df["filter"] = "-"
         return df
-
 
     def _augment_df_with_synthetic_features(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("adding synthetic categorical features to the dataset...")
@@ -126,7 +135,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         assert enhanced_df.shape[1] == df.shape[1] + N - 1
 
         return enhanced_df
-    
 
     def _populate_query_pools(self, df: pd.DataFrame) -> None:
         self.logger.info("populating the query pools...")
@@ -159,7 +167,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         self._populate_query_pools(df)
         df = self._run_basic_specialization(df)
         return df
-    
 
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
         impressions = df[self.impression_columns_to_use]
@@ -187,6 +194,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             )
             conversions_to_use = conversions.loc[conversions.included]
 
+
             conversions_to_use = conversions_to_use.assign(
                 conversion_count=conversions_to_use.apply(
                     lambda conversion: self.query_pool[(conversion[self.advertiser_column_name], conversion[dimension], dimension)],
@@ -196,7 +204,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             
             new_conversions = pd.concat([new_conversions, conversions_to_use])
 
-        new_conversions = new_conversions.drop(columns=['included'])
+        new_conversions = new_conversions.drop(columns=["included"])
         return new_conversions
     
     @staticmethod

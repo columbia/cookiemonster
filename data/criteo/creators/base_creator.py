@@ -35,7 +35,9 @@ class BaseCreator(ABC):
         self.logger.setLevel(logging.INFO)
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s %(filename)s:%(lineno)s -- %(message)s")
+            logging.Formatter(
+                "%(asctime)s %(levelname)s %(filename)s:%(lineno)s -- %(message)s"
+            )
         )
         self.logger.addHandler(stream_handler)
 

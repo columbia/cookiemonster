@@ -1,6 +1,4 @@
 {
-    "sensitivity_metric": "L1",
-    "scheduling_batch_size_per_query": 20000,
     "min_conversions_required_for_dp": 3000,
     "user": {
         "sensitivity_metric": "L1",
@@ -23,5 +21,10 @@
         "mlflow": true,
         "mlflow_experiment_id": "",
         "loguru_level": "INFO"
+    },
+    "aggregation_service": "local_laplacian",
+    "aggregation_policy": {
+        "type": "count_conversion_policy",
+        "interval": 20000
     }
 }
