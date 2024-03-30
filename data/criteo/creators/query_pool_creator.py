@@ -33,6 +33,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             "product_country",
         ]
         self.advertiser_column_name = 'partner_id'
+        self.product_column_name = 'product_id'
+        self.user_column_name = 'user_id'
+
         self.conversion_columns_to_drop = [
             "SalesAmountInEuro", "product_price",
             "nb_clicks_1week", "Time_delay_for_conversion",
@@ -75,66 +78,51 @@ class QueryPoolDatasetCreator(BaseCreator):
         df["conversion_day"] -= min_click_day
         df["filter"] = "-"
         return df
-
-    def _augment_df_with_synthetic_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        self.logger.info("adding synthetic categorical features to the dataset...")
-
-        N = (df.loc[(df.Sale == 1)]
-             .groupby([self.advertiser_column_name]).Sale.count()
-             .map(lambda m: m // self.min_conversions_required_for_dp)
-             .max()
-        )
-        self.logger.info(f"will add {N} synthetic dimensions to the dataset")
+    
+    def _augment_df_with_synthetic_product_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        self.logger.info("determining synthetic categorical features to add to the dataset...")
         
-        impressions = df.loc[(df.Sale != 1)]
-        for i in range(2, N + 1):
-            curr = f"synthetic_category{i}"
-            self.dimension_names.append(curr)
-            impressions = impressions.assign(**{curr: pd.NA})
+        synthetics_map = {} # (advert, product_id, buckets) -> value
+        max_min_upper_bound = 0
+        for advertiser in df[self.advertiser_column_name].unique():
+            advertiser_chunk = df.loc[df[self.advertiser_column_name] == advertiser]
+            conversion_count = advertiser_chunk.loc[advertiser_chunk.Sale == 1].shape[0]
+            unique_products = pd.Series(advertiser_chunk[self.product_column_name].unique())
+            unique_products = unique_products.sample(frac=1)
 
-        enhanced_conversions = df.loc[(df.Sale == 1)]
-        enhanced_advertisers = []
-        for advertiser in enhanced_conversions[self.advertiser_column_name].unique():
-            advertiser_conversions = enhanced_conversions.loc[enhanced_conversions[self.advertiser_column_name] == advertiser]
-            count_advertiser_converions = advertiser_conversions.shape[0]
+            upper_bound_unique_products = unique_products.shape[0] - 1
+            upper_bound_num_buckets = conversion_count // self.min_conversions_required_for_dp
+            min_upper_bound = min(upper_bound_unique_products, upper_bound_num_buckets)
 
-            advertiser_synthetics = pd.DataFrame()
-            for i in range(2, N + 1):
-                curr = f"synthetic_category{i}"
-                chunk_size = count_advertiser_converions // i
-                chunks = []
-                if chunk_size >= self.min_conversions_required_for_dp:
-                    remainder = count_advertiser_converions % i
-                    synthetic_values = []
-                    for _ in range(i):
-                        synthetic_value = str(uuid4()).upper().replace('-', '')
-                        synthetic_values.append(synthetic_value)
-                        chunk = [synthetic_value]*chunk_size
-                        chunks += chunk
+            if min_upper_bound > max_min_upper_bound:
+                max_min_upper_bound = min_upper_bound
 
-                    type_length = len(synthetic_values)
-                    for i in range(remainder):
-                        chunks.append(synthetic_values[i % type_length])
-                else:
-                    chunks = [pd.NA]*count_advertiser_converions
+            for buckets in range(2, min_upper_bound + 1):
+                values = []
+                for _ in range(buckets):
+                    synthetic_value = str(uuid4()).upper().replace('-', '')
+                    values.append(synthetic_value)
+                
+                i = 0
+                for product in unique_products:
+                    synthetics_map[(advertiser, product, buckets)] = values[i % buckets]
+                    i += 1
 
-                assert len(chunks) == count_advertiser_converions
+        def lookup_synthetic_value(row: pd.Series, bucket: int):
+            key = (row[self.advertiser_column_name], row[self.product_column_name], bucket)
+            return synthetics_map.get(key, pd.NA)
 
-                advertiser_synthetics[curr] = chunks
-            
-            shuffled_advertiser_conversions = advertiser_conversions.sample(frac=1).reset_index(drop=True)
-            enhanced_advertiser = pd.concat([shuffled_advertiser_conversions, advertiser_synthetics], axis=1)
-            enhanced_advertisers.append(enhanced_advertiser)
+        self.logger.info(f"adding {max_min_upper_bound-1} synthetic dimensions to the dataset...")
 
-        enhanced_conversions = pd.concat(enhanced_advertisers, axis=0)
+        to_add = {}
+        for curr_bucket in range(2, max_min_upper_bound + 1):
+            to_add[f"synthetic_category{curr_bucket}"] = df.apply(
+                lambda row: lookup_synthetic_value(row, curr_bucket),
+                axis=1
+            )
 
-        # restore the original order of the df
-        enhanced_df = pd.concat([impressions, enhanced_conversions]).sort_values(by=['click_timestamp'])
+        return df.assign(**to_add)
 
-        assert enhanced_df.shape[0] == df.shape[0]
-        assert enhanced_df.shape[1] == df.shape[1] + N - 1
-
-        return enhanced_df
 
     def _populate_query_pools(self, df: pd.DataFrame) -> None:
         self.logger.info("populating the query pools...")
@@ -159,13 +147,12 @@ class QueryPoolDatasetCreator(BaseCreator):
 
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.dropna(subset=[self.advertiser_column_name, 'user_id', "product_id"])
+        df = df.dropna(subset=[self.advertiser_column_name, self.user_column_name, self.product_column_name])
         
         # TODO: [PM] should we include the outlier when really running this?
-        # df = df[df.partner_id != 'E3DDEB04F8AFF944B11943BB57D2F620']
+        df = df[df.partner_id != 'E3DDEB04F8AFF944B11943BB57D2F620']
 
-        # TODO: [PM] uncomment this to augment the dataset with synthetic features
-        # df = self._augment_df_with_synthetic_features(df)
+        self._augment_df_with_synthetic_product_features(df)
         
         self._populate_query_pools(df)
         df = self._run_basic_specialization(df)
@@ -235,7 +222,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         max      8.661200e+04
         skew     352.22094940782813
 
-        so, maybe 5 is reasonable? should we calculate this a different way?
+        so, maybe 5 is reasonable? should we calculate this a different way generally?
         """
         max_purchase_counts = 5
 
@@ -245,9 +232,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         
         conversions = self._create_record_per_query(conversions)
         
-        # TODO: [PM] should this be conversion_count (number of records in the query)
-        # or sum of the counts of the products within the query? looking at three_advertisers_dataset_creator,
-        # and synthetic dataset, it seems like it's conversion_count. but, need to confirm.
         conversions = conversions.assign(
             epsilon=conversions["conversion_count"].apply(
                 lambda conversion_count: get_epsilon_from_accuracy_for_counts(conversion_count, max_purchase_counts)
