@@ -190,23 +190,28 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         new_conversions = new_conversions.drop(columns=['included'])
         return new_conversions
+    
+    @staticmethod
+    def _compute_product_count(conversion):
+        sell_price = conversion["SalesAmountInEuro"]
+        offer_price = conversion["product_price"]
+        if sell_price and offer_price:
+            return sell_price // offer_price
+        else:
+            return 1
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
-        conversions = self._create_record_per_query(df.loc[df.Sale == 1])
-
-        def compute_product_count(conversion):
-            sell_price = conversion["SalesAmountInEuro"]
-            offer_price = conversion["product_price"]
-            if sell_price and offer_price:
-                return sell_price // offer_price
-            else:
-                return 1
-            
-        purchase_counts = conversions.apply(compute_product_count, axis=1)
+        conversions = df.loc[df.Sale == 1]
+        purchase_counts = conversions.apply(QueryPoolDatasetCreator._compute_product_count, axis=1)
         max_purchase_counts = purchase_counts.max()
+
+        conversions = conversions.assign(count=purchase_counts)
+
+        self.log_descriptions_of_reports(conversions)
+        
+        conversions = self._create_record_per_query(conversions)
         
         conversions = conversions.assign(
-            count=purchase_counts,
             epsilon=purchase_counts.apply(
                 lambda c: get_epsilon_from_accuracy_for_counts(c, max_purchase_counts)
             ),
@@ -216,8 +221,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
             aggregatable_cap_value=max_purchase_counts,
         )
-
-        self.log_descriptions_of_reports(conversions)
 
         unused_dimension_names = set(self.dimension_names) - self._get_used_dimension_names()
         columns_we_created = ["query_key"]
@@ -242,6 +245,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             true_sums_for_dimension = conversions.groupby([self.advertiser_column_name, dimension])['count'].sum()
             true_sums.append(true_sums_for_dimension)
         
-        all_true_summary_reports = pd.concat(true_sums)
-        self.logger.info(f"True summary reports description:\n{all_true_summary_reports}")
+        all_true_summary_reports = pd.concat(true_sums).reset_index(drop=True)
+        self.logger.info(f"True summary reports description:\n{all_true_summary_reports.describe()}")
         self.logger.info(f"True summary reports skew: {all_true_summary_reports.skew()}")
