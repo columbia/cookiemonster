@@ -1,6 +1,6 @@
 from omegaconf import DictConfig
-from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
-from cookiemonster.data.criteo.creators.epsilon_calculator import (
+from data.criteo.creators.base_creator import BaseCreator, pd
+from data.criteo.creators.epsilon_calculator import (
     get_epsilon_from_accuracy_for_counts,
 )
 

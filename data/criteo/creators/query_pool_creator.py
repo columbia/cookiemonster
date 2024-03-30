@@ -3,8 +3,8 @@ from uuid import uuid4
 
 from omegaconf import DictConfig
 
-from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
-from cookiemonster.data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
+from data.criteo.creators.base_creator import BaseCreator, pd
+from data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
 
 QueryKey = tuple[str, str, str] # (advertiser_value, dimension_value, dimension_name)
 

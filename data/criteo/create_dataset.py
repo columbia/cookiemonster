@@ -1,7 +1,7 @@
 from omegaconf import OmegaConf
 from typer import Typer
 
-from cookiemonster.data.criteo.creators import registered_dataset_creators
+from data.criteo.creators import registered_dataset_creators
 
 app = Typer()
 

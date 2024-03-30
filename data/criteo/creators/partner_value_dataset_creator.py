@@ -2,7 +2,7 @@ from datetime import datetime
 
 from omegaconf import DictConfig
 
-from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
+from data.criteo.creators.base_creator import BaseCreator, pd
 
 
 class PartnerValueDatasetCreator(BaseCreator):
