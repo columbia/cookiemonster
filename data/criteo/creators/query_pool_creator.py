@@ -212,9 +212,22 @@ class QueryPoolDatasetCreator(BaseCreator):
         conversions = df.loc[df.Sale == 1]
         purchase_counts = conversions.apply(QueryPoolDatasetCreator._compute_product_count, axis=1)
 
-        # TODO: [PM] what should we cap our purchase counts at? the dataset is _heavily_ right skewed, so
-        # capping at 5 seems too low. On the other hand, the mean is ~4.7.
-        max_purchase_counts = purchase_counts.max()
+        """
+        TODO: [PM] what should we cap our purchase counts at?
+        Aggregatable reports description:
+        count    1.279493e+06
+        mean     4.705447e+00
+        std      1.581949e+02
+        min      0.000000e+00
+        25%      1.000000e+00
+        50%      1.000000e+00
+        75%      2.000000e+00
+        max      8.661200e+04
+        skew     352.22094940782813
+
+        so, maybe 5 is reasonable? should we calculate this a different way?
+        """
+        max_purchase_counts = 5
 
         conversions = conversions.assign(count=purchase_counts)
 
