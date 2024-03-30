@@ -146,13 +146,16 @@ class QueryPoolDatasetCreator(BaseCreator):
             if not counts.empty:
                 self.query_pool.update(counts.to_dict())
 
-        self.logger.info(f"Generated the following query pool:")
         keys = [x for x in self.query_pool.keys()]
         keys.sort()
+        log_lines = []
         for key in keys:
             count = self.query_pool[key]
             (partner_id, dimension, dimension_name) = key
-            print(f"{count} total conversions from partner_id ({partner_id}), {dimension_name} ({dimension})")
+            log_lines.append(f"{count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})")
+
+        query_pool_contents = str.join('\n\t', log_lines)
+        self.logger.info(f"Generated the following query pool:\n\t{query_pool_contents}\n")
 
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
