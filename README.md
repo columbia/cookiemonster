@@ -19,7 +19,7 @@
 
 ## Install dependencies
 
-Install the packagment management system, poetry: `pip install poetry`.
+Install the package management system, poetry: `pip install poetry`.
 
 We use Python 3.10.11. If that is not your system version, we advise using [pyenv](https://github.com/pyenv/pyenv).
 Once pyenv is installed, run: `poetry env use 3.10.11`.
