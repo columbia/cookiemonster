@@ -11,8 +11,12 @@ class Dataset:
     def __init__(self, config: OmegaConf) -> None:
         """A sequence of Events"""
         self.config = config
-        impressions_filename = os.path.join(os.path.dirname(__file__), "..", self.config.impressions_path)
-        conversions_filename = os.path.join(os.path.dirname(__file__), "..", self.config.conversions_path)
+        impressions_filename = os.path.join(
+            os.path.dirname(__file__), "..", self.config.impressions_path
+        )
+        conversions_filename = os.path.join(
+            os.path.dirname(__file__), "..", self.config.conversions_path
+        )
         self.impressions_data = pd.read_csv(impressions_filename)
         self.conversions_data = pd.read_csv(conversions_filename)
         self.conversions_counter = 0

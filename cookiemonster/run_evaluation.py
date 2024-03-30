@@ -49,9 +49,12 @@ class Evaluation:
 
         self.per_destination_per_query_batch: Dict[str, Dict[str, QueryBatch]] = {}
 
-        self.aggregation_service = AggregationService.create(self.config.aggregation_service)
-        self.aggregation_policy = AggregationPolicy.create(self.config.aggregation_policy)
-
+        self.aggregation_service = AggregationService.create(
+            self.config.aggregation_service
+        )
+        self.aggregation_policy = AggregationPolicy.create(
+            self.config.aggregation_policy
+        )
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
