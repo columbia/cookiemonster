@@ -3,9 +3,8 @@
 logs
 *.csv
 
-criteo/**
-demo-scraper/.env
 data/criteo/Criteo_Conversion_Search
+*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

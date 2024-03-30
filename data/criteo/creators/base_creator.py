@@ -33,13 +33,18 @@ class BaseCreator(ABC):
         )
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s %(levelname)s %(filename)s:%(lineno)s -- %(message)s"
-            )
+
+        formatter = logging.Formatter(
+            "%(asctime)s %(levelname)s %(filename)s:%(lineno)s -- %(message)s"
         )
+
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        file_handler = logging.FileHandler("criteo_dataset_creator.log", mode="w")
+        file_handler.setFormatter(formatter)
+
         self.logger.addHandler(stream_handler)
+        self.logger.addHandler(file_handler)
 
     def _read_dataframe(self) -> pd.DataFrame:
         dtype = {
