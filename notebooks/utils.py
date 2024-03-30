@@ -115,7 +115,7 @@ def analyze_budget_consumption(path):
                             "status": log["status"],
                             "baseline": row["baseline"],
                             # "optimization": row["optimization"],
-                            # "num_days_per_epoch": row["num_days_per_epoch"],
+                            "num_days_per_epoch": row["num_days_per_epoch"],
                             # "num_days_attribution_window": row[
                             # "num_days_attribution_window"
                             # ],
@@ -197,7 +197,7 @@ def plot_budget_consumption(df, facet_row="conversion_rate"):
     #     df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
     # )
     custom_order_baselines = ["ipa", "user_epoch_ara", "cookiemonster"]
-    custom_order_rates = ["0.1", "0.25", "0.5", "0.75", "1.0"]
+    custom_order_rates = [] if facet_row == "num_days_per_epoch" else ["0.1", "0.25", "0.5", "0.75", "1.0"]
 
     def max_avg_budget(df):
         fig = px.line(
