@@ -19,11 +19,14 @@
 
 ## Install dependencies
 
-```bash
-pip install poetry
-poetry install
-poetry shell
-```
+Install the packagment management system, poetry: `pip install poetry`.
+
+We use Python 3.10.11. If that is not your system version, we advise using [pyenv](https://github.com/pyenv/pyenv).
+Once pyenv is installed, run: `poetry env use 3.10.11`.
+
+Then, install the dependencies: `poetry install`.
+
+Finally, to run the poetry interactive shell, run `poetry shell`.
 
 
 ## Create datasets
