@@ -1,6 +1,7 @@
 {
     "sensitivity_metric": "L1",
     "scheduling_batch_size_per_query": 20000,
+    "min_conversions_required_for_dp": 500,
     "user": {
         "sensitivity_metric": "L1",
         "baseline": "user_epoch_ara",

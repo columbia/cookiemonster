@@ -3,6 +3,8 @@ import logging
 import numpy as np
 import os
 
+from omegaconf import DictConfig
+
 if os.getenv("USE_PANDAS", "false").lower() == "true":
     import pandas as pd
 else:
@@ -20,7 +22,8 @@ class BaseCreator(ABC):
         ),
     )
 
-    def __init__(self, impressions_filename: str, conversions_filename: str):
+    def __init__(self, config: DictConfig, impressions_filename: str, conversions_filename: str):
+        self.config = config
         self.df: pd.DataFrame | None = None
         self.impressions_filename = os.path.join(
             os.path.dirname(__file__), "..", impressions_filename
@@ -92,7 +95,6 @@ class BaseCreator(ABC):
             na_values=na_values,
             header=None,
             sep="\t",
-            nrows=1_000_000,
         )
         return df
 

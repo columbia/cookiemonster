@@ -1,6 +1,8 @@
 from datetime import datetime
 from uuid import uuid4
 
+from omegaconf import DictConfig
+
 from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
 from cookiemonster.data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
 
@@ -8,14 +10,13 @@ QueryKey = tuple[str, str, str] # (advertiser_value, dimension_value, dimension_
 
 class QueryPoolDatasetCreator(BaseCreator):
 
-    MIN_CONVERSIONS_REQUIRED_FOR_DP = 500
-    PURCHASE_COUNT_CAP_VALUE = 5
-
-    def __init__(self) -> None:
+    def __init__(self, config: DictConfig) -> None:
         super().__init__(
-            "criteo_query_pool_impressions.csv", "criteo_query_pool_conversions.csv"
+            config,
+            "criteo_query_pool_impressions.csv",
+            "criteo_query_pool_conversions.csv",
         )
-        self.query_pool: dict[QueryKey, int] = {}
+        self.query_pool: dict[QueryKey, int] = {} # query -> number of conversions
         self.dimension_names = [
             'product_category1', 'product_category2', 'product_category3', 
             'product_category4', 'product_category5', 'product_category6', 'product_category7',
@@ -31,6 +32,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.impression_columns_to_use = [
             "click_timestamp", "click_day", "user_id", "partner_id", "filter"
         ]
+        self.min_conversions_required_for_dp = config.min_conversions_required_for_dp
 
 
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -70,7 +72,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         N = (df.loc[(df.Sale == 1)]
              .groupby([self.advertiser_column_name]).Sale.count()
-             .map(lambda m: m // QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED_FOR_DP)
+             .map(lambda m: m // self.min_conversions_required_for_dp)
              .max()
         )
         self.logger.info(f"will add {N} synthetic dimensions to the dataset")
@@ -92,7 +94,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 curr = f"synthetic_category{i}"
                 chunk_size = count_advertiser_converions // i
                 chunks = []
-                if chunk_size >= QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED_FOR_DP:
+                if chunk_size >= self.min_conversions_required_for_dp:
                     remainder = count_advertiser_converions % i
                     synthetic_values = []
                     for _ in range(i):
@@ -132,7 +134,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         for dimension_name in self.dimension_names:
             conversions = conversions.assign(dimension_name=dimension_name)
             counts = conversions.groupby([self.advertiser_column_name, dimension_name, 'dimension_name']).Sale.count()
-            counts = counts[counts >= QueryPoolDatasetCreator.MIN_CONVERSIONS_REQUIRED_FOR_DP]
+            counts = counts[counts >= self.min_conversions_required_for_dp]
             if not counts.empty:
                 self.query_pool.update(counts.to_dict())
 
@@ -142,7 +144,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         for key in keys:
             count = self.query_pool[key]
             (partner_id, dimension, dimension_name) = key
-            print(f"{count} total products purchased from partner_id ({partner_id}), {dimension_name} ({dimension})")
+            print(f"{count} total conversions from partner_id ({partner_id}), {dimension_name} ({dimension})")
 
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -150,9 +152,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         
         # removing the outlier for now
         # TODO: include the outlier when really running this
-        df = df[df.partner_id != 'E3DDEB04F8AFF944B11943BB57D2F620']
+        # df = df[df.partner_id != 'E3DDEB04F8AFF944B11943BB57D2F620']
 
-        df = self._augment_df_with_synthetic_features(df)
+        # df = self._augment_df_with_synthetic_features(df)
         self._populate_query_pools(df)
         df = self._run_basic_specialization(df)
         return df
@@ -184,12 +186,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             )
             conversions_to_use = conversions.loc[conversions.included]
             
-            conversions_to_use = conversions_to_use.assign(
-                query_count=conversions_to_use.apply(
-                    lambda conversion: self.query_pool[(conversion[self.advertiser_column_name], conversion[dimension], dimension)],
-                    axis=1
-                )
-            )
             new_conversions = pd.concat([new_conversions, conversions_to_use])
 
         new_conversions = new_conversions.drop(columns=['included'])
@@ -197,23 +193,34 @@ class QueryPoolDatasetCreator(BaseCreator):
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = self._create_record_per_query(df.loc[df.Sale == 1])
+
+        def compute_product_count(conversion):
+            sell_price = conversion["SalesAmountInEuro"]
+            offer_price = conversion["product_price"]
+            if sell_price and offer_price:
+                return sell_price // offer_price
+            else:
+                return 1
+            
+        purchase_counts = conversions.apply(compute_product_count, axis=1)
+        max_purchase_counts = purchase_counts.max()
         
         conversions = conversions.assign(
-            count=(
-                conversions["SalesAmountInEuro"] // conversions["product_price"]
-            ).apply(lambda c: min(c, QueryPoolDatasetCreator.PURCHASE_COUNT_CAP_VALUE)),
-            epsilon=conversions["query_count"].apply(
-                lambda c: get_epsilon_from_accuracy_for_counts(c, QueryPoolDatasetCreator.PURCHASE_COUNT_CAP_VALUE)
+            count=purchase_counts,
+            epsilon=purchase_counts.apply(
+                lambda c: get_epsilon_from_accuracy_for_counts(c, max_purchase_counts)
             ),
             key=conversions.apply(
                 lambda conversion: f"{str.join('|', conversion.query_key)}|purchaseCount",
                 axis=1
             ),
-            aggregatable_cap_value=QueryPoolDatasetCreator.PURCHASE_COUNT_CAP_VALUE,
+            aggregatable_cap_value=max_purchase_counts,
         )
 
+        self.log_descriptions_of_reports(conversions)
+
         unused_dimension_names = set(self.dimension_names) - self._get_used_dimension_names()
-        columns_we_created = ["query_key", "query_count"]
+        columns_we_created = ["query_key"]
 
         to_drop = [
             *unused_dimension_names,
@@ -224,3 +231,17 @@ class QueryPoolDatasetCreator(BaseCreator):
         conversions = conversions.drop(columns=to_drop)
 
         return conversions
+
+    def log_descriptions_of_reports(self, conversions):
+        counts = conversions["count"]
+        self.logger.info(f"Aggregatable reports description:\n{counts.describe()}")
+        self.logger.info(f"Aggregatable reports skew: {counts.skew()}")
+
+        true_sums = []
+        for dimension in self.dimension_names:
+            true_sums_for_dimension = conversions.groupby([self.advertiser_column_name, dimension])['count'].sum()
+            true_sums.append(true_sums_for_dimension)
+        
+        all_true_summary_reports = pd.concat(true_sums)
+        self.logger.info(f"True summary reports description:\n{all_true_summary_reports}")
+        self.logger.info(f"True summary reports skew: {all_true_summary_reports.skew()}")

@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from omegaconf import DictConfig
+
 from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
 
 
@@ -9,8 +11,8 @@ class PartnerValueDatasetCreator(BaseCreator):
     Additionally, the conversions expect value queries, which yield higher epsilons.
     """
 
-    def __init__(self) -> None:
-        super().__init__("criteo_partner_values_impressions.csv", "criteo_partner_values_conversions.csv")
+    def __init__(self, config: DictConfig) -> None:
+        super().__init__(config, "criteo_partner_values_impressions.csv", "criteo_partner_values_conversions.csv")
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(subset=["product_id", "partner_id"])

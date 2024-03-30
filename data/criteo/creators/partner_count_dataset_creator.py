@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from omegaconf import DictConfig
+
 from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
 from cookiemonster.data.criteo.creators.epsilon_calculator import (
     get_epsilon_from_accuracy_for_counts,
@@ -12,9 +14,11 @@ class PartnerCountDatasetCreator(BaseCreator):
     Additionally, the conversions expect count queries.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, config: DictConfig) -> None:
         super().__init__(
-            "criteo_partner_counts_impressions.csv", "criteo_partner_counts_conversions.csv"
+            config,
+            "criteo_partner_counts_impressions.csv",
+            "criteo_partner_counts_conversions.csv",
         )
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
