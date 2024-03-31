@@ -208,7 +208,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         for key in keys:
             query_info = self.query_pool[key]
             (partner_id, dimension, dimension_name) = key
-            msg = str.join('; ', [
+            msg = '; '.join([
                 f"{query_info.conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})"
                 f"expect {query_info.big_report_count} big report(s) and {'1' if query_info.mini_report else '0'} mini report(s)"
             ])
