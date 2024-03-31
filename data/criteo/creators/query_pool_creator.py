@@ -19,7 +19,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             "criteo_query_pool_impressions.csv",
             "criteo_query_pool_conversions.csv",
         )
-        self.query_pool: dict[QueryKey, int] = {}  # query -> number of conversions
+        self.query_pool: dict[QueryKey, tuple[int, int, bool]] = {}  # query -> (number of conversions, number of big reports, tail report)
 
         self.advertiser_column_name = "partner_id"
         self.product_column_name = "product_id"
@@ -60,6 +60,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             "partner_id",
             "filter",
         ]
+        self.max_conversions_required_for_dp = config.max_conversions_required_for_dp
         self.min_conversions_required_for_dp = config.min_conversions_required_for_dp
         self.estimated_conversion_rate = config.estimated_conversion_rate
 
@@ -183,16 +184,19 @@ class QueryPoolDatasetCreator(BaseCreator):
             ).Sale.count()
             counts = counts[counts >= self.min_conversions_required_for_dp]
             if not counts.empty:
-                self.query_pool.update(counts.to_dict())
+                for key, conversion_count in counts.to_dict().items():
+                    report_count = conversion_count // self.max_conversions_required_for_dp
+                    remaining = conversion_count % self.max_conversions_required_for_dp
+                    self.query_pool[key] = (conversion_count, report_count, remaining >= self.min_conversions_required_for_dp)
 
         keys = [x for x in self.query_pool.keys()]
         keys.sort()
         log_lines = []
         for key in keys:
-            count = self.query_pool[key]
+            conversion_count, report_count, mini_report = self.query_pool[key]
             (partner_id, dimension, dimension_name) = key
             log_lines.append(
-                f"{count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})"
+                f"{conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension}); expect {report_count} big report(s) and {'1' if mini_report else '0'} mini report(s)"
             )
 
         query_pool_contents = str.join("\n\t", log_lines)
@@ -247,19 +251,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             )
             conversions_to_use = conversions.loc[conversions.included]
 
-            conversions_to_use = conversions_to_use.assign(
-                conversion_count=conversions_to_use.apply(
-                    lambda conversion: self.query_pool[
-                        (
-                            conversion[self.advertiser_column_name],
-                            conversion[dimension],
-                            dimension,
-                        )
-                    ],
-                    axis=1,
-                )
-            )
-
             conversion_chunks.append(conversions_to_use)
 
         return pd.concat(conversion_chunks)
@@ -272,6 +263,17 @@ class QueryPoolDatasetCreator(BaseCreator):
             return sell_price // offer_price
         else:
             return 1
+        
+    def _calculate_epsilon(self, conversion: pd.Series, max_purchase_counts: int) -> float:
+        query_key = conversion["query_key"]
+        (conversion_count, report_count, mini_report) = self.query_pool[query_key]
+        if report_count:
+            self.query_pool[query_key] = (conversion_count, report_count - 1, mini_report)
+            return get_epsilon_from_accuracy_for_counts(self.max_conversions_required_for_dp, max_purchase_counts)
+        elif mini_report:
+            return get_epsilon_from_accuracy_for_counts(conversion_count % self.max_conversions_required_for_dp, max_purchase_counts)
+        
+        raise Exception("A valid query pool entry should have at least one report")
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
@@ -280,7 +282,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
 
         """
-        TODO: [PM] what should we cap our purchase counts at?
         purchase count description across all conversion events:
         count    1.279493e+06
         mean     4.705447e+00
@@ -292,7 +293,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         max      8.661200e+04
         skew     352.22094940782813
 
-        so, maybe 5 is reasonable. should we calculate this a different way generally?
+        So, 5 seems like a reasonable cap value.
         """
         max_purchase_counts = 5
 
@@ -302,11 +303,11 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         conversions = self._create_record_per_query(conversions)
 
+        # Do not sort or shuffle the conversions after this line
         conversions = conversions.assign(
-            epsilon=conversions["conversion_count"].apply(
-                lambda conversion_count: get_epsilon_from_accuracy_for_counts(
-                    conversion_count, max_purchase_counts
-                )
+            epsilon=conversions.apply(
+                lambda conversion: self._calculate_epsilon(conversion, max_purchase_counts),
+                axis=1,
             ),
             key=conversions.apply(
                 lambda conversion: f"{str.join('|', conversion.query_key)}|purchaseCount",
@@ -327,7 +328,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         unused_dimension_names = (
             set(self.dimension_names) - self._get_used_dimension_names()
         )
-        columns_we_created = ["query_key", "conversion_count"]
+        columns_we_created = ["query_key"]
 
         to_drop = [
             *unused_dimension_names,

@@ -1,4 +1,5 @@
 {
+    "max_conversions_required_for_dp": 20000,
     "min_conversions_required_for_dp": 3000,
     "estimated_conversion_rate": 0.08
 }
