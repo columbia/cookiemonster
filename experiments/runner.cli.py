@@ -41,7 +41,7 @@ def budget_consumption_vary_conversions_rate(dataset):
         "num_days_attribution_window": 30,
         "workload_size": [4],
         "scheduling_batch_size_per_query": 20000,
-        "initial_budget": [100000000],
+        "initial_budget": [100000000],      # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
@@ -67,7 +67,7 @@ def budget_consumption_vary_conversions_rate(dataset):
 
 def budget_consumption_vary_impressions_rate(dataset):
 
-    logs_dir = f"{dataset}/budget_consumption_varying_impressions_rate_14"
+    logs_dir = f"{dataset}/budget_consumption_varying_impressions_rate"
 
     experiments = []
 
@@ -81,11 +81,11 @@ def budget_consumption_vary_impressions_rate(dataset):
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
-        "num_days_per_epoch": [14],  # [1, 15, 30],
+        "num_days_per_epoch": [7],  # [1, 15, 30],
         "num_days_attribution_window": 30,
         "workload_size": [4],
         "scheduling_batch_size_per_query": 20000,
-        "initial_budget": [100000000],
+        "initial_budget": [100000000],  # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
@@ -142,6 +142,39 @@ def budget_consumption_vary_epoch_granularity(dataset):
     grid_run(**config)
     # analyze(f"ray/{logs_dir}")
 
+
+def bias_vary_workload_size(dataset):
+
+    logs_dir = f"{dataset}/bias_varying_workload_size"
+
+    impressions_path_base = f"{dataset}/{dataset}_impressions"
+    conversions_path_base = f"{dataset}/{dataset}_conversions"
+
+    conversion_rate = 1.0
+    impression_rate = 0.1
+
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "optimization": ["multiepoch"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": get_path(
+            impressions_path_base, conversion_rate, impression_rate
+        ),
+        "conversions_path": get_path(
+            conversions_path_base, conversion_rate, impression_rate
+        ),
+        "num_days_per_epoch": [7],
+        "num_days_attribution_window": 30,
+        "workload_size": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        "scheduling_batch_size_per_query": 20000,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "mlflow_experiment_id": "",
+    }
+
+    grid_run(**config)
+    # analyze(f"ray/{logs_dir}")
 
 @app.command()
 def run(

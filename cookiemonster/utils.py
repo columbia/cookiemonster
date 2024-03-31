@@ -2,9 +2,8 @@ import json
 import uuid
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple, Any, Union
+from typing import Dict, List, Tuple, Any
 
-from cookiemonster.budget import BasicBudget
 from cookiemonster.budget_accountant import BudgetAccountant
 
 

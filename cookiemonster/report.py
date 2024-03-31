@@ -13,9 +13,7 @@ class Report:
             self.histogram[key] = 0
         self.histogram[key] += value
 
-    def empty(
-        self,
-    ):
+    def empty(self):
         return self.histogram == {}
 
     def __add__(self, other) -> "Report":
@@ -87,4 +85,6 @@ class Partition:
         self.unbiased_report = copy.deepcopy(self.report)
 
     def null_report(self) -> None:
-        self.report = Report()
+        # Set default value 0 to all histogram bins
+        for query_id in self.report.histogram.keys():
+            self.report.histogram[query_id] = 0

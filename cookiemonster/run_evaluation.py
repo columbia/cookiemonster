@@ -76,6 +76,8 @@ class Evaluation:
                 global_sensitivity = compute_global_sensitivity(
                     self.config.user.sensitivity_metric, event.aggregatable_cap_value
                 )
+                # Support for only scalar reports for now
+                assert len(report.histogram) == 1
 
                 for query_id, value in report.histogram.items():
                     if query_id not in per_query_batch:
@@ -113,7 +115,7 @@ class Evaluation:
                                 float(self.config.user.initial_budget),
                             )
                             filter_result = origin_filters.pay_all_or_nothing(
-                                batch.epochs_window, batch.epsilon
+                                batch.epochs_window, batch.global_epsilon
                             )
                             self.logger.log(
                                 "budget",

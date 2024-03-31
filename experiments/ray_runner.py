@@ -67,7 +67,7 @@ def grid_run(
         run_and_report,
         config=config,
         resources_per_trial={"cpu": 1},
-        local_dir=str(RAY_LOGS.joinpath(logs_dir)),
+        storage_path=str(RAY_LOGS.joinpath(logs_dir)),
         resume=False,
         verbose=1,
         callbacks=[
