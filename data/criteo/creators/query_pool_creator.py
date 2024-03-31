@@ -170,6 +170,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 axis=1,
             )
         )
+        self.dimension_names.append("synthetic_category")
         return df
 
     def _populate_query_pools(self, df: pd.DataFrame) -> None:
