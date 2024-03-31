@@ -1,5 +1,6 @@
-from cookiemonster.data.criteo.creators.base_creator import BaseCreator, pd
-from cookiemonster.data.criteo.creators.epsilon_calculator import (
+from omegaconf import DictConfig
+from data.criteo.creators.base_creator import BaseCreator, pd
+from data.criteo.creators.epsilon_calculator import (
     get_epsilon_from_accuracy_for_counts,
 )
 
@@ -10,8 +11,9 @@ class ThreeAdversitersDatasetCreator(BaseCreator):
     The conversions here expect count queries.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, config: DictConfig) -> None:
         super().__init__(
+            config,
             "criteo_impressions_three_advertisers.csv",
             "criteo_conversions_three_advertisers.csv",
         )
