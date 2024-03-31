@@ -1,5 +1,4 @@
 import os
-import math
 import typer
 from loguru import logger
 from typing import Dict, Any
@@ -99,77 +98,33 @@ class Evaluation:
                 # Check if the new report triggers scheduling / aggregation
                 for query_id in report.histogram.keys():
                     batch = per_query_batch[query_id]
-
                     if self.aggregation_policy.should_calculate_summary_reports(batch):
-                        self.logger.log("scheduling_timestamps", event.id)
-                        self.logger.log(
-                            "epoch_range", event.destination, *batch.epochs_window
-                        )
-
-                        # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)
-                        if self.config.user.baseline == IPA:
-                            origin_filters = maybe_initialize_filters(
-                                self.global_filters_per_origin,
-                                event.destination,
-                                batch.epochs_window,
-                                float(self.config.user.initial_budget),
-                            )
-                            filter_result = origin_filters.pay_all_or_nothing(
-                                batch.epochs_window, batch.global_epsilon
-                            )
-                            self.logger.log(
-                                "budget",
-                                event.id,
-                                event.destination,
-                                0,
-                                batch.epochs_window,
-                                filter_result.budget_consumed,
-                                filter_result.status,
-                            )
-
-                            if not filter_result.succeeded():
-                                # Not enough budget to run this query - don't schedule the batch
-                                self.logger.log(
-                                    "query_results",
-                                    event.id,
-                                    event.destination,
-                                    query_id,
-                                    None,
-                                    None,
-                                    None,
-                                )
-                                logger.info(colored(f"IPA can't run query", "red"))
-
-                                # Reset the batch
-                                del per_query_batch[query_id]
-                                continue
-
-                        # Schedule the batch
-                        aggregation_result = (
-                            self.aggregation_service.create_summary_report(batch)
-                        )
-                        logger.info(
-                            colored(f"Scheduling query batch {query_id}", "green")
-                        )
-                        logger.info(
-                            colored(
-                                f"true_output: {aggregation_result.true_output}, aggregation_output: {aggregation_result.aggregation_output}, aggregation_noisy_output: {aggregation_result.aggregation_noisy_output}",
-                                "green",
-                            )
-                        )
-
-                        self.logger.log(
-                            "query_results",
-                            event.id,
-                            event.destination,
-                            query_id,
-                            aggregation_result.true_output,
-                            aggregation_result.aggregation_output,
-                            aggregation_result.aggregation_noisy_output,
+                        self._calculate_summary_reports(
+                            query_id=query_id,
+                            batch=batch,
+                            id=event.id,
+                            destination=event.destination,
                         )
 
                         # Reset the batch
                         del per_query_batch[query_id]
+
+        # handle the tail for those queries that have enough events for DP, but are not
+        # the preferred batch size
+        for (
+            destination,
+            per_query_batch,
+        ) in self.per_destination_per_query_batch.values():
+            for query_id, batch in per_query_batch.values():
+                if self.aggregation_policy.should_calculate_summary_reports(
+                    batch, tail=True
+                ):
+                    self._calculate_summary_reports(
+                        query_id=query_id,
+                        batch=batch,
+                        id=-1,
+                        destination=destination,
+                    )
 
         merged_event_loggers = self.logger + get_log_events_across_users()
         logs = process_logs(
@@ -181,6 +136,69 @@ class Evaluation:
             save_logs(logs, save_dir)
 
         return logs
+
+    def _calculate_summary_reports(
+        self, *, query_id: str, batch: QueryBatch, id: int, destination: str
+    ) -> None:
+
+        self.logger.log("scheduling_timestamps", id)
+        self.logger.log("epoch_range", destination, *batch.epochs_window)
+
+        # In case of IPA the advertiser consumes worst-case budget from all the
+        # requested epochs in their global filter (Central DP)
+        if self.config.user.baseline == IPA:
+            origin_filters = maybe_initialize_filters(
+                self.global_filters_per_origin,
+                destination,
+                batch.epochs_window,
+                float(self.config.user.initial_budget),
+            )
+            filter_result = origin_filters.pay_all_or_nothing(
+                batch.epochs_window, batch.global_epsilon
+            )
+            self.logger.log(
+                "budget",
+                id,
+                destination,
+                0,
+                batch.epochs_window,
+                filter_result.budget_consumed,
+                filter_result.status,
+            )
+
+            if not filter_result.succeeded():
+                # Not enough budget to run this query - don't schedule the batch
+                self.logger.log(
+                    "query_results",
+                    id,
+                    destination,
+                    query_id,
+                    None,
+                    None,
+                    None,
+                )
+                logger.info(colored(f"IPA can't run query", "red"))
+                return
+
+        # Schedule the batch
+        aggregation_result = self.aggregation_service.create_summary_report(batch)
+        logger.info(colored(f"Scheduling query batch {query_id}", "green"))
+        logger.info(
+            colored(
+                f"true_output: {aggregation_result.true_output}, aggregation_output: {aggregation_result.aggregation_output}, aggregation_noisy_output: {aggregation_result.aggregation_noisy_output}",
+                "green",
+            )
+        )
+
+        self.logger.log(
+            "query_results",
+            id,
+            destination,
+            query_id,
+            aggregation_result.true_output,
+            aggregation_result.aggregation_output,
+            aggregation_result.aggregation_noisy_output,
+        )
 
 
 @app.command()
