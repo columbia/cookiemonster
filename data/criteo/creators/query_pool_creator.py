@@ -11,6 +11,7 @@ from data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_fo
 
 QueryKey = tuple[str, str, str]  # (advertiser_value, dimension_value, dimension_name)
 
+
 @dataclass
 class QueryInfo:
     conversion_count: int
@@ -194,7 +195,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             counts = counts[counts >= self.min_conversions_required_for_dp]
             if not counts.empty:
                 for key, conversion_count in counts.to_dict().items():
-                    report_count = conversion_count // self.max_conversions_required_for_dp
+                    report_count = (
+                        conversion_count // self.max_conversions_required_for_dp
+                    )
                     remaining = conversion_count % self.max_conversions_required_for_dp
                     self.query_pool[key] = QueryInfo(
                         conversion_count=conversion_count,
@@ -208,10 +211,12 @@ class QueryPoolDatasetCreator(BaseCreator):
         for key in keys:
             query_info = self.query_pool[key]
             (partner_id, dimension, dimension_name) = key
-            msg = '; '.join([
-                f"{query_info.conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})"
-                f"expect {query_info.big_report_count} big report(s) and {'1' if query_info.mini_report else '0'} mini report(s)"
-            ])
+            msg = "; ".join(
+                [
+                    f"{query_info.conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})"
+                    f"expect {query_info.big_report_count} big report(s) and {'1' if query_info.mini_report else '0'} mini report(s)"
+                ]
+            )
             log_lines.append(msg)
 
         query_pool_contents = str.join("\n\t", log_lines)
@@ -278,8 +283,10 @@ class QueryPoolDatasetCreator(BaseCreator):
             return sell_price // offer_price
         else:
             return 1
-        
-    def _calculate_epsilon(self, conversion: pd.Series, max_purchase_counts: int) -> float:
+
+    def _calculate_epsilon(
+        self, conversion: pd.Series, max_purchase_counts: int
+    ) -> float:
         query_key = conversion["query_key"]
         query_info = self.query_pool[query_key]
 
@@ -287,14 +294,22 @@ class QueryPoolDatasetCreator(BaseCreator):
         if query_info.working_conversion_count == self.max_conversions_required_for_dp:
             # this conversion ends a big report
             query_info.working_big_report_count += 1
-            return get_epsilon_from_accuracy_for_counts(self.max_conversions_required_for_dp, max_purchase_counts)
+            return get_epsilon_from_accuracy_for_counts(
+                self.max_conversions_required_for_dp, max_purchase_counts
+            )
         elif query_info.working_big_report_count < query_info.big_report_count:
             # we are still processing big reports
-            return get_epsilon_from_accuracy_for_counts(self.max_conversions_required_for_dp, max_purchase_counts)
+            return get_epsilon_from_accuracy_for_counts(
+                self.max_conversions_required_for_dp, max_purchase_counts
+            )
         elif query_info.mini_report:
             # we are in a mini report
-            conversion_count = query_info.conversion_count % self.max_conversions_required_for_dp
-            return get_epsilon_from_accuracy_for_counts(conversion_count, max_purchase_counts)
+            conversion_count = (
+                query_info.conversion_count % self.max_conversions_required_for_dp
+            )
+            return get_epsilon_from_accuracy_for_counts(
+                conversion_count, max_purchase_counts
+            )
         else:
             # no query, so no epsilon
             return -1
@@ -330,7 +345,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         # Do not sort or shuffle the conversions after this line
         conversions = conversions.assign(
             epsilon=conversions.apply(
-                lambda conversion: self._calculate_epsilon(conversion, max_purchase_counts),
+                lambda conversion: self._calculate_epsilon(
+                    conversion, max_purchase_counts
+                ),
                 axis=1,
             ),
             key=conversions.apply(

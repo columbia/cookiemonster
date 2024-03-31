@@ -50,7 +50,7 @@ class CountConversionPolicy(AggregationPolicy):
     ) -> bool:
         if query_batch.global_epsilon == -1:
             return False
-        
+
         if tail and self.min_interval:
             return query_batch.size() >= self.min_interval
         else:
@@ -71,7 +71,7 @@ class EpochPolicy(AggregationPolicy):
     ) -> bool:
         if query_batch.global_epsilon == -1:
             return False
-        
+
         epoch_count = query_batch.epochs_window[1] - query_batch.epochs_window[0]
         if tail and self.min_interval:
             return epoch_count >= self.min_interval
