@@ -160,36 +160,85 @@ def analyze_budget_consumption(path):
 
 def analyze_bias(path):
 
-    def get_logs(row):
-        logs = row["logs"]["bias"]
+    def get_logs(row, results, i):
+        logs = row["logs"]["query_results"]
         df = pd.DataFrame.from_records(
-            logs, columns=["timestamp", "destination", "query_id", "bias"]
+            logs,
+            columns=[
+                "timestamp",
+                "destination",
+                "query_id",
+                "true_output",
+                "aggregation_output",
+                "aggregation_noisy_output",
+            ],
         )
 
         records = []
         for destination, destination_df in df.groupby(["destination"]):
 
-            workload_bias = destination_df["bias"].sum()
-            # print(log)
+            total_nulls_error = 0
+            total_dp_error = 0
+            total_error = 0
+
+            accuracy_per_query = []
+            for _, log in destination_df.iterrows():
+                # Aggregate bias across all queries ran in this workload/experiment
+                nulls_error = log["true_output"] - log["aggregation_output"]
+                nulls_accuracy = 1 - (nulls_error / log["true_output"])
+                accuracy_per_query.append(nulls_accuracy)
+                
+                end2end_error = abs(log["aggregation_noisy_output"] - log["true_output"])
+                end2end_accuracy = 1 - (end2end_error / log["true_output"])
+                
+                total_dp_error += abs(log["aggregation_noisy_output"] - log["aggregation_output"])
+                total_error += abs(log["true_output"] - log["aggregation_noisy_output"])
+                # print(log)
+
             records.append(
                 {
                     "destination": destination[0],
-                    "workload_bias": workload_bias,
+                    "workload_nulls_error": workload_bias,
                     "workload_size": row["workload_size"],
                     "baseline": row["baseline"],
                     "optimization": row["optimization"],
                     "num_days_per_epoch": row["num_days_per_epoch"],
-                    "num_days_attribution_window": row["num_days_attribution_window"],
+                    "num_days_attribution_window": row[
+                        "num_days_attribution_window"
+                    ],
                 }
             )
-        return pd.DataFrame.from_records(records)
+        results[i] = pd.DataFrame.from_records(records)
 
     dfs = []
     df = get_df(path)
-    for _, row in df.iterrows():
-        dfs.append(get_logs(row))
 
-    return pd.concat(dfs)
+    # In Parallel
+    processes = []
+    results = Manager().dict()
+    for i, row in df.iterrows():
+        print(i)
+        processes.append(
+            Process(
+                target=get_logs,
+                args=(row, results, i),
+            )
+        )
+        processes[i].start()
+
+    for process in processes:
+        process.join()
+
+    # # Sequentially
+    # results = {}
+    # for i, row in df.iterrows():
+    #     get_logs(row, results, i)
+
+    for result in results.values():
+        dfs.append(result)
+
+    dfs = pd.concat(dfs)
+    return dfs
 
 
 def plot_budget_consumption(df, facet_row="conversion_rate"):
