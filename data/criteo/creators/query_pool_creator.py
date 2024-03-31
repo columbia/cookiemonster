@@ -1,7 +1,9 @@
 from datetime import datetime
+import itertools
+from omegaconf import DictConfig
+import prtpy
 from uuid import uuid4
 
-from omegaconf import DictConfig
 
 from data.criteo.creators.base_creator import BaseCreator, pd
 from data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
@@ -18,7 +20,14 @@ class QueryPoolDatasetCreator(BaseCreator):
             "criteo_query_pool_conversions.csv",
         )
         self.query_pool: dict[QueryKey, int] = {}  # query -> number of conversions
+
+        self.advertiser_column_name = "partner_id"
+        self.product_column_name = "product_id"
+        self.user_column_name = "user_id"
+
         self.dimension_names = [
+            self.advertiser_column_name,
+            self.product_column_name,
             "product_category1",
             "product_category2",
             "product_category3",
@@ -33,9 +42,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             "product_brand",
             "product_country",
         ]
-        self.advertiser_column_name = "partner_id"
-        self.product_column_name = "product_id"
-        self.user_column_name = "user_id"
 
         self.conversion_columns_to_drop = [
             "SalesAmountInEuro",
@@ -55,6 +61,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             "filter",
         ]
         self.min_conversions_required_for_dp = config.min_conversions_required_for_dp
+        self.estimated_conversion_rate = config.estimated_conversion_rate
 
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("running basic df specialization...")
@@ -88,68 +95,82 @@ class QueryPoolDatasetCreator(BaseCreator):
         df["filter"] = "-"
         return df
 
-    def _augment_df_with_synthetic_product_features(
-        self, df: pd.DataFrame
-    ) -> pd.DataFrame:
-        self.logger.info(
-            "determining synthetic categorical features to add to the dataset..."
+    def _augment_df_with_advertiser_bin_cover(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        We upsample the dataset to increase the number of queries to run. To accomplish this,
+        for each advertiser, we create synthetic groupings of products that could represent
+        another way of categorizing those products together.
+
+        A query is accepted into an advertiser's query pool as long as the number of conversions
+        driving that query is >= self.min_conversions_required_for_dp. Given a rough estimate of
+        a typical conversion rate across products, self.estimated_conversion_rate, we back into
+        a minimum number of impressions required for dp queries, min_impressions_required_for_dp.
+
+        Using this, our upsampling problem can be phrased as: for each advertiser, group their
+        products in such a way that maximizes the number of additional queries asked. In other words,
+        group products into bins such that the sum of the impression counts of products within a bin
+        is at least min_impressions_required_for_dp, and such that the number of bins is maximal.
+
+        This is an example of the bin-covering problem where the bin size is min_impressions_required_for_dp.
+        We use the prtpy implementation of Csirik-Frenk-Labbe-Zhang's 3/4 approximation.
+        https://en.wikipedia.org/wiki/Bin_covering_problem#Three-classes_bin-filling_algorithm.
+        """
+        min_impressions_required_for_dp = (
+            self.min_conversions_required_for_dp // self.estimated_conversion_rate
         )
 
-        synthetics_map = {}  # (advert, product_id, buckets) -> value
-        max_min_upper_bound = 0
-        lower_bound = 2
+        # TODO: [PM] maybe using a dataframe for bin assignments rather than a map is faster
+        # than the final, row-wise apply?
+        bin_assignments = {}
         for advertiser in df[self.advertiser_column_name].unique():
             advertiser_chunk = df.loc[df[self.advertiser_column_name] == advertiser]
-            conversion_count = advertiser_chunk.loc[advertiser_chunk.Sale == 1].shape[0]
-            unique_products = pd.Series(
-                advertiser_chunk[self.product_column_name].unique()
+            product_impression_counts = advertiser_chunk.groupby(
+                [self.product_column_name]
+            ).size()
+
+            count_map = {}
+            for product_impression_count in product_impression_counts.items():
+                products = count_map.get(product_impression_count[1])
+                if products:
+                    products.append(product_impression_count[0])
+                else:
+                    count_map[product_impression_count[1]] = [
+                        product_impression_count[0]
+                    ]
+
+            bins = prtpy.pack(
+                algorithm=prtpy.covering.threequarters,
+                binsize=min_impressions_required_for_dp,
+                items=product_impression_counts,
             )
-            unique_products = unique_products.sample(frac=1)
+            if len(bins) >= 2:
+                bin_names = []
+                for bin in bins:
+                    bin_name = str(uuid4()).upper().replace("-", "")
+                    bin_names.append(bin_name)
+                    for count in bin:
+                        product = count_map[count].pop()
+                        bin_assignments[(advertiser, product)] = bin_name
 
-            upper_bound_unique_products = unique_products.shape[0] - 1
-            upper_bound_num_buckets = (
-                conversion_count // self.min_conversions_required_for_dp
+                # we've maxed out the number of bins we can create, so just
+                # stick the unbinned products in the bins in a round robin
+                # fashion.
+                unbinned_products = itertools.chain(*count_map.values())
+
+                num_bins = len(bin_names)
+                for i, unbinned in enumerate(unbinned_products):
+                    bin_assignments[(advertiser, unbinned)] = bin_names[i % num_bins]
+
+        df = df.assign(
+            synthetic_category=df.apply(
+                lambda row: bin_assignments.get(
+                    (row[self.advertiser_column_name], row[self.product_column_name]),
+                    pd.NA,
+                ),
+                axis=1,
             )
-            min_upper_bound = min(upper_bound_unique_products, upper_bound_num_buckets)
-
-            # only bother adding if we know we'll get usage out of it
-            if conversion_count // lower_bound >= self.min_conversions_required_for_dp:
-
-                if min_upper_bound > max_min_upper_bound:
-                    max_min_upper_bound = min_upper_bound
-
-                for buckets in range(lower_bound, min_upper_bound + 1):
-                    values = []
-                    for _ in range(buckets):
-                        synthetic_value = str(uuid4()).upper().replace("-", "")
-                        values.append(synthetic_value)
-
-                    i = 0
-                    for product in unique_products:
-                        synthetics_map[(advertiser, product, buckets)] = values[
-                            i % buckets
-                        ]
-                        i += 1
-
-        def lookup_synthetic_value(row: pd.Series, bucket: int):
-            key = (
-                row[self.advertiser_column_name],
-                row[self.product_column_name],
-                bucket,
-            )
-            return synthetics_map.get(key, pd.NA)
-
-        self.logger.info(
-            f"adding {max_min_upper_bound-1} synthetic dimensions to the dataset..."
         )
-
-        to_add = {}
-        for curr_bucket in range(lower_bound, max_min_upper_bound + 1):
-            to_add[f"synthetic_category{curr_bucket}"] = df.apply(
-                lambda row: lookup_synthetic_value(row, curr_bucket), axis=1
-            )
-
-        return df.assign(**to_add)
+        return df
 
     def _populate_query_pools(self, df: pd.DataFrame) -> None:
         self.logger.info("populating the query pools...")
@@ -188,10 +209,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
 
         # TODO: [PM] should we include the outlier when really running this?
-        df = df[df.partner_id != "E3DDEB04F8AFF944B11943BB57D2F620"]
+        # df = df[df.partner_id != "E3DDEB04F8AFF944B11943BB57D2F620"]
 
-        # Heads up: this is pretty slow
-        self._augment_df_with_synthetic_product_features(df)
+        df = self._augment_df_with_advertiser_bin_cover(df)
 
         self._populate_query_pools(df)
         df = self._run_basic_specialization(df)
@@ -201,7 +221,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         impressions = df[self.impression_columns_to_use]
         impressions = impressions.sort_values(by=["click_timestamp"])
         impressions["key"] = "-"
-        # [PM] TODO: drop random sample of impressions
+        # TODO: [PM] drop random sample of impressions?
         return impressions
 
     def _get_used_dimension_names(self) -> set:
