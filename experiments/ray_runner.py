@@ -29,7 +29,11 @@ def grid_run(
     logs_dir: str,
     loguru_level: str,
     mlflow_experiment_id: str,
+    ray_session_dir: str,
 ):
+
+    if ray_session_dir:
+        ray.init(_temp_dir=ray_session_dir)
 
     config = {
         "user": {

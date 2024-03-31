@@ -21,7 +21,7 @@ def get_path(path_base, conversions_rate, impression_rate):
     return f"{path_base}_conv_rate_{conversions_rate}_impr_rate_{impression_rate}.csv"
 
 
-def budget_consumption_vary_conversions_rate(dataset):
+def budget_consumption_vary_conversions_rate(dataset, ray_session_dir):
 
     logs_dir = f"{dataset}/budget_consumption_varying_conversions_rate"
 
@@ -45,6 +45,7 @@ def budget_consumption_vary_conversions_rate(dataset):
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
+        "ray_session_dir": ray_session_dir,
     }
 
     for conversions_rate in conversions_rates:
@@ -65,7 +66,7 @@ def budget_consumption_vary_conversions_rate(dataset):
     # analyze(f"ray/{logs_dir}")
 
 
-def budget_consumption_vary_impressions_rate(dataset):
+def budget_consumption_vary_impressions_rate(dataset, ray_session_dir):
 
     logs_dir = f"{dataset}/budget_consumption_varying_impressions_rate"
 
@@ -89,6 +90,7 @@ def budget_consumption_vary_impressions_rate(dataset):
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
+        "ray_session_dir": ray_session_dir,
     }
 
     for impression_rate in impression_rates:
@@ -109,7 +111,7 @@ def budget_consumption_vary_impressions_rate(dataset):
     # analyze(f"ray/{logs_dir}")
 
 
-def budget_consumption_vary_epoch_granularity(dataset):
+def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
 
     logs_dir = f"{dataset}/budget_consumption_varying_epoch_granularity"
 
@@ -137,13 +139,14 @@ def budget_consumption_vary_epoch_granularity(dataset):
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
+        "ray_session_dir": ray_session_dir,
     }
 
     grid_run(**config)
     # analyze(f"ray/{logs_dir}")
 
 
-def bias_vary_workload_size(dataset):
+def bias_vary_workload_size(dataset, ray_session_dir):
 
     logs_dir = f"{dataset}/bias_varying_workload_size"
 
@@ -171,6 +174,7 @@ def bias_vary_workload_size(dataset):
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
+        "ray_session_dir": ray_session_dir,
     }
 
     grid_run(**config)
@@ -180,11 +184,12 @@ def bias_vary_workload_size(dataset):
 def run(
     exp: str = "budget_consumption_vary_conversions_rate",
     dataset: str = "synthetic",
+    ray_session_dir: str = "",
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
     os.environ["TUNE_DISABLE_AUTO_CALLBACK_LOGGERS"] = "1"
-    globals()[f"{exp}"](dataset)
+    globals()[f"{exp}"](dataset, ray_session_dir)
 
 
 if __name__ == "__main__":
