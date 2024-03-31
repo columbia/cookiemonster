@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 import itertools
 from omegaconf import DictConfig
@@ -10,6 +11,14 @@ from data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_fo
 
 QueryKey = tuple[str, str, str]  # (advertiser_value, dimension_value, dimension_name)
 
+@dataclass
+class QueryInfo:
+    conversion_count: int
+    big_report_count: int
+    mini_report: bool
+    working_big_report_count: int = 0
+    working_conversion_count: int = 0
+
 
 class QueryPoolDatasetCreator(BaseCreator):
 
@@ -19,7 +28,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             "criteo_query_pool_impressions.csv",
             "criteo_query_pool_conversions.csv",
         )
-        self.query_pool: dict[QueryKey, tuple[int, int, bool]] = {}  # query -> (number of conversions, number of big reports, tail report)
+        self.query_pool: dict[QueryKey, QueryInfo] = {}  # query -> QueryInfo
 
         self.advertiser_column_name = "partner_id"
         self.product_column_name = "product_id"
@@ -187,17 +196,23 @@ class QueryPoolDatasetCreator(BaseCreator):
                 for key, conversion_count in counts.to_dict().items():
                     report_count = conversion_count // self.max_conversions_required_for_dp
                     remaining = conversion_count % self.max_conversions_required_for_dp
-                    self.query_pool[key] = (conversion_count, report_count, remaining >= self.min_conversions_required_for_dp)
+                    self.query_pool[key] = QueryInfo(
+                        conversion_count=conversion_count,
+                        big_report_count=report_count,
+                        mini_report=remaining >= self.min_conversions_required_for_dp,
+                    )
 
         keys = [x for x in self.query_pool.keys()]
         keys.sort()
         log_lines = []
         for key in keys:
-            conversion_count, report_count, mini_report = self.query_pool[key]
+            query_info = self.query_pool[key]
             (partner_id, dimension, dimension_name) = key
-            log_lines.append(
-                f"{conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension}); expect {report_count} big report(s) and {'1' if mini_report else '0'} mini report(s)"
-            )
+            msg = str.join('; ', [
+                f"{query_info.conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})"
+                f"expect {query_info.big_report_count} big report(s) and {'1' if query_info.mini_report else '0'} mini report(s)"
+            ])
+            log_lines.append(msg)
 
         query_pool_contents = str.join("\n\t", log_lines)
         self.logger.info(
@@ -266,14 +281,23 @@ class QueryPoolDatasetCreator(BaseCreator):
         
     def _calculate_epsilon(self, conversion: pd.Series, max_purchase_counts: int) -> float:
         query_key = conversion["query_key"]
-        (conversion_count, report_count, mini_report) = self.query_pool[query_key]
-        if report_count:
-            self.query_pool[query_key] = (conversion_count, report_count - 1, mini_report)
+        query_info = self.query_pool[query_key]
+
+        query_info.working_conversion_count += 1
+        if query_info.working_conversion_count == self.max_conversions_required_for_dp:
+            # this conversion ends a big report
+            query_info.working_big_report_count += 1
             return get_epsilon_from_accuracy_for_counts(self.max_conversions_required_for_dp, max_purchase_counts)
-        elif mini_report:
-            return get_epsilon_from_accuracy_for_counts(conversion_count % self.max_conversions_required_for_dp, max_purchase_counts)
-        
-        raise Exception("A valid query pool entry should have at least one report")
+        elif query_info.working_big_report_count < query_info.big_report_count:
+            # we are still processing big reports
+            return get_epsilon_from_accuracy_for_counts(self.max_conversions_required_for_dp, max_purchase_counts)
+        elif query_info.mini_report:
+            # we are in a mini report
+            conversion_count = query_info.conversion_count % self.max_conversions_required_for_dp
+            return get_epsilon_from_accuracy_for_counts(conversion_count, max_purchase_counts)
+        else:
+            # no query, so no epsilon
+            return -1
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
