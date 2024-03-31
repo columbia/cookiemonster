@@ -11,6 +11,13 @@ class AggregationPolicyType(str, Enum):
 
 
 class AggregationPolicy(ABC):
+    def __init__(self, config: DictConfig) -> None:
+        self.min_interval = config.get("min_interval")
+        if self.min_interval:
+            self.max_interval = config.max_interval
+        else:
+            self.max_interval = config.interval
+
     @classmethod
     def create(cls, config: DictConfig) -> "AggregationPolicy":
         if config.type == AggregationPolicyType.COUNT_POLICY:
@@ -23,7 +30,9 @@ class AggregationPolicy(ABC):
             )
 
     @abstractmethod
-    def should_calculate_summary_reports(self, query_batch: QueryBatch) -> bool:
+    def should_calculate_summary_reports(
+        self, query_batch: QueryBatch, *, tail: bool = False
+    ) -> bool:
         pass
 
 
@@ -34,10 +43,15 @@ class CountConversionPolicy(AggregationPolicy):
     """
 
     def __init__(self, config: DictConfig) -> None:
-        self.counts = config.interval
+        super().__init__(config)
 
-    def should_calculate_summary_reports(self, query_batch: QueryBatch) -> bool:
-        return query_batch.size() == self.counts
+    def should_calculate_summary_reports(
+        self, query_batch: QueryBatch, *, tail: bool = False
+    ) -> bool:
+        if tail and self.min_interval:
+            return query_batch.size() >= self.min_interval
+        else:
+            return query_batch.size() == self.max_interval
 
 
 class EpochPolicy(AggregationPolicy):
@@ -47,9 +61,13 @@ class EpochPolicy(AggregationPolicy):
     """
 
     def __init__(self, config: DictConfig) -> None:
-        self.epochs = config.interval
+        super().__init__(config)
 
-    def should_calculate_summary_reports(self, query_batch: QueryBatch) -> bool:
-        return (
-            query_batch.epochs_window[1] - query_batch.epochs_window[0] >= self.epochs
-        )
+    def should_calculate_summary_reports(
+        self, query_batch: QueryBatch, *, tail: bool = False
+    ) -> bool:
+        epoch_count = query_batch.epochs_window[1] - query_batch.epochs_window[0]
+        if tail and self.min_interval:
+            return epoch_count >= self.min_interval
+        else:
+            return epoch_count == self.max_interval

@@ -1,13 +1,15 @@
+from abc import ABC, abstractmethod
 import os
 import math
+from typing import Generator, Iterable
 import pandas as pd
 from omegaconf import OmegaConf
 from datetime import datetime
 
-from cookiemonster.events import Impression, Conversion
+from cookiemonster.events import Impression, Conversion, Event
 
 
-class Dataset:
+class Dataset(ABC):
     def __init__(self, config: OmegaConf) -> None:
         """A sequence of Events"""
         self.config = config
@@ -31,6 +33,49 @@ class Dataset:
             case _:
                 raise ValueError(f"Unsupported config name: {config.name}")
 
+    @abstractmethod
+    def read_impression(
+        self, impression_reader: Iterable
+    ) -> tuple[Event | None, int | None, str | None]:
+        pass
+
+    @abstractmethod
+    def read_conversion(
+        self, conversion_reader: Iterable
+    ) -> tuple[Event | None, int | None, str | None]:
+        pass
+
+    def event_reader(self) -> Generator[tuple[str, Event] | None, None, None]:
+        impression_timestamp = conversion_timestamp = 0
+
+        impression = None
+        conversion = None
+
+        impressions_reader = self.impressions_data.iterrows()
+        conversions_reader = self.conversions_data.iterrows()
+
+        while True:
+            if not impression and impression_timestamp != math.inf:
+                impression, impression_timestamp, impression_user_id = (
+                    self.read_impression(impressions_reader)
+                )
+            if not conversion and conversion_timestamp != math.inf:
+                conversion, conversion_timestamp, conversion_user_id = (
+                    self.read_conversion(conversions_reader)
+                )
+
+            # Feed the event with the earliest timestamp
+            if impression_timestamp == math.inf and conversion_timestamp == math.inf:
+                break
+            elif impression_timestamp <= conversion_timestamp:
+                yield (impression_user_id, impression)
+                impression = None
+            else:
+                yield (conversion_user_id, conversion)
+                conversion = None
+
+        yield None
+
 
 class Synthetic(Dataset):
     def __init__(self, config: OmegaConf) -> None:
@@ -42,244 +87,193 @@ class Synthetic(Dataset):
         self.impressions_data.query("product_id in @self.queries", inplace=True)
         self.conversions_data.query("product_id in @self.queries", inplace=True)
 
-    def event_reader(self):
-        impression_timestamp = conversion_timestamp = 0
+    def read_impression(
+        self, impressions_reader: Iterable
+    ) -> tuple[Event | None, int | None, str | None]:
+        try:
+            _, row = next(impressions_reader)
 
-        impression = None
-        conversion = None
+            impression_timestamp = row["timestamp"]
+            impression_date = datetime.fromtimestamp(impression_timestamp)
+            impression_day = (
+                7 * (impression_date.isocalendar().week - 1)
+            ) + impression_date.isocalendar().weekday
+            impression_epoch = math.ceil(
+                impression_day / self.config.num_days_per_epoch
+            )
+            impression_user_id = row["user_id"]
 
-        impressions_reader = self.impressions_data.iterrows()
-        conversions_reader = self.conversions_data.iterrows()
+            impression = Impression(
+                timestamp=impression_timestamp,
+                epoch=impression_epoch,
+                destination=row["advertiser_id"],
+                filter=row["filter"],
+                key=str(row["key"]),
+                user_id=impression_user_id,
+            )
+            return impression, impression_timestamp, impression_user_id
 
-        def read_impression():
-            try:
-                _, row = next(impressions_reader)
+        except StopIteration:
+            return None, math.inf, None
 
-                impression_timestamp = row["timestamp"]
-                impression_date = datetime.fromtimestamp(impression_timestamp)
-                impression_day = (
-                    7 * (impression_date.isocalendar().week - 1)
-                ) + impression_date.isocalendar().weekday
-                impression_epoch = math.ceil(
-                    impression_day / self.config.num_days_per_epoch
-                )
-                impression_user_id = row["user_id"]
+    def read_conversion(
+        self, conversions_reader: Iterable
+    ) -> tuple[Event | None, int | None, str | None]:
+        try:
+            _, row = next(conversions_reader)
+            conversion_timestamp = row["timestamp"]
+            self.conversions_counter += 1
 
-                impression = Impression(
-                    timestamp=impression_timestamp,
-                    epoch=impression_epoch,
-                    destination=row["advertiser_id"],
-                    filter=row["filter"],
-                    key=str(row["key"]),
-                    user_id=impression_user_id,
-                )
-                return impression, impression_timestamp, impression_user_id
+            num_seconds_attribution_window = (
+                self.config.num_days_attribution_window * 24 * 60 * 60
+            )
+            earliest_attribution_timestamp = max(
+                conversion_timestamp - num_seconds_attribution_window, 0
+            )
 
-            except StopIteration:
-                return None, math.inf, None
+            attribution_window = (
+                earliest_attribution_timestamp,
+                conversion_timestamp,
+            )
 
-        def read_conversion():
-            try:
-                _, row = next(conversions_reader)
-                conversion_timestamp = row["timestamp"]
-                self.conversions_counter += 1
+            earliest_attribution_date = datetime.fromtimestamp(
+                earliest_attribution_timestamp
+            )
+            earliest_attribution_day = (
+                7 * (earliest_attribution_date.isocalendar().week - 1)
+            ) + earliest_attribution_date.isocalendar().weekday
 
-                num_seconds_attribution_window = (
-                    self.config.num_days_attribution_window * 24 * 60 * 60
-                )
-                earliest_attribution_timestamp = max(
-                    conversion_timestamp - num_seconds_attribution_window, 0
-                )
+            conversion_date = datetime.fromtimestamp(conversion_timestamp)
+            conversion_day = (
+                7 * (conversion_date.isocalendar().week - 1)
+            ) + conversion_date.isocalendar().weekday
 
-                attribution_window = (
-                    earliest_attribution_timestamp,
-                    conversion_timestamp,
-                )
+            conversion_epoch = math.ceil(
+                conversion_day / self.config.num_days_per_epoch
+            )
+            epochs_window = (
+                math.ceil(earliest_attribution_day / self.config.num_days_per_epoch),
+                conversion_epoch,
+            )
 
-                earliest_attribution_date = datetime.fromtimestamp(
-                    earliest_attribution_timestamp
-                )
-                earliest_attribution_day = (
-                    7 * (earliest_attribution_date.isocalendar().week - 1)
-                ) + earliest_attribution_date.isocalendar().weekday
+            conversion_user_id = row["user_id"]
 
-                conversion_date = datetime.fromtimestamp(conversion_timestamp)
-                conversion_day = (
-                    7 * (conversion_date.isocalendar().week - 1)
-                ) + conversion_date.isocalendar().weekday
+            conversion = Conversion(
+                timestamp=conversion_timestamp,
+                id=self.conversions_counter,
+                epoch=conversion_epoch,
+                destination=row["advertiser_id"],
+                attribution_window=attribution_window,
+                epochs_window=epochs_window,
+                attribution_logic="last_touch",
+                partitioning_logic="",
+                aggregatable_value=row["amount"],
+                aggregatable_cap_value=row["aggregatable_cap_value"],
+                filter=row["filter"],
+                key=str(row["key"]),
+                epsilon=row["epsilon"],
+                user_id=conversion_user_id,
+            )
 
-                conversion_epoch = math.ceil(
-                    conversion_day / self.config.num_days_per_epoch
-                )
-                epochs_window = (
-                    math.ceil(
-                        earliest_attribution_day / self.config.num_days_per_epoch
-                    ),
-                    conversion_epoch,
-                )
+            return conversion, conversion_timestamp, conversion_user_id
 
-                conversion_user_id = row["user_id"]
-
-                conversion = Conversion(
-                    timestamp=conversion_timestamp,
-                    id=self.conversions_counter,
-                    epoch=conversion_epoch,
-                    destination=row["advertiser_id"],
-                    attribution_window=attribution_window,
-                    epochs_window=epochs_window,
-                    attribution_logic="last_touch",
-                    partitioning_logic="",
-                    aggregatable_value=row["amount"],
-                    aggregatable_cap_value=row["aggregatable_cap_value"],
-                    filter=row["filter"],
-                    key=str(row["key"]),
-                    epsilon=row["epsilon"],
-                    user_id=conversion_user_id,
-                )
-
-                return conversion, conversion_timestamp, conversion_user_id
-
-            except StopIteration:
-                return None, math.inf, None
-
-        while True:
-            if not impression and impression_timestamp != math.inf:
-                impression, impression_timestamp, impression_user_id = read_impression()
-            if not conversion and conversion_timestamp != math.inf:
-                conversion, conversion_timestamp, conversion_user_id = read_conversion()
-
-            # Feed the event with the earliest timestamp
-            if impression_timestamp == math.inf and conversion_timestamp == math.inf:
-                break
-            elif impression_timestamp <= conversion_timestamp:
-                yield (impression_user_id, impression)
-                impression = None
-            else:
-                yield (conversion_user_id, conversion)
-                conversion = None
-
-        yield None
+        except StopIteration:
+            return None, math.inf, None
 
 
 class Criteo(Dataset):
     def __init__(self, config: OmegaConf) -> None:
         super().__init__(config)
 
-    def event_reader(self):
-        impression_timestamp = conversion_timestamp = 0
+    def read_impression(
+        self, impression_reader: Iterable
+    ) -> tuple[Event | None, int | None, str | None]:
+        try:
+            _, row = next(impression_reader)
 
-        impression = None
-        conversion = None
+            impression_timestamp = row["click_timestamp"]
+            impression_date = datetime.fromtimestamp(impression_timestamp)
+            impression_day = (
+                7 * (impression_date.isocalendar().week - 1)
+            ) + impression_date.isocalendar().weekday
+            impression_epoch = math.ceil(
+                impression_day / self.config.num_days_per_epoch
+            )
+            impression_user_id = row["user_id"]
 
-        impressions_reader = self.impressions_data.iterrows()
-        conversions_reader = self.conversions_data.iterrows()
+            impression = Impression(
+                timestamp=impression_timestamp,
+                epoch=impression_epoch,
+                destination=row["partner_id"],
+                filter=row["filter"],
+                key=str(row["key"]),
+                user_id=impression_user_id,
+            )
+            return impression, impression_timestamp, impression_user_id
 
-        def read_impression():
-            try:
-                _, row = next(impressions_reader)
+        except StopIteration:
+            return None, math.inf, None
 
-                impression_timestamp = row["click_timestamp"]
-                impression_date = datetime.fromtimestamp(impression_timestamp)
-                impression_day = (
-                    7 * (impression_date.isocalendar().week - 1)
-                ) + impression_date.isocalendar().weekday
-                impression_epoch = math.ceil(
-                    impression_day / self.config.num_days_per_epoch
-                )
-                impression_user_id = row["user_id"]
+    def read_conversion(
+        self, conversion_reader: Iterable
+    ) -> tuple[Event | None, int | None, str | None]:
+        try:
+            _, row = next(conversion_reader)
+            conversion_timestamp = row["conversion_timestamp"]
+            self.conversions_counter += 1
 
-                impression = Impression(
-                    timestamp=impression_timestamp,
-                    epoch=impression_epoch,
-                    destination=row["partner_id"],
-                    filter=row["filter"],
-                    key=str(row["key"]),
-                    user_id=impression_user_id,
-                )
-                return impression, impression_timestamp, impression_user_id
+            num_seconds_attribution_window = (
+                self.config.num_days_attribution_window * 24 * 60 * 60
+            )
+            earliest_attribution_timestamp = max(
+                conversion_timestamp - num_seconds_attribution_window, 0
+            )
 
-            except StopIteration:
-                return None, math.inf, None
+            attribution_window = (
+                earliest_attribution_timestamp,
+                conversion_timestamp,
+            )
 
-        def read_conversion():
-            try:
-                _, row = next(conversions_reader)
-                # conversion_day = row["conversion_day"]
-                conversion_timestamp = row["conversion_timestamp"]
-                self.conversions_counter += 1
+            earliest_attribution_date = datetime.fromtimestamp(
+                earliest_attribution_timestamp
+            )
+            earliest_attribution_day = (
+                7 * (earliest_attribution_date.isocalendar().week - 1)
+            ) + earliest_attribution_date.isocalendar().weekday
 
-                num_seconds_attribution_window = (
-                    self.config.num_days_attribution_window * 24 * 60 * 60
-                )
-                earliest_attribution_timestamp = max(
-                    conversion_timestamp - num_seconds_attribution_window, 0
-                )
+            conversion_date = datetime.fromtimestamp(conversion_timestamp)
+            conversion_day = (
+                7 * (conversion_date.isocalendar().week - 1)
+            ) + conversion_date.isocalendar().weekday
 
-                attribution_window = (
-                    earliest_attribution_timestamp,
-                    conversion_timestamp,
-                )
+            conversion_epoch = math.ceil(
+                conversion_day / self.config.num_days_per_epoch
+            )
+            epochs_window = (
+                math.ceil(earliest_attribution_day / self.config.num_days_per_epoch),
+                conversion_epoch,
+            )
 
-                earliest_attribution_date = datetime.fromtimestamp(
-                    earliest_attribution_timestamp
-                )
-                earliest_attribution_day = (
-                    7 * (earliest_attribution_date.isocalendar().week - 1)
-                ) + earliest_attribution_date.isocalendar().weekday
+            conversion_user_id = row["user_id"]
 
-                conversion_date = datetime.fromtimestamp(conversion_timestamp)
-                conversion_day = (
-                    7 * (conversion_date.isocalendar().week - 1)
-                ) + conversion_date.isocalendar().weekday
+            conversion = Conversion(
+                timestamp=conversion_timestamp,
+                id=self.conversions_counter,
+                epoch=conversion_epoch,
+                destination=row["partner_id"],
+                attribution_window=attribution_window,
+                epochs_window=epochs_window,
+                attribution_logic="last_touch",
+                partitioning_logic="",
+                aggregatable_value=row["count"],
+                aggregatable_cap_value=row["aggregatable_cap_value"],
+                filter=row["filter"],
+                key=str(row["key"]),
+                epsilon=row["epsilon"],
+                user_id=conversion_user_id,
+            )
 
-                conversion_epoch = math.ceil(
-                    conversion_day / self.config.num_days_per_epoch
-                )
-                epochs_window = (
-                    math.ceil(
-                        earliest_attribution_day / self.config.num_days_per_epoch
-                    ),
-                    conversion_epoch,
-                )
+            return conversion, conversion_timestamp, conversion_user_id
 
-                conversion_user_id = row["user_id"]
-
-                conversion = Conversion(
-                    timestamp=conversion_timestamp,
-                    id=self.conversions_counter,
-                    epoch=conversion_epoch,
-                    destination=row["partner_id"],
-                    attribution_window=attribution_window,
-                    epochs_window=epochs_window,
-                    attribution_logic="last_touch",
-                    partitioning_logic="",
-                    aggregatable_value=row["count"],
-                    aggregatable_cap_value=row["aggregatable_cap_value"],
-                    filter=row["filter"],
-                    key=str(row["key"]),
-                    epsilon=row["epsilon"],
-                    user_id=conversion_user_id,
-                )
-
-                return conversion, conversion_timestamp, conversion_user_id
-
-            except StopIteration:
-                return None, math.inf, None
-
-        while True:
-            if not impression and impression_timestamp != math.inf:
-                impression, impression_timestamp, impression_user_id = read_impression()
-            if not conversion and conversion_timestamp != math.inf:
-                conversion, conversion_timestamp, conversion_user_id = read_conversion()
-
-            # Feed the event with the earliest timestamp
-            if impression_timestamp == math.inf and conversion_timestamp == math.inf:
-                break
-            elif impression_timestamp <= conversion_timestamp:
-                yield (impression_user_id, impression)
-                impression = None
-            else:
-                yield (conversion_user_id, conversion)
-                conversion = None
-
-        yield None
+        except StopIteration:
+            return None, math.inf, None
