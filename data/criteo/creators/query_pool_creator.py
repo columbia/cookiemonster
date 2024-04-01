@@ -73,6 +73,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.max_conversions_required_for_dp = config.max_conversions_required_for_dp
         self.min_conversions_required_for_dp = config.min_conversions_required_for_dp
         self.estimated_conversion_rate = config.estimated_conversion_rate
+        self.plot_query_pool: bool = config.get("plot_query_pool", "false").lower() == "true"
 
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("running basic df specialization...")
@@ -106,6 +107,8 @@ class QueryPoolDatasetCreator(BaseCreator):
         df["filter"] = "-"
         return df
 
+    # TODO: [PM] Bring up with the group. Perhaps we will want to bring back the other
+    # grouping methods (from previous commits)
     def _augment_df_with_advertiser_bin_cover(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         We upsample the dataset to increase the number of queries to run. To accomplish this,
@@ -353,11 +356,14 @@ class QueryPoolDatasetCreator(BaseCreator):
                 ),
                 axis=1,
             ),
+            aggregatable_cap_value=max_purchase_counts,
+        )
+
+        conversions = conversions.assign(
             key=conversions.apply(
-                lambda conversion: f"{str.join('|', conversion.query_key)}|purchaseCount",
+                lambda conversion: f"{str.join('|', conversion.query_key)}|{conversion.epsilon}|productCount",
                 axis=1,
             ),
-            aggregatable_cap_value=max_purchase_counts,
         )
 
         self.log_query_epsilons(conversions)
@@ -410,6 +416,26 @@ class QueryPoolDatasetCreator(BaseCreator):
             advertiser_grouping.epsilon.sum().items(),
             columns=["advertiser", "epsilon_sum"],
         ).sort_values(by=["epsilon_sum"], ascending=False)
+
+        if self.plot_query_pool:    
+            import matplotlib.pyplot as plt
+            ax = advertiser_query_count.plot(
+                # x="advertiser", # the advertiser long names make it impossible to read
+                y=["query_count"],
+                kind="bar"
+            )
+            plt.tight_layout()
+            fig = ax.get_figure()
+            fig.savefig('./criteo_advertiser_query_count.png')
+
+            ax = advertiser_epsilon_sum.plot(
+                # x="advertiser", # the advertiser long names make it impossible to read
+                y=["epsilon_sum"],
+                kind="bar"
+            )
+            plt.tight_layout()
+            fig = ax.get_figure()
+            fig.savefig('./criteo_advertiser_epsilon_sum.png')
 
         self.logger.info(f"Query count per advertiser:\n{advertiser_query_count}")
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
