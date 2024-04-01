@@ -18,6 +18,8 @@ from cookiemonster.utils import (
     IPA,
     maybe_initialize_filters,
     compute_global_sensitivity,
+    BUDGET,
+    QUERY_RESULTS
 )
 
 
@@ -54,7 +56,7 @@ class Evaluation:
             logger.info(colored(str(event), "blue"))
 
             if user_id not in self.users:
-                self.users[user_id] = User(user_id, self.config.user)
+                self.users[user_id] = User(user_id, self.config)
 
             result = self.users[user_id].process_event(event)
 
@@ -156,27 +158,29 @@ class Evaluation:
             filter_result = origin_filters.pay_all_or_nothing(
                 batch.epochs_window, batch.global_epsilon
             )
-            self.logger.log(
-                "budget",
-                id,
-                destination,
-                0,
-                batch.epochs_window,
-                filter_result.budget_consumed,
-                filter_result.status,
-            )
+            if BUDGET in self.config.logs.logging_keys:
+                self.logger.log(
+                    BUDGET,
+                    id,
+                    destination,
+                    0,
+                    batch.epochs_window,
+                    filter_result.budget_consumed,
+                    filter_result.status,
+                )
 
             if not filter_result.succeeded():
                 # Not enough budget to run this query - don't schedule the batch
-                self.logger.log(
-                    "query_results",
-                    id,
-                    destination,
-                    query_id,
-                    None,
-                    None,
-                    None,
-                )
+                if QUERY_RESULTS in self.config.logs.logging_keys:
+                    self.logger.log(
+                        QUERY_RESULTS,
+                        id,
+                        destination,
+                        query_id,
+                        None,
+                        None,
+                        None,
+                    )
                 logger.info(colored(f"IPA can't run query", "red"))
                 return
 
@@ -190,15 +194,16 @@ class Evaluation:
             )
         )
 
-        self.logger.log(
-            "query_results",
-            id,
-            destination,
-            query_id,
-            aggregation_result.true_output,
-            aggregation_result.aggregation_output,
-            aggregation_result.aggregation_noisy_output,
-        )
+        if QUERY_RESULTS in self.config.logs.logging_keys:
+            self.logger.log(
+                QUERY_RESULTS,
+                id,
+                destination,
+                query_id,
+                aggregation_result.true_output,
+                aggregation_result.aggregation_output,
+                aggregation_result.aggregation_noisy_output,
+            )
 
 
 @app.command()

@@ -1,7 +1,7 @@
 from omegaconf import OmegaConf
 from typing import Dict, List, Any, Union
 
-from cookiemonster.event_logger import EventLogger, log_budget_helper
+from cookiemonster.event_logger import EventLogger
 from cookiemonster.report import Partition, Report
 from cookiemonster.events import Impression, Conversion
 from cookiemonster.budget_accountant import BudgetAccountant
@@ -14,6 +14,7 @@ from cookiemonster.utils import (
     COOKIEMONSTER,
     MONOEPOCH,
     MULTIEPOCH,
+    BUDGET
 )
 
 
@@ -28,7 +29,8 @@ class User:
 
     def __init__(self, id: Any, config: OmegaConf) -> None:
         self.id = id
-        self.config = config
+        self.config = config.user
+        self.logging_keys = config.logs.logging_keys
         self.filters_per_origin: Dict[str, BudgetAccountant] = {}
         self.impressions: Dict[int, List[Impression]] = {}
         self.conversions: List[Conversion] = []
@@ -147,7 +149,16 @@ class User:
                 if not filter_result.succeeded():
                     partition.null_report()
 
-                log_budget_helper(User.logger, conversion, self.id, filter_result)
+                if BUDGET in self.logging_keys:
+                        User.logger.log(
+                            BUDGET,
+                            conversion.id,
+                            conversion.destination,
+                            self.id,
+                            conversion.epochs_window,
+                            filter_result.budget_consumed,
+                            filter_result.status,
+                        )
 
         # Aggregate partition reports to create a final report
         final_report = Report()

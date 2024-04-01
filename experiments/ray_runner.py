@@ -28,8 +28,9 @@ def grid_run(
     initial_budget: float,
     logs_dir: str,
     loguru_level: str,
-    mlflow_experiment_id: str,
     ray_session_dir: str,
+    logging_keys: List[str],
+
 ):
 
     if ray_session_dir:
@@ -54,8 +55,7 @@ def grid_run(
             "verbose": False,
             "save": True,
             "save_dir": "",
-            "mlflow": False,
-            "mlflow_experiment_id": mlflow_experiment_id,
+            "logging_keys": logging_keys,
             "loguru_level": loguru_level,
         },
         "aggregation_service": "local_laplacian",

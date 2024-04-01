@@ -4,7 +4,7 @@ import typer
 import multiprocessing
 from copy import deepcopy
 from ray_runner import grid_run
-
+from cookiemonster.utils import BUDGET, QUERY_RESULTS
 
 app = typer.Typer()
 
@@ -44,8 +44,8 @@ def budget_consumption_vary_conversions_rate(dataset, ray_session_dir):
         "initial_budget": [1],      # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
-        "mlflow_experiment_id": "",
         "ray_session_dir": ray_session_dir,
+        "logging_keys": [BUDGET],
     }
 
     for conversions_rate in conversions_rates:
@@ -88,8 +88,8 @@ def budget_consumption_vary_impressions_rate(dataset, ray_session_dir):
         "initial_budget": [1],  # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
-        "mlflow_experiment_id": "",
         "ray_session_dir": ray_session_dir,
+        "logging_keys": [BUDGET],
     }
 
     for impression_rate in impression_rates:
@@ -136,8 +136,8 @@ def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
         "initial_budget": [1],   # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
-        "mlflow_experiment_id": "",
         "ray_session_dir": ray_session_dir,
+        "logging_keys": [BUDGET],
     }
 
     grid_run(**config)
@@ -171,8 +171,8 @@ def bias_vary_workload_size(dataset, ray_session_dir):
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
-        "mlflow_experiment_id": "",
         "ray_session_dir": ray_session_dir,
+        "logging_keys": [QUERY_RESULTS],
     }
 
     grid_run(**config)

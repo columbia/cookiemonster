@@ -3,23 +3,6 @@ from cookiemonster.events import Impression, Conversion
 from cookiemonster.budget_accountant import BudgetAccountantResult
 
 
-def log_budget_helper(
-    logger: "EventLogger",
-    event: Union[Impression, Conversion],
-    user_id: Any,
-    filter_result: BudgetAccountantResult,
-):
-    logger.log(
-        "budget",
-        event.id,
-        event.destination,
-        user_id,
-        event.epochs_window,
-        filter_result.budget_consumed,
-        filter_result.status,
-    )
-
-
 class EventLogger:
     def __init__(self):
         # TODO: Possibly add support for mlflow logging
