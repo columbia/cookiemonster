@@ -30,7 +30,6 @@ def grid_run(
     loguru_level: str,
     ray_session_dir: str,
     logging_keys: List[str],
-
 ):
 
     if ray_session_dir:

@@ -19,7 +19,7 @@ from cookiemonster.utils import (
     maybe_initialize_filters,
     compute_global_sensitivity,
     BUDGET,
-    QUERY_RESULTS
+    QUERY_RESULTS,
 )
 
 
@@ -86,7 +86,7 @@ class Evaluation:
                             query_id, event.epsilon, global_sensitivity
                         )
                     else:
-                        # All reports for the same query should have the same global epsilon and sensitivity
+                        # All conversion requests for the same query should have the same epsilon and sensitivity
                         assert per_query_batch[query_id].global_epsilon == event.epsilon
                         assert (
                             per_query_batch[query_id].global_sensitivity

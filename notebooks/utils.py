@@ -120,41 +120,32 @@ def get_bias_logs(row, results, i):
     records = []
     for destination, destination_df in df.groupby(["destination"]):
 
-        nulls_accuracy_per_query = []
-        end2end_accuracy_per_query = []
+        idp_accuracies = []
+        num_queries_without_idp_bias = 0
+        workload_size = len(destination_df)
+        # print(workload_size)
 
         for _, log in destination_df.iterrows():
-
             # Handle IPA case
-            if log["aggregation_output"] == "null":
-                nulls_accuracy_per_query = [0]
-                end2end_accuracy_per_query = [0]
-                break
+            if math.isnan(log["aggregation_output"]):
+                idp_accuracies.append(0)
+                continue
+
+            num_queries_without_idp_bias += (
+                log["true_output"] - log["aggregation_output"] == 0
+            )
 
             # Aggregate bias across all queries ran in this workload/experiment
-            nulls_error = log["true_output"] - log["aggregation_output"]
-            nulls_accuracy = 1 - (nulls_error / log["true_output"])
-            nulls_accuracy_per_query.append(nulls_accuracy)
-
-            end2end_error = abs(log["aggregation_noisy_output"] - log["true_output"])
-            end2end_accuracy = 1 - (end2end_error / log["true_output"])
-            assert end2end_accuracy <= 1
-            end2end_accuracy_per_query.append(end2end_accuracy)
-            # print(log)
-
-        workload_nulls_accuracy = sum(nulls_accuracy_per_query) / len(
-            nulls_accuracy_per_query
-        )
-        workload_end2end_accuracy = sum(end2end_accuracy_per_query) / len(
-            end2end_accuracy_per_query
-        )
+            idp_error = log["true_output"] - log["aggregation_output"]
+            idp_accuracies.append(1 - (idp_error / log["true_output"]))
 
         records.append(
             {
                 "destination": destination[0],
-                "workload_nulls_accuracy": workload_nulls_accuracy,
-                "workload_end2end_accuracy": workload_end2end_accuracy,
-                "workload_size": row["workload_size"],
+                "workload_size": workload_size,
+                "fraction_queries_without_idp_bias": num_queries_without_idp_bias
+                / workload_size,
+                "workload_idp_accuracy": sum(idp_accuracies) / len(idp_accuracies),
                 "baseline": row["baseline"],
                 "num_days_per_epoch": row["num_days_per_epoch"],
             }
@@ -172,7 +163,7 @@ def analyze_results(path, type="budget", parallelize=True):
         processes = []
         results = Manager().dict()
         for i, row in df.iterrows():
-            print(i)
+            # print(i)
             processes.append(
                 Process(
                     target=get_logs,
@@ -270,15 +261,17 @@ def plot_budget_consumption(df, facet_row="conversion_rate"):
 
 
 def plot_accuracy(df):
-    def nulls_accuracy(df):
+    df = df.sort_values(["workload_size"])
+
+    def fraction_queries_without_idp_bias(df):
         fig = px.line(
             df,
             x="workload_size",
-            y="workload_nulls_accuracy",
+            y="fraction_queries_without_idp_bias",
             color="baseline",
-            title=f"Cumulative Budget Consumption",
+            title=f"Fraction of queries reaching accuracy target",
             width=1100,
-            height=1200,
+            height=600,
             markers=True,
             facet_col="destination",
             # facet_row=facet_row,
@@ -288,15 +281,16 @@ def plot_accuracy(df):
         )
         return fig
 
-    def end2end_accuracy(df):
+    def workload_idp_accuracy(df):
+        df = df.sort_values(["workload_size"])
         fig = px.line(
             df,
             x="workload_size",
-            y="workload_end2end_accuracy",
+            y="workload_idp_accuracy",
             color="baseline",
-            title=f"Cumulative Budget Consumption",
+            title=f"Avg. relative accuracy across queries in workload",
             width=1100,
-            height=1200,
+            height=600,
             markers=True,
             facet_col="destination",
             # facet_row=facet_row,
@@ -306,8 +300,8 @@ def plot_accuracy(df):
         )
         return fig
 
-    iplot(nulls_accuracy(df))
-    iplot(end2end_accuracy(df))
+    iplot(fraction_queries_without_idp_bias(df))
+    iplot(workload_idp_accuracy(df))
 
 
 if __name__ == "__main__":

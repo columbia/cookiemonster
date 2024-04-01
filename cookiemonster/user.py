@@ -14,7 +14,7 @@ from cookiemonster.utils import (
     COOKIEMONSTER,
     MONOEPOCH,
     MULTIEPOCH,
-    BUDGET
+    BUDGET,
 )
 
 
@@ -150,15 +150,15 @@ class User:
                     partition.null_report()
 
                 if BUDGET in self.logging_keys:
-                        User.logger.log(
-                            BUDGET,
-                            conversion.id,
-                            conversion.destination,
-                            self.id,
-                            conversion.epochs_window,
-                            filter_result.budget_consumed,
-                            filter_result.status,
-                        )
+                    User.logger.log(
+                        BUDGET,
+                        conversion.id,
+                        conversion.destination,
+                        self.id,
+                        conversion.epochs_window,
+                        filter_result.budget_consumed,
+                        filter_result.status,
+                    )
 
         # Aggregate partition reports to create a final report
         final_report = Report()

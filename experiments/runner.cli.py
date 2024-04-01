@@ -41,7 +41,7 @@ def budget_consumption_vary_conversions_rate(dataset, ray_session_dir):
         "num_days_attribution_window": 30,
         "workload_size": [4],
         "scheduling_batch_size_per_query": 20000,
-        "initial_budget": [1],      # TODO: check that I can safely change this to 1
+        "initial_budget": [1],  # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
@@ -133,7 +133,7 @@ def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
         "num_days_attribution_window": 30,
         "workload_size": [4],
         "scheduling_batch_size_per_query": 20000,
-        "initial_budget": [1],   # TODO: check that I can safely change this to 1
+        "initial_budget": [1],  # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
@@ -175,6 +175,42 @@ def bias_vary_workload_size(dataset, ray_session_dir):
         "logging_keys": [QUERY_RESULTS],
     }
 
+    grid_run(**config)
+    # analyze(f"ray/{logs_dir}")
+
+
+def bias_vary_initial_budget(dataset, ray_session_dir):
+
+    logs_dir = f"{dataset}/bias_varying_initial_budget"
+
+    impressions_path_base = f"{dataset}/{dataset}_impressions"
+    conversions_path_base = f"{dataset}/{dataset}_conversions"
+
+    conversion_rate = 1.0
+    impression_rate = 0.1
+
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "optimization": ["multiepoch"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": get_path(
+            impressions_path_base, conversion_rate, impression_rate
+        ),
+        "conversions_path": get_path(
+            conversions_path_base, conversion_rate, impression_rate
+        ),
+        "num_days_per_epoch": [7],
+        "num_days_attribution_window": 30,
+        "workload_size": [100],
+        "scheduling_batch_size_per_query": 20000,
+        "initial_budget": [1, 3, 5, 7, 9],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [QUERY_RESULTS],
+    }
+    grid_run(**config)
+    config["initial_budget"] = [2, 4, 6, 8, 10]
     grid_run(**config)
     # analyze(f"ray/{logs_dir}")
 
