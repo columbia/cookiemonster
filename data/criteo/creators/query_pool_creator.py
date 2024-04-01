@@ -400,6 +400,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             [[*x] for x in queries],
             columns=["advertiser", "dimension_value", "dimension_name", "epsilon"],
         )
+        query_tuples = query_tuples.drop(query_tuples.loc[query_tuples.epsilon == -1].index)
 
         advertiser_grouping = query_tuples.groupby(["advertiser"])
         advertiser_query_count = pd.DataFrame(
