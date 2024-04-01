@@ -130,8 +130,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             self.min_conversions_required_for_dp // self.estimated_conversion_rate
         )
 
-        # TODO: [PM] maybe using a dataframe for bin assignments rather than a map is faster
-        # than the final, row-wise apply?
         bin_assignments = {}
         for advertiser in df[self.advertiser_column_name].unique():
             advertiser_chunk = df.loc[df[self.advertiser_column_name] == advertiser]
@@ -213,8 +211,8 @@ class QueryPoolDatasetCreator(BaseCreator):
             (partner_id, dimension, dimension_name) = key
             msg = "; ".join(
                 [
-                    f"{query_info.conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})"
-                    f"expect {query_info.big_report_count} big report(s) and {'1' if query_info.mini_report else '0'} mini report(s)"
+                    f"{query_info.conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})",
+                    f"expect {query_info.big_report_count} big report(s) and {'1' if query_info.mini_report else '0'} mini report(s)",
                 ]
             )
             log_lines.append(msg)
@@ -233,9 +231,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             ]
         )
 
-        # TODO: [PM] should we include the outlier when really running this?
-        # df = df[df.partner_id != "E3DDEB04F8AFF944B11943BB57D2F620"]
-
         df = self._augment_df_with_advertiser_bin_cover(df)
 
         self._populate_query_pools(df)
@@ -246,7 +241,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         impressions = df[self.impression_columns_to_use]
         impressions = impressions.sort_values(by=["click_timestamp"])
         impressions["key"] = "-"
-        # TODO: [PM] drop random sample of impressions?
         return impressions
 
     def _get_used_dimension_names(self) -> set:
@@ -276,11 +270,13 @@ class QueryPoolDatasetCreator(BaseCreator):
         return pd.concat(conversion_chunks)
 
     @staticmethod
-    def _compute_product_count(conversion):
+    def _compute_product_count(conversion, cap: int) -> int:
         sell_price = conversion["SalesAmountInEuro"]
         offer_price = conversion["product_price"]
         if sell_price and offer_price:
-            return sell_price // offer_price
+            return min(cap, sell_price // offer_price)
+        elif offer_price:
+            return 0
         else:
             return 1
 
@@ -291,7 +287,10 @@ class QueryPoolDatasetCreator(BaseCreator):
         query_info = self.query_pool[query_key]
 
         query_info.working_conversion_count += 1
-        if query_info.working_conversion_count == self.max_conversions_required_for_dp:
+        if (
+            query_info.working_conversion_count % self.max_conversions_required_for_dp
+            == 0
+        ):
             # this conversion ends a big report
             query_info.working_big_report_count += 1
             return get_epsilon_from_accuracy_for_counts(
@@ -316,9 +315,6 @@ class QueryPoolDatasetCreator(BaseCreator):
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
-        purchase_counts = conversions.apply(
-            QueryPoolDatasetCreator._compute_product_count, axis=1
-        )
 
         """
         purchase count description across all conversion events:
@@ -335,6 +331,13 @@ class QueryPoolDatasetCreator(BaseCreator):
         So, 5 seems like a reasonable cap value.
         """
         max_purchase_counts = 5
+
+        purchase_counts = conversions.apply(
+            lambda conversion: QueryPoolDatasetCreator._compute_product_count(
+                conversion, max_purchase_counts
+            ),
+            axis=1,
+        )
 
         conversions = conversions.assign(count=purchase_counts)
 
@@ -357,14 +360,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             aggregatable_cap_value=max_purchase_counts,
         )
 
-        query_epsilons = str.join(
-            "",
-            conversions.apply(
-                lambda conversion: f"\t{conversion['query_key']}, epsilon: {conversion['epsilon']}\n",
-                axis=1,
-            ).unique(),
-        )
-        self.logger.info(f"Query pool epsilons:\n{query_epsilons}")
+        self.log_query_epsilons(conversions)
 
         unused_dimension_names = (
             set(self.dimension_names) - self._get_used_dimension_names()
@@ -378,6 +374,44 @@ class QueryPoolDatasetCreator(BaseCreator):
         ]
 
         return conversions.drop(columns=to_drop)
+
+    def log_query_epsilons(self, conversions):
+        queries = (
+            conversions[["query_key", "epsilon"]]
+            .apply(
+                lambda conversion: (
+                    conversion["query_key"][0],
+                    conversion["query_key"][1],
+                    conversion["query_key"][2],
+                    conversion["epsilon"],
+                ),
+                axis=1,
+            )
+            .unique()
+        )
+
+        query_epsilons = []
+        for query in queries:
+            msg = f"\t{self.advertiser_column_name} '{query[0]}' {query[2]} '{query[1]}', epsilon: {query[3]}\n"
+            query_epsilons.append(msg)
+        self.logger.info(f"Query pool epsilons:\n{''.join(query_epsilons)}")
+
+        query_tuples = pd.DataFrame(
+            [[*x] for x in queries],
+            columns=["advertiser", "dimension_value", "dimension_name", "epsilon"],
+        )
+
+        advertiser_grouping = query_tuples.groupby(["advertiser"])
+        advertiser_query_count = pd.DataFrame(
+            advertiser_grouping.size().items(), columns=["advertiser", "query_count"]
+        ).sort_values(by=["query_count"], ascending=False)
+        advertiser_epsilon_sum = pd.DataFrame(
+            advertiser_grouping.epsilon.sum().items(),
+            columns=["advertiser", "epsilon_sum"],
+        ).sort_values(by=["epsilon_sum"], ascending=False)
+
+        self.logger.info(f"Query count per advertiser:\n{advertiser_query_count}")
+        self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
 
     def log_description_of_conversions(self, conversions):
         counts = conversions["count"]

@@ -122,7 +122,7 @@ class Evaluation:
                     self._calculate_summary_reports(
                         query_id=query_id,
                         batch=batch,
-                        id=-1,
+                        id=-1,  # TODO: [PM] use the latest id/counter/timestamp of the latest conversion in the batch
                         destination=destination,
                     )
 
