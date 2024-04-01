@@ -178,6 +178,7 @@ def bias_vary_workload_size(dataset, ray_session_dir):
     grid_run(**config)
     # analyze(f"ray/{logs_dir}")
 
+
 @app.command()
 def run(
     exp: str = "budget_consumption_vary_conversions_rate",
