@@ -41,7 +41,7 @@ def budget_consumption_vary_conversions_rate(dataset, ray_session_dir):
         "num_days_attribution_window": 30,
         "workload_size": [4],
         "scheduling_batch_size_per_query": 20000,
-        "initial_budget": [100000000],      # TODO: check that I can safely change this to 1
+        "initial_budget": [1],      # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
@@ -62,7 +62,6 @@ def budget_consumption_vary_conversions_rate(dataset, ray_session_dir):
         )
 
     experiments_start_and_join(experiments)
-
     # analyze(f"ray/{logs_dir}")
 
 
@@ -86,7 +85,7 @@ def budget_consumption_vary_impressions_rate(dataset, ray_session_dir):
         "num_days_attribution_window": 30,
         "workload_size": [4],
         "scheduling_batch_size_per_query": 20000,
-        "initial_budget": [100000000],  # TODO: check that I can safely change this to 1
+        "initial_budget": [1],  # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",
@@ -107,7 +106,6 @@ def budget_consumption_vary_impressions_rate(dataset, ray_session_dir):
         )
 
     experiments_start_and_join(experiments)
-
     # analyze(f"ray/{logs_dir}")
 
 
@@ -135,7 +133,7 @@ def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
         "num_days_attribution_window": 30,
         "workload_size": [4],
         "scheduling_batch_size_per_query": 20000,
-        "initial_budget": [100000000],
+        "initial_budget": [1],   # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "mlflow_experiment_id": "",

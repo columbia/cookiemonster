@@ -31,7 +31,7 @@ class Dataset(ABC):
             case "synthetic":
                 return Synthetic(config)
             case _:
-                raise ValueError(f"Unsupported config name: {config.name}")
+                raise ValueError(f"Unsupported dataset name: {config.name}")
 
     @abstractmethod
     def read_impression(
