@@ -203,14 +203,12 @@ def bias_vary_initial_budget(dataset, ray_session_dir):
         "num_days_attribution_window": 30,
         "workload_size": [100],
         "scheduling_batch_size_per_query": 20000,
-        "initial_budget": [1, 3, 5, 7, 9],
+        "initial_budget": [1, 2, 3, 4, 5, 6, 7, 8, 9],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
         "logging_keys": [QUERY_RESULTS],
     }
-    grid_run(**config)
-    config["initial_budget"] = [2, 4, 6, 8, 10]
     grid_run(**config)
     # analyze(f"ray/{logs_dir}")
 

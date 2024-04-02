@@ -148,6 +148,7 @@ def get_bias_logs(row, results, i):
                 "workload_idp_accuracy": sum(idp_accuracies) / len(idp_accuracies),
                 "baseline": row["baseline"],
                 "num_days_per_epoch": row["num_days_per_epoch"],
+                "initial_budget": float(row["config"]["user"]["initial_budget"])
             }
         )
     results[i] = pd.DataFrame.from_records(records)
@@ -260,13 +261,14 @@ def plot_budget_consumption(df, facet_row="conversion_rate"):
     # iplot(avg_budget(df))
 
 
-def plot_accuracy(df):
-    df = df.sort_values(["workload_size"])
+def plot_accuracy(df, x_axis="workload_size"):
+
+    df = df.sort_values(["workload_size", "initial_budget"])
 
     def fraction_queries_without_idp_bias(df):
         fig = px.line(
             df,
-            x="workload_size",
+            x=x_axis,
             y="fraction_queries_without_idp_bias",
             color="baseline",
             title=f"Fraction of queries reaching accuracy target",
@@ -282,10 +284,9 @@ def plot_accuracy(df):
         return fig
 
     def workload_idp_accuracy(df):
-        df = df.sort_values(["workload_size"])
         fig = px.line(
             df,
-            x="workload_size",
+            x=x_axis,
             y="workload_idp_accuracy",
             color="baseline",
             title=f"Avg. relative accuracy across queries in workload",
