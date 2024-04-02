@@ -365,6 +365,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
             aggregatable_cap_value=max_purchase_counts,
         )
+        conversions = conversions.drop(
+            conversions.loc[conversions.epsilon == -1].index
+        )
 
         conversions = conversions.assign(
             key=conversions.apply(
@@ -413,9 +416,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             [[*x] for x in queries],
             columns=["advertiser", "dimension_value", "dimension_name", "epsilon"],
         )
-        query_tuples = query_tuples.drop(
-            query_tuples.loc[query_tuples.epsilon == -1].index
-        )
 
         advertiser_grouping = query_tuples.groupby(["advertiser"])
         advertiser_query_count = pd.DataFrame(
@@ -447,8 +447,10 @@ class QueryPoolDatasetCreator(BaseCreator):
             fig = ax.get_figure()
             fig.savefig("./criteo_advertiser_epsilon_sum.png")
 
+        pd.set_option('display.max_rows', None)
         self.logger.info(f"Query count per advertiser:\n{advertiser_query_count}")
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
+        pd.reset_option('display.max_rows')
 
     def log_description_of_conversions(self, conversions):
         counts = conversions["count"]
