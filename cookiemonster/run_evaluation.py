@@ -116,8 +116,8 @@ class Evaluation:
         for (
             destination,
             per_query_batch,
-        ) in self.per_destination_per_query_batch.values():
-            for query_id, batch in per_query_batch.values():
+        ) in self.per_destination_per_query_batch.items():
+            for query_id, batch in per_query_batch.items():
                 if self.aggregation_policy.should_calculate_summary_reports(
                     batch, tail=True
                 ):
