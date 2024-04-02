@@ -73,8 +73,14 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.max_conversions_required_for_dp = config.max_conversions_required_for_dp
         self.min_conversions_required_for_dp = config.min_conversions_required_for_dp
         self.estimated_conversion_rate = config.estimated_conversion_rate
-        self.plot_query_pool: bool = config.get("plot_query_pool", "false").lower() == "true"
+        self.plot_query_pool: bool = (
+            config.get("plot_query_pool", "false").lower() == "true"
+        )
+        self.augment_dataset: bool = (
+            config.get("augment_dataset", "false").lower() == "true"
+        )
 
+    # TODO: [PM] add click_day dimension to query?
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("running basic df specialization...")
         # create some other columns from existing data for easier reading
@@ -234,7 +240,8 @@ class QueryPoolDatasetCreator(BaseCreator):
             ]
         )
 
-        df = self._augment_df_with_advertiser_bin_cover(df)
+        if self.augment_dataset:
+            df = self._augment_df_with_advertiser_bin_cover(df)
 
         self._populate_query_pools(df)
         df = self._run_basic_specialization(df)
@@ -406,7 +413,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             [[*x] for x in queries],
             columns=["advertiser", "dimension_value", "dimension_name", "epsilon"],
         )
-        query_tuples = query_tuples.drop(query_tuples.loc[query_tuples.epsilon == -1].index)
+        query_tuples = query_tuples.drop(
+            query_tuples.loc[query_tuples.epsilon == -1].index
+        )
 
         advertiser_grouping = query_tuples.groupby(["advertiser"])
         advertiser_query_count = pd.DataFrame(
@@ -417,25 +426,26 @@ class QueryPoolDatasetCreator(BaseCreator):
             columns=["advertiser", "epsilon_sum"],
         ).sort_values(by=["epsilon_sum"], ascending=False)
 
-        if self.plot_query_pool:    
+        if self.plot_query_pool:
             import matplotlib.pyplot as plt
+
             ax = advertiser_query_count.plot(
                 # x="advertiser", # the advertiser long names make it impossible to read
                 y=["query_count"],
-                kind="bar"
+                kind="bar",
             )
             plt.tight_layout()
             fig = ax.get_figure()
-            fig.savefig('./criteo_advertiser_query_count.png')
+            fig.savefig("./criteo_advertiser_query_count.png")
 
             ax = advertiser_epsilon_sum.plot(
                 # x="advertiser", # the advertiser long names make it impossible to read
                 y=["epsilon_sum"],
-                kind="bar"
+                kind="bar",
             )
             plt.tight_layout()
             fig = ax.get_figure()
-            fig.savefig('./criteo_advertiser_epsilon_sum.png')
+            fig.savefig("./criteo_advertiser_epsilon_sum.png")
 
         self.logger.info(f"Query count per advertiser:\n{advertiser_query_count}")
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
