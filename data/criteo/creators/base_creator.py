@@ -104,7 +104,7 @@ class BaseCreator(ABC):
             na_values=na_values,
             header=None,
             sep="\t",
-            nrows=1_000_000,
+            # nrows=1_000_000,
         )
         return df
 
