@@ -83,7 +83,10 @@ class Evaluation:
                 for query_id, value in report.histogram.items():
                     if query_id not in per_query_batch:
                         per_query_batch[query_id] = QueryBatch(
-                            query_id, event.epsilon, global_sensitivity
+                            query_id,
+                            event.epsilon,
+                            global_sensitivity,
+                            biggest_id=event.id,
                         )
                     else:
                         # All conversion requests for the same query should have the same epsilon and sensitivity
@@ -94,7 +97,10 @@ class Evaluation:
                         )
 
                     per_query_batch[query_id].update(
-                        value, unbiased_report.histogram[query_id], event.epochs_window
+                        value,
+                        unbiased_report.histogram[query_id],
+                        event.epochs_window,
+                        biggest_id=event.id,
                     )
 
                 # Check if the new report triggers scheduling / aggregation
@@ -104,7 +110,6 @@ class Evaluation:
                         self._calculate_summary_reports(
                             query_id=query_id,
                             batch=batch,
-                            id=event.id,
                             destination=event.destination,
                         )
 
@@ -124,7 +129,6 @@ class Evaluation:
                     self._calculate_summary_reports(
                         query_id=query_id,
                         batch=batch,
-                        id=-1,  # TODO: [PM] use the latest id/counter/timestamp of the latest conversion in the batch
                         destination=destination,
                     )
 
@@ -140,10 +144,10 @@ class Evaluation:
         return logs
 
     def _calculate_summary_reports(
-        self, *, query_id: str, batch: QueryBatch, id: int, destination: str
+        self, *, query_id: str, batch: QueryBatch, destination: str
     ) -> None:
 
-        self.logger.log("scheduling_timestamps", id)
+        self.logger.log("scheduling_timestamps", batch.biggest_id)
         self.logger.log("epoch_range", destination, *batch.epochs_window)
 
         # In case of IPA the advertiser consumes worst-case budget from all the
@@ -161,7 +165,7 @@ class Evaluation:
             if BUDGET in self.config.logs.logging_keys:
                 self.logger.log(
                     BUDGET,
-                    id,
+                    batch.biggest_id,
                     destination,
                     0,
                     batch.epochs_window,
@@ -174,7 +178,7 @@ class Evaluation:
                 if QUERY_RESULTS in self.config.logs.logging_keys:
                     self.logger.log(
                         QUERY_RESULTS,
-                        id,
+                        batch.biggest_id,
                         destination,
                         query_id,
                         None,
@@ -197,7 +201,7 @@ class Evaluation:
         if QUERY_RESULTS in self.config.logs.logging_keys:
             self.logger.log(
                 QUERY_RESULTS,
-                id,
+                batch.biggest_id,
                 destination,
                 query_id,
                 aggregation_result.true_output,
