@@ -37,8 +37,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.user_column_name = "user_id"
 
         self.dimension_names = [
-            self.advertiser_column_name,
-            self.product_column_name,
             "product_category1",
             "product_category2",
             "product_category3",
@@ -333,10 +331,10 @@ class QueryPoolDatasetCreator(BaseCreator):
         sub_key = (dimension_value, dimension_name, epsilon)
         queries = self.query_ids.get(advertiser)
         if queries:
-            if not queries.get(sub_key):
-                queries[sub_key] = len(queries) + 1
+            if queries.get(sub_key) is None:
+                queries[sub_key] = len(queries)
         else:
-            query = {sub_key: 1}
+            query = {sub_key: 0}
             self.query_ids[advertiser] = query
 
         return self.query_ids[advertiser][sub_key]

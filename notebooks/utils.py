@@ -214,6 +214,7 @@ def get_bias_logs(row, results, i):
             num_queries_without_idp_bias += (
                 log["true_output"] - log["aggregation_output"] == 0
             )
+            # print("num queries without idp bias:", num_queries_without_idp_bias, "workload size: ", workload_size)
 
             # Aggregate bias across all queries ran in this workload/experiment
             idp_error = log["true_output"] - log["aggregation_output"]
