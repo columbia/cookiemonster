@@ -1,11 +1,11 @@
 {
     "per_day_user_impressions_rate" : 0.1,
-    "user_conversions_rate" : 1.0,
+    "user_participation_rate_per_query" : 0.1,
     "user_contributions_per_query" : 1,
-    "num_disjoint_queries" : 100,
+    "num_disjoint_queries" : 50,
     "num_days": 120,
-    "num_schedules" : 5,
-    "scheduled_batch_size" : 20000,
+    "num_schedules" : 4,
+    "scheduled_batch_size" : 10000,
     "accuracy": [0.05, 0.01],
     "cap_value": 5
 }

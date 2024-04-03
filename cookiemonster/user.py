@@ -12,8 +12,6 @@ from cookiemonster.utils import (
     IPA,
     USER_EPOCH_ARA,
     COOKIEMONSTER,
-    MONOEPOCH,
-    MULTIEPOCH,
     BUDGET,
 )
 
@@ -76,9 +74,9 @@ class User:
                                 partition.impressions_per_epoch[epoch] = []
                             partition.impressions_per_epoch[epoch].append(impression)
 
-        # Create a report per partition
+        # Create the unbiased report per partition
         for partition in partitions:
-            partition.create_report(conversion.filter, conversion.key)
+            partition.unbiased_report = partition.create_report(conversion.key)
 
         # IPA doesn't do on-device budget accounting
         if self.config.baseline != IPA:
@@ -91,6 +89,7 @@ class User:
             # Budget accounting
             for partition in partitions:
 
+                # Initialize filters for the origin
                 origin_filters = maybe_initialize_filters(
                     self.filters_per_origin,
                     conversion.destination,
@@ -98,56 +97,53 @@ class User:
                     float(self.config.initial_budget),
                 )
 
+                # Compute the required budget and the epochs to pay depending on the baseline
                 if self.config.baseline == USER_EPOCH_ARA:
                     # Epochs in this partition pay worst case budget
-                    filter_result = origin_filters.pay_all_or_nothing(
-                        partition.epochs_window, conversion.epsilon
-                    )
+                    epochs_to_pay = partition.epochs_window
+                    budget_required = conversion.epsilon
 
                 elif self.config.baseline == COOKIEMONSTER:
                     if partition.epochs_window_size() == 1:
-                        # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity (Assuming Laplace)
+                        # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity 
+                        # Assuming Laplace here
+                        epochs_to_pay = partition.epochs_window
                         noise_scale = global_sensitivity / conversion.epsilon
-                        p_individual_epsilon = (
+                        budget_required = (
                             partition.compute_sensitivity(
                                 self.config.sensitivity_metric
                             )
                             / noise_scale
                         )
-                        filter_result = origin_filters.pay_all_or_nothing(
-                            partition.epochs_window, p_individual_epsilon
-                        )
-
                     else:
                         # Partition is union of at least two epochs.
-                        if self.config.optimization == MONOEPOCH:
-                            # Optimization 1 is for partitions that cover one epoch only so it is ineffective here
-                            filter_result = origin_filters.pay_all_or_nothing(
-                                partition.epochs_window, conversion.epsilon
-                            )
+                        budget_required = conversion.epsilon
 
-                        elif self.config.optimization == MULTIEPOCH:
-                            active_epochs = []
-                            (x, y) = partition.epochs_window
-                            for epoch in range(x, y + 1):
-                                # Epochs empty of impressions are not paying any budget
-                                if epoch in partition.impressions_per_epoch:
-                                    active_epochs.append(epoch)
+                        epochs_to_pay = []
+                        (x, y) = partition.epochs_window
+                        for epoch in range(x, y + 1):
 
-                            filter_result = origin_filters.pay_all_or_nothing(
-                                active_epochs, conversion.epsilon
-                            )
+                            if not origin_filters.can_run(epoch, budget_required):
+                                # Delete epoch from partition so that it will be ignored upon report creation, won't be added to epochs_to_pay either
+                                del partition.impressions_per_epoch[epoch]
 
-                        else:
-                            raise ValueError(
-                                f"Unsupported optimization: {self.config.optimization}"
-                            )
+                            # Epochs empty of impressions are not paying any budget
+                            if epoch in partition.impressions_per_epoch:
+                                epochs_to_pay.append(epoch)
+
+                            # epochs_to_pay are epochs that contain relevant impressions in partition.impressions_per_epoch AND can pay the required budget
+                            # Report will be created based on the remaining impressions_per_epoch of the partition
+                            # If no epoch could pay or no epoch contained relevant impressions, the report will be empty
 
                 else:
                     raise ValueError(f"Unsupported baseline: {self.config.baseline}")
 
+                filter_result = origin_filters.pay_all_or_nothing(
+                    epochs_to_pay, budget_required
+                )
                 if not filter_result.succeeded():
-                    partition.null_report()
+                    # If epochs couldn't pay the required budget, erase the partition's impressions_per_epoch so that an empty report will be created
+                    partition.impressions_per_epoch.clear()
 
                 if BUDGET in self.logging_keys:
                     User.logger.log(
@@ -155,10 +151,13 @@ class User:
                         conversion.id,
                         conversion.destination,
                         self.id,
-                        conversion.epochs_window,
                         filter_result.budget_consumed,
                         filter_result.status,
                     )
+
+        # Create the possibly biased report per partition
+        for partition in partitions:
+            partition.report = partition.create_report(conversion.key)
 
         # Aggregate partition reports to create a final report
         final_report = Report()
