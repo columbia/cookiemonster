@@ -1,5 +1,12 @@
 {
     "max_conversions_required_for_dp": 20000,
     "min_conversions_required_for_dp": 1500,
-    "estimated_conversion_rate": 0.08
+    "estimated_conversion_rate": 0.08,
+    "advertiser_filter": [
+        "E3DDEB04F8AFF944B11943BB57D2F620",
+        "F122B91F6D102E4630817566839A4F1F",
+        "9FF550C0B17A3C493378CB6E2DEEE6E4",
+        "9D9E93D1D461D7BAE47FB67EC0E01B62",
+        "319A2412BDB0EF669733053640B80112"
+    ]
 }

@@ -30,6 +30,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             "criteo_query_pool_conversions.csv",
         )
         self.query_pool: dict[QueryKey, QueryInfo] = {}  # query -> QueryInfo
+        self.query_ids: dict[str, dict[tuple[str, str, float], int]] = {}
 
         self.advertiser_column_name = "partner_id"
         self.product_column_name = "product_id"
@@ -79,6 +80,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.augment_dataset: bool = (
             config.get("augment_dataset", "false").lower() == "true"
         )
+        self.advertiser_filter = config.get("advertiser_filter", [])
 
     # TODO: [PM] add click_day dimension to query?
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -239,6 +241,8 @@ class QueryPoolDatasetCreator(BaseCreator):
                 self.product_column_name,
             ]
         )
+        if self.advertiser_filter:
+            df = df[df[self.advertiser_column_name].isin(self.advertiser_filter)]
 
         if self.augment_dataset:
             df = self._augment_df_with_advertiser_bin_cover(df)
@@ -323,6 +327,21 @@ class QueryPoolDatasetCreator(BaseCreator):
             # no query, so no epsilon
             return -1
 
+    def _get_key(self, conversion: pd.Series) -> int:
+        (advertiser, dimension_value, dimension_name) = conversion.query_key
+        epsilon = conversion.epsilon
+        sub_key = (dimension_value, dimension_name, epsilon)
+        queries = self.query_ids.get(advertiser)
+        if queries:
+            if not queries.get(sub_key):
+                queries[sub_key] = len(queries) + 1
+        else:
+            query = {sub_key: 1}
+            self.query_ids[advertiser] = query
+
+        return self.query_ids[advertiser][sub_key]
+
+
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
 
@@ -369,7 +388,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         conversions = conversions.assign(
             key=conversions.apply(
-                lambda conversion: f"{str.join('|', conversion.query_key)}|{conversion.epsilon}|productCount",
+                lambda conversion: self._get_key(conversion),
                 axis=1,
             ),
         )

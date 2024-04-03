@@ -3,12 +3,12 @@
         "sensitivity_metric": "L1",
         "baseline": "user_epoch_ara",
         "optimization": "multiepoch",
-        "initial_budget": 10
+        "initial_budget": 1
     },
     "dataset": {
-        "name": "synthetic",
-        "impressions_path": "data/synthetic/synthetic_impressions_conv_rate_1.0_impr_rate_0.1.csv",
-        "conversions_path": "data/synthetic/synthetic_conversions_conv_rate_1.0_impr_rate_0.1.csv",
+        "name": "criteo",
+        "impressions_path": "data/criteo/criteo_query_pool_impressions.csv",
+        "conversions_path": "data/criteo/criteo_query_pool_conversions.csv",
         "num_days_per_epoch": 14,
         "num_days_attribution_window": 30,
         "workload_size": 4
@@ -19,11 +19,13 @@
         "save_dir": "",
         "mlflow": true,
         "mlflow_experiment_id": "",
+        "logging_keys": ["query_results", "budget"],
         "loguru_level": "INFO"
     },
     "aggregation_service": "local_laplacian",
     "aggregation_policy": {
         "type": "count_conversion_policy",
-        "interval": 20000
+        "max_interval": 20000,
+        "min_interval": 1500
     }
 }

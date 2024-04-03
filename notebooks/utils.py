@@ -62,6 +62,8 @@ def get_budget_logs(row, results, i):
         for _, log in destination_df.iterrows():
             user = log["user"]
             budget_per_epoch = log["budget_consumed"]
+            # TODO: [PM] some records do not have status == OK. Rather, they have
+            # InsufficientBudgetError. So, this loop does not work.
             for epoch, budget_consumed in budget_per_epoch.items():
 
                 if user not in users_epochs_dict:

@@ -22,6 +22,8 @@ class Dataset(ABC):
         self.impressions_data = pd.read_csv(impressions_filename)
         self.conversions_data = pd.read_csv(conversions_filename)
         self.conversions_counter = 0
+        self.workload_size = config.workload_size
+        assert isinstance(self.workload_size, int)
 
     @classmethod
     def create(cls, config: OmegaConf):
@@ -80,8 +82,6 @@ class Dataset(ABC):
 class Synthetic(Dataset):
     def __init__(self, config: OmegaConf) -> None:
         super().__init__(config)
-        self.workload_size = config.workload_size
-        assert isinstance(self.workload_size, int)
 
         self.queries = list(range(self.workload_size))
         self.impressions_data.query("product_id in @self.queries", inplace=True)
@@ -184,6 +184,9 @@ class Synthetic(Dataset):
 class Criteo(Dataset):
     def __init__(self, config: OmegaConf) -> None:
         super().__init__(config)
+
+        self.queries = list(range(self.workload_size))
+        self.conversions_data.query("key in @self.queries", inplace=True)
 
     def read_impression(
         self, impression_reader: Iterable
