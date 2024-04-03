@@ -1,7 +1,7 @@
 {
     "user": {
         "sensitivity_metric": "L1",
-        "baseline": "user_epoch_ara",
+        "baseline": "cookiemonster",
         "optimization": "multiepoch",
         "initial_budget": 10
     },
@@ -11,7 +11,7 @@
         "conversions_path": "data/synthetic/conversions_knob1_0.1_knob2_0.1.csv",
         "num_days_per_epoch": 7,
         "num_days_attribution_window": 30,
-        "workload_size": 4
+        "workload_size": 1
     },
     "logs": {
         "verbose": false,
@@ -19,11 +19,12 @@
         "save_dir": "",
         "mlflow": true,
         "mlflow_experiment_id": "",
-        "loguru_level": "INFO"
+        "loguru_level": "INFO",
+        "logging_keys": ["budget"]
     },
     "aggregation_service": "local_laplacian",
     "aggregation_policy": {
         "type": "count_conversion_policy",
-        "interval": 20000
+        "interval": 10000
     }
 }

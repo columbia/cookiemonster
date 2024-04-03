@@ -1,6 +1,7 @@
 from omegaconf import OmegaConf
 from typing import Dict, List, Any, Union
 
+from cookiemonster.budget import BasicBudget
 from cookiemonster.event_logger import EventLogger
 from cookiemonster.report import Partition, Report
 from cookiemonster.events import Impression, Conversion
@@ -123,7 +124,7 @@ class User:
                         (x, y) = partition.epochs_window
                         for epoch in range(x, y + 1):
 
-                            if not origin_filters.can_run(epoch, budget_required):
+                            if not origin_filters.can_run(epoch, BasicBudget(budget_required)):
                                 # Delete epoch from partition so that it will be ignored upon report creation, won't be added to epochs_to_pay either
                                 del partition.impressions_per_epoch[epoch]
 

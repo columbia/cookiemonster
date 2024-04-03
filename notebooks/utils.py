@@ -10,7 +10,7 @@ from multiprocessing import Manager, Process
 from experiments.ray.analysis import load_ray_experiment
 
 CUSTOM_ORDER_BASELINES = ["ipa", "user_epoch_ara", "cookiemonster"]
-CUSTOM_ORDER_RATES = ["0.1", "0.25", "0.5", "0.75", "1.0"]
+CUSTOM_ORDER_RATES = ["0.001", "0.01", "0.1", "1.0"]
 
 
 def get_df(path):
@@ -102,7 +102,7 @@ def get_microbenchmark_budget_logs(row, results, i):
     ]
 
     # Obtain conversions and impressions rate from dataset paths
-    pattern = r"_conv_rate_([0-9.]+)_impr_rate_([0-9.]+)\.csv"
+    pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
     match = re.search(pattern, row["config"]["dataset"]["impressions_path"])
     if match:
         conv_rate = match.group(1)

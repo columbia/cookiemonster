@@ -137,7 +137,7 @@ def create_synthetic_dataset(config: OmegaConf):
     impressions["advertiser_id"] = advertiser_id
     impressions = impressions.sort_values(["timestamp"])
     impressions.to_csv(
-        f"impressions_conv_rate_{config.user_participation_rate_per_query}_impr_rate_{config.per_day_user_impressions_rate}.csv",
+        f"impressions_knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}.csv",
         header=True,
         index=False,
     )

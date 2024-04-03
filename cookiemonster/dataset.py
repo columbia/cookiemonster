@@ -84,7 +84,7 @@ class Synthetic(Dataset):
         assert isinstance(self.workload_size, int)
 
         self.queries = list(range(self.workload_size))
-        self.impressions_data.query("product_id in @self.queries", inplace=True)
+        # self.impressions_data.query("product_id in @self.queries", inplace=True)
         self.conversions_data.query("product_id in @self.queries", inplace=True)
 
     def read_impression(
@@ -103,11 +103,12 @@ class Synthetic(Dataset):
             )
             impression_user_id = row["user_id"]
 
+            filter = "" if row["filter"] == "nan" else row["filter"]
             impression = Impression(
                 timestamp=impression_timestamp,
                 epoch=impression_epoch,
                 destination=row["advertiser_id"],
-                filter=row["filter"],
+                filter=filter,
                 key=str(row["key"]),
                 user_id=impression_user_id,
             )
@@ -157,7 +158,7 @@ class Synthetic(Dataset):
             )
 
             conversion_user_id = row["user_id"]
-
+            filter = "" if row["filter"] == "nan" else row["filter"]
             conversion = Conversion(
                 timestamp=conversion_timestamp,
                 id=self.conversions_counter,
@@ -169,7 +170,7 @@ class Synthetic(Dataset):
                 partitioning_logic="",
                 aggregatable_value=row["amount"],
                 aggregatable_cap_value=row["aggregatable_cap_value"],
-                filter=row["filter"],
+                filter=filter,
                 key=str(row["key"]),
                 epsilon=row["epsilon"],
                 user_id=conversion_user_id,
@@ -200,12 +201,12 @@ class Criteo(Dataset):
                 impression_day / self.config.num_days_per_epoch
             )
             impression_user_id = row["user_id"]
-
+            filter = "" if row["filter"] == "nan" else row["filter"]
             impression = Impression(
                 timestamp=impression_timestamp,
                 epoch=impression_epoch,
                 destination=row["partner_id"],
-                filter=row["filter"],
+                filter=filter,
                 key=str(row["key"]),
                 user_id=impression_user_id,
             )
@@ -255,7 +256,7 @@ class Criteo(Dataset):
             )
 
             conversion_user_id = row["user_id"]
-
+            filter = "" if row["filter"] == "nan" else row["filter"]
             conversion = Conversion(
                 timestamp=conversion_timestamp,
                 id=self.conversions_counter,
@@ -267,7 +268,7 @@ class Criteo(Dataset):
                 partitioning_logic="",
                 aggregatable_value=row["count"],
                 aggregatable_cap_value=row["aggregatable_cap_value"],
-                filter=row["filter"],
+                filter=filter,
                 key=str(row["key"]),
                 epsilon=row["epsilon"],
                 user_id=conversion_user_id,
