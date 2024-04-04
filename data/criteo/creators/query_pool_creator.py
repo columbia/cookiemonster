@@ -308,7 +308,6 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         return self.query_ids[advertiser][sub_key]
 
-
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
 
@@ -328,18 +327,27 @@ class QueryPoolDatasetCreator(BaseCreator):
         """
         max_purchase_counts = 5
 
-        purchase_counts = conversions.apply(
-            lambda conversion: QueryPoolDatasetCreator._compute_product_count(
-                conversion, max_purchase_counts
+        conversions = conversions.assign(
+            count=conversions.apply(
+                lambda conversion: QueryPoolDatasetCreator._compute_product_count(
+                    conversion, max_purchase_counts
+                ),
+                axis=1,
             ),
-            axis=1,
+            conversion_timestamp=conversions.apply(
+                lambda conversion: max(0, conversion["Time_delay_for_conversion"])
+                + conversion["click_timestamp"],
+                axis=1,
+            ),
         )
-
-        conversions = conversions.assign(count=purchase_counts)
 
         self.log_description_of_conversions(conversions)
 
         conversions = self._create_record_per_query(conversions)
+
+        conversions = conversions.sort_values(
+            by=[self.advertiser_column_name, "query_key", "conversion_timestamp"]
+        )
 
         conversions = conversions.assign(
             epsilon=conversions.apply(
@@ -359,11 +367,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
         )
 
-        conversions = conversions.assign(
-            conversion_timestamp=conversions["Time_delay_for_conversion"]
-            + conversions["click_timestamp"],
-        )
-
         self.log_query_epsilons(conversions)
 
         unused_dimension_names = (
@@ -378,7 +381,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         ]
 
         return conversions.drop(columns=to_drop)
-        
 
     def log_query_epsilons(self, conversions):
         queries = (

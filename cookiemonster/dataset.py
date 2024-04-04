@@ -205,7 +205,12 @@ class Criteo(Dataset):
                 impression_day / self.config.num_days_per_epoch
             )
             impression_user_id = row["user_id"]
-            filter = "" if isinstance(row["filter"], _SupportsFloatOrIndex) and math.isnan(row["filter"]) else row["filter"]
+            filter = (
+                ""
+                if isinstance(row["filter"], _SupportsFloatOrIndex)
+                and math.isnan(row["filter"])
+                else row["filter"]
+            )
             impression = Impression(
                 timestamp=impression_timestamp,
                 epoch=impression_epoch,
@@ -260,7 +265,12 @@ class Criteo(Dataset):
             )
 
             conversion_user_id = row["user_id"]
-            filter = "" if isinstance(row["filter"], _SupportsFloatOrIndex) and math.isnan(row["filter"]) else row["filter"]
+            filter = (
+                ""
+                if isinstance(row["filter"], _SupportsFloatOrIndex)
+                and math.isnan(row["filter"])
+                else row["filter"]
+            )
             conversion = Conversion(
                 timestamp=conversion_timestamp,
                 id=self.conversions_counter,

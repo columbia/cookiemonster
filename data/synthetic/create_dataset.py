@@ -39,9 +39,7 @@ def generate_impressions(start_date, num_days, config, publisher_user_profile):
     records_size = sum(normal_distribution)
 
     data = {}
-    data["user_id"] = np.repeat(
-        publisher_user_profile["user_id"], normal_distribution
-    )
+    data["user_id"] = np.repeat(publisher_user_profile["user_id"], normal_distribution)
     data["timestamp"] = generate_random_dates(start_date, num_days, records_size)
     return pd.DataFrame(data)
 
@@ -51,7 +49,9 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
     num_days = config.num_days - 31
 
     publisher_user_profile["means"] = 1
-    num_converted_users = int(config.user_participation_rate_per_query * config.num_users)
+    num_converted_users = int(
+        config.user_participation_rate_per_query * config.num_users
+    )
     # For each converted user we generate <user_contributions_per_query> conversions for each scheduling cycle
     data = {}
     batch_size = num_converted_users * config.user_contributions_per_query
@@ -93,9 +93,7 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
     data["amount"] = np.hstack(conv_amounts)
 
     # Cap value to bound user contribution
-    data["amount"] = np.clip(
-        data["amount"], a_min=1, a_max=config.cap_value
-    )
+    data["amount"] = np.clip(data["amount"], a_min=1, a_max=config.cap_value)
 
     conversions = pd.DataFrame(data)
     conversions = conversions.rename(
@@ -119,7 +117,10 @@ def create_synthetic_dataset(config: OmegaConf):
     # <user_contributions_per_query> conversions allowed per user for each batch
     config.num_users = math.ceil(
         config.scheduled_batch_size
-        / (config.user_contributions_per_query * config.user_participation_rate_per_query)
+        / (
+            config.user_contributions_per_query
+            * config.user_participation_rate_per_query
+        )
     )
 
     print("Number of users: ", config.num_users)
@@ -147,7 +148,11 @@ def create_synthetic_dataset(config: OmegaConf):
     conversions = []
     for product_id in range(config.num_disjoint_queries):
         print("Processing distinct query: ", product_id)
-        conversions.append(generate_conversions(product_id, publisher_user_profile, advertiser_id, config))
+        conversions.append(
+            generate_conversions(
+                product_id, publisher_user_profile, advertiser_id, config
+            )
+        )
     conversions = pd.concat(conversions)
     conversions = conversions.sort_values(["timestamp"])
 
