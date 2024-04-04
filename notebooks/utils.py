@@ -386,7 +386,9 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
     # iplot(avg_budget(df))
 
 
-def plot_accuracy(df: pd.DataFrame, x_axis: str = "workload_size", save_dir: str | None = None):
+def plot_accuracy(
+    df: pd.DataFrame, x_axis: str = "workload_size", save_dir: str | None = None
+):
 
     df = df.sort_values(["workload_size", "initial_budget"])
 
@@ -425,15 +427,17 @@ def plot_accuracy(df: pd.DataFrame, x_axis: str = "workload_size", save_dir: str
             },
         )
         return fig
-    
+
     frac_without_idp_bias_fig = fraction_queries_without_idp_bias(df)
     workload_idp_acc_fig = workload_idp_accuracy(df)
-    
+
     if save_dir:
-        advertiser = df['destination'].unique()[0]
-        frac_without_idp_bias_fig.write_image(f"{advertiser}_fraction_queries_without_idp_bias.png")
+        advertiser = df["destination"].unique()[0]
+        frac_without_idp_bias_fig.write_image(
+            f"{advertiser}_fraction_queries_without_idp_bias.png"
+        )
         workload_idp_acc_fig.write_image(f"{advertiser}_workload_idp_accuracy.png")
-    
+
     iplot(frac_without_idp_bias_fig)
     iplot(workload_idp_acc_fig)
 

@@ -48,12 +48,8 @@ def budget_consumption_vary_knob1(dataset, ray_session_dir):
     }
 
     for knob1 in knob1s:
-        config["impressions_path"] = get_path(
-            impressions_path_base, knob1, knob2
-        )
-        config["conversions_path"] = get_path(
-            conversions_path_base, knob1, knob2
-        )
+        config["impressions_path"] = get_path(impressions_path_base, knob1, knob2)
+        config["conversions_path"] = get_path(conversions_path_base, knob1, knob2)
         experiments.append(
             multiprocessing.Process(
                 target=lambda config: grid_run(**config), args=(deepcopy(config),)
@@ -91,12 +87,8 @@ def budget_consumption_vary_knob2(dataset, ray_session_dir):
     }
 
     for knob2 in knob2s:
-        config["impressions_path"] = get_path(
-            impressions_path_base, knob1, knob2
-        )
-        config["conversions_path"] = get_path(
-            conversions_path_base, knob1, knob2
-        )
+        config["impressions_path"] = get_path(impressions_path_base, knob1, knob2)
+        config["conversions_path"] = get_path(conversions_path_base, knob1, knob2)
         experiments.append(
             multiprocessing.Process(
                 target=lambda config: grid_run(**config), args=(deepcopy(config),)
@@ -110,7 +102,7 @@ def budget_consumption_vary_knob2(dataset, ray_session_dir):
 def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
 
     logs_dir = f"{dataset}/budget_consumption_varying_epoch_granularity"
-    
+
     impressions_path_base = f"{dataset}/impressions"
     conversions_path_base = f"{dataset}/conversions"
 
@@ -120,12 +112,8 @@ def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "dataset_name": f"{dataset}",
-        "impressions_path": get_path(
-            impressions_path_base, knob1, knob2
-        ),
-        "conversions_path": get_path(
-            conversions_path_base, knob1, knob2
-        ),
+        "impressions_path": get_path(impressions_path_base, knob1, knob2),
+        "conversions_path": get_path(conversions_path_base, knob1, knob2),
         "num_days_per_epoch": [1, 7, 14, 21, 28],
         "num_days_attribution_window": 30,
         "workload_size": [4],
@@ -154,12 +142,8 @@ def bias_vary_workload_size(dataset, ray_session_dir):
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "dataset_name": f"{dataset}",
-        "impressions_path": get_path(
-            impressions_path_base, knob1, knob2
-        ),
-        "conversions_path": get_path(
-            conversions_path_base, knob1, knob2
-        ),
+        "impressions_path": get_path(impressions_path_base, knob1, knob2),
+        "conversions_path": get_path(conversions_path_base, knob1, knob2),
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,
         "workload_size": [1, 10, 20, 30, 40, 50],
@@ -226,12 +210,8 @@ def bias_vary_initial_budget(dataset, ray_session_dir):
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "dataset_name": f"{dataset}",
-        "impressions_path": get_path(
-            impressions_path_base, knob1, knob2
-        ),
-        "conversions_path": get_path(
-            conversions_path_base, knob1, knob2
-        ),
+        "impressions_path": get_path(impressions_path_base, knob1, knob2),
+        "conversions_path": get_path(conversions_path_base, knob1, knob2),
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,
         "workload_size": [50],
