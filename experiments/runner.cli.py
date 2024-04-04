@@ -17,29 +17,28 @@ def experiments_start_and_join(experiments):
         p.join()
 
 
-def get_path(path_base, conversions_rate, impression_rate):
-    return f"{path_base}_knob1_{conversions_rate}_knob2_{impression_rate}.csv"
+def get_path(path_base, knob1, knob2):
+    return f"{path_base}_knob1_{knob1}_knob2_{knob2}.csv"
 
 
-def budget_consumption_vary_conversions_rate(dataset, ray_session_dir):
+def budget_consumption_vary_knob1(dataset, ray_session_dir):
 
-    logs_dir = f"{dataset}/budget_consumption_varying_conversions_rate"
+    logs_dir = f"{dataset}/budget_consumption_varying_knob1"
 
     experiments = []
 
     impressions_path_base = f"{dataset}/impressions"
     conversions_path_base = f"{dataset}/conversions"
 
-    impression_rate = 0.1
-    conversions_rates = [0.001, 0.01, 0.1, 1.0]
+    knob1s = [0.001, 0.01, 0.1, 1.0]
+    knob2 = 0.1
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
         "num_days_per_epoch": [7],  # [1, 15, 30],
         "num_days_attribution_window": 30,
-        "workload_size": [],
+        "workload_size": [5],
         "scheduling_batch_size_per_query": 10000,
         "initial_budget": [1],  # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
@@ -48,12 +47,12 @@ def budget_consumption_vary_conversions_rate(dataset, ray_session_dir):
         "logging_keys": [BUDGET],
     }
 
-    for conversions_rate in conversions_rates:
+    for knob1 in knob1s:
         config["impressions_path"] = get_path(
-            impressions_path_base, conversions_rate, impression_rate
+            impressions_path_base, knob1, knob2
         )
         config["conversions_path"] = get_path(
-            conversions_path_base, conversions_rate, impression_rate
+            conversions_path_base, knob1, knob2
         )
         experiments.append(
             multiprocessing.Process(
@@ -65,25 +64,24 @@ def budget_consumption_vary_conversions_rate(dataset, ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-def budget_consumption_vary_impressions_rate(dataset, ray_session_dir):
+def budget_consumption_vary_knob2(dataset, ray_session_dir):
 
-    logs_dir = f"{dataset}/budget_consumption_varying_impressions_rate"
+    logs_dir = f"{dataset}/budget_consumption_varying_knob2"
 
     experiments = []
 
     impressions_path_base = f"{dataset}/impressions"
     conversions_path_base = f"{dataset}/conversions"
 
-    conversion_rate = 0.1
-    impression_rates = [0.001, 0.01, 0.1, 1.0]
+    knob1 = 0.1
+    knob2s = [0.001, 0.01, 0.1, 1.0]
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,
-        "workload_size": [4],
+        "workload_size": [5],
         "scheduling_batch_size_per_query": 10000,
         "initial_budget": [1],  # TODO: check that I can safely change this to 1
         "logs_dir": logs_dir,
@@ -92,12 +90,12 @@ def budget_consumption_vary_impressions_rate(dataset, ray_session_dir):
         "logging_keys": [BUDGET],
     }
 
-    for impression_rate in impression_rates:
+    for knob2 in knob2s:
         config["impressions_path"] = get_path(
-            impressions_path_base, conversion_rate, impression_rate
+            impressions_path_base, knob1, knob2
         )
         config["conversions_path"] = get_path(
-            conversions_path_base, conversion_rate, impression_rate
+            conversions_path_base, knob1, knob2
         )
         experiments.append(
             multiprocessing.Process(
@@ -116,18 +114,17 @@ def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
     impressions_path_base = f"{dataset}/impressions"
     conversions_path_base = f"{dataset}/conversions"
 
-    conversion_rate = 0.1
-    impression_rate = 0.1
+    knob1 = 0.1
+    knob2 = 0.1
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
         "impressions_path": get_path(
-            impressions_path_base, conversion_rate, impression_rate
+            impressions_path_base, knob1, knob2
         ),
         "conversions_path": get_path(
-            conversions_path_base, conversion_rate, impression_rate
+            conversions_path_base, knob1, knob2
         ),
         "num_days_per_epoch": [1, 7, 14, 21, 28],
         "num_days_attribution_window": 30,
@@ -146,29 +143,28 @@ def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
 
 def bias_vary_workload_size(dataset, ray_session_dir):
 
-    logs_dir = f"{dataset}/bias_varying_workload_size"
+    logs_dir = f"{dataset}/bias_varying_workload_size2"
 
     impressions_path_base = f"{dataset}/impressions"
     conversions_path_base = f"{dataset}/conversions"
 
-    conversion_rate = 0.1
-    impression_rate = 0.1
+    knob1 = 0.1
+    knob2 = 0.1
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
         "impressions_path": get_path(
-            impressions_path_base, conversion_rate, impression_rate
+            impressions_path_base, knob1, knob2
         ),
         "conversions_path": get_path(
-            conversions_path_base, conversion_rate, impression_rate
+            conversions_path_base, knob1, knob2
         ),
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,
-        "workload_size": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        "workload_size": [1, 10, 20, 30, 40, 50],
         "scheduling_batch_size_per_query": 10000,
-        "initial_budget": [1],
+        "initial_budget": [0.5],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
@@ -186,18 +182,17 @@ def bias_vary_initial_budget(dataset, ray_session_dir):
     impressions_path_base = f"{dataset}/impressions"
     conversions_path_base = f"{dataset}/conversions"
 
-    conversion_rate = 0.1
-    impression_rate = 0.1
+    knob1 = 0.1
+    knob2 = 0.1
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
         "impressions_path": get_path(
-            impressions_path_base, conversion_rate, impression_rate
+            impressions_path_base, knob1, knob2
         ),
         "conversions_path": get_path(
-            conversions_path_base, conversion_rate, impression_rate
+            conversions_path_base, knob1, knob2
         ),
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,

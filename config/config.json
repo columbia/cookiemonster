@@ -1,8 +1,7 @@
 {
     "user": {
         "sensitivity_metric": "L1",
-        "baseline": "cookiemonster",
-        "optimization": "multiepoch",
+        "baseline": "ipa",
         "initial_budget": 10
     },
     "dataset": {

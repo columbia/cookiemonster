@@ -24,6 +24,13 @@ def get_budget_logs(row, results, i):
         timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
     ]
 
+    # Obtain conversions and impressions rate from dataset paths
+    pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
+    match = re.search(pattern, row["config"]["dataset"]["impressions_path"])
+    if match:
+        knob1 = match.group(1)
+        knob2 = match.group(2)
+
     # Find the epochs "touched" in this experiment
     per_destination_touched_epochs = {}
     for [destination, epoch_min, epoch_max] in row["logs"]["epoch_range"]:
@@ -65,7 +72,8 @@ def get_budget_logs(row, results, i):
 
                 if user not in users_epochs_dict:
                     users_epochs_dict[user] = np.zeros(max_epoch_index)
-                users_epochs_dict[user][int(epoch)] += budget_consumed
+                    if budget_consumed != math.inf and budget_consumed != "inf":
+                        users_epochs_dict[user][int(epoch)] += budget_consumed
 
             if log["timestamp"] in scheduling_timestamps:
 
@@ -79,6 +87,7 @@ def get_budget_logs(row, results, i):
                     {
                         "destination": destination[0],
                         "num_reports": log["timestamp"],
+                        "max_max_budget": np.max(user_epochs_np),
                         "max_avg_budget": np.max(
                             sum_across_epochs / num_touched_epochs
                         ),
@@ -89,89 +98,8 @@ def get_budget_logs(row, results, i):
                         "status": log["status"],
                         "baseline": row["baseline"],
                         "num_days_per_epoch": row["num_days_per_epoch"],
-                    }
-                )
-    rdf = pd.DataFrame.from_records(records).reset_index(names="queries_ran")
-    rdf["queries_ran"] += 1
-    results[i] = rdf
-
-
-def get_microbenchmark_budget_logs(row, results, i):
-    scheduling_timestamps = [
-        timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
-    ]
-
-    # Obtain conversions and impressions rate from dataset paths
-    pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
-    match = re.search(pattern, row["config"]["dataset"]["impressions_path"])
-    if match:
-        conv_rate = match.group(1)
-        impr_rate = match.group(2)
-    else:
-        raise ValueError("Could not find conversion and impression rates in path")
-
-    # Find the epochs "touched" in this experiment
-    per_destination_touched_epochs = {}
-    for [destination, epoch_min, epoch_max] in row["logs"]["epoch_range"]:
-        if destination not in per_destination_touched_epochs:
-            per_destination_touched_epochs[destination] = (math.inf, 0)
-
-        epoch_range = per_destination_touched_epochs[destination]
-        per_destination_touched_epochs[destination] = (
-            min(epoch_range[0], epoch_min),
-            max(epoch_range[1], epoch_max),
-        )
-
-    logs = row["logs"]["budget"]
-    df = pd.DataFrame.from_records(
-        logs,
-        columns=[
-            "timestamp",
-            "destination",
-            "user",
-            "budget_consumed",
-            "status",
-        ],
-    )
-
-    records = []
-    for destination, destination_df in df.groupby(["destination"]):
-
-        # Find the users "touched" in this experiment
-        num_touched_users = destination_df["user"].nunique()
-        max_user_id = destination_df["user"].max() + 1
-        epoch_range = per_destination_touched_epochs[destination[0]]
-        num_touched_epochs = epoch_range[1] - epoch_range[0] + 1
-        max_epoch_index = epoch_range[1] + 1
-
-        # Array bigger than the size of touched users but extra users are zeroed so they will be ignored
-        users_epochs = np.zeros((max_user_id, max_epoch_index))
-
-        for _, log in destination_df.iterrows():
-            user = log["user"]
-            budget_per_epoch = log["budget_consumed"]
-            for epoch, budget_consumed in budget_per_epoch.items():
-                users_epochs[user][int(epoch)] += budget_consumed
-
-            if log["timestamp"] in scheduling_timestamps:
-                sum_across_epochs = np.sum(users_epochs, axis=1)
-
-                records.append(
-                    {
-                        "destination": destination[0],
-                        "num_reports": log["timestamp"],
-                        "max_avg_budget": np.max(
-                            sum_across_epochs / num_touched_epochs
-                        ),
-                        "avg_max_budget": np.sum(np.max(users_epochs, axis=0))
-                        / num_touched_epochs,
-                        "avg_avg_budget": np.sum(sum_across_epochs)
-                        / (num_touched_epochs * num_touched_users),
-                        "status": log["status"],
-                        "baseline": row["baseline"],
-                        "num_days_per_epoch": row["num_days_per_epoch"],
-                        "conversion_rate": conv_rate,
-                        "impression_rate": impr_rate,
+                        "knob1": knob1,
+                        "knob2": knob2,
                     }
                 )
     rdf = pd.DataFrame.from_records(records).reset_index(names="queries_ran")
@@ -239,8 +167,8 @@ def analyze_results(path, type="budget", parallelize=True):
             get_logs = get_budget_logs
         case "bias":
             get_logs = get_bias_logs
-        case "microbenchmark_budget":
-            get_logs = get_microbenchmark_budget_logs
+        # case "microbenchmark_budget":
+        #     get_logs = get_microbenchmark_budget_logs
         case _:
             raise ValueError(f"Unsupported type: {type}")
 
@@ -271,11 +199,7 @@ def analyze_results(path, type="budget", parallelize=True):
     return dfs
 
 
-def plot_budget_consumption(df, facet_row=None):
-    # df["key"] = (
-    #     df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
-    # )
-
+def plot_budget_consumption_lines(df, facet_row=None):
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
     }
@@ -283,11 +207,27 @@ def plot_budget_consumption(df, facet_row=None):
     match facet_row:
         case None:
             facet_row = None
-        case "conversion_rate":
-            category_orders.update({"conversion_rate" : CUSTOM_ORDER_RATES})
-        case "impression_rate":
-            category_orders.update({"impression_rate" : CUSTOM_ORDER_RATES})
+        case "knob1":
+            category_orders.update({"knob1": CUSTOM_ORDER_RATES})
+        case "knob2":
+            category_orders.update({"knob2": CUSTOM_ORDER_RATES})
 
+    def max_max_budget(df):
+        fig = px.line(
+            df,
+            # x="num_reports",
+            x="queries_ran",
+            y="max_max_budget",
+            color="baseline",
+            title=f"Cumulative Budget Consumption",
+            width=1100,
+            height=1200,
+            markers=True,
+            facet_col="destination",
+            facet_row=facet_row,
+            category_orders=category_orders,
+        )
+        return fig
 
     def max_avg_budget(df):
         fig = px.line(
@@ -340,6 +280,99 @@ def plot_budget_consumption(df, facet_row=None):
         )
         return fig
 
+    pio.show(max_max_budget(df), renderer="png", include_plotlyjs=False)
+    pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
+    pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
+    pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
+
+    # iplot(max_budget(df))
+    # iplot(avg_budget(df))
+
+
+def plot_budget_consumption_bars(df, x_axis="knob1"):
+    # df["key"] = (
+    #     df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
+    # )
+
+    category_orders = {
+        "baseline": CUSTOM_ORDER_BASELINES,
+    }
+
+    match x_axis:
+        case None:
+            x_axis = None
+        case "knob1":
+            category_orders.update({"knob1": CUSTOM_ORDER_RATES})
+        case "knob2":
+            category_orders.update({"knob2": CUSTOM_ORDER_RATES})
+
+    last_query_ran = df["queries_ran"].max()
+    dff = df.query("queries_ran == @last_query_ran")
+
+    def max_max_budget(df):
+        fig = px.bar(
+            dff,
+            x=x_axis,
+            y="max_max_budget",
+            color="baseline",
+            title=f"Cumulative Budget Consumption",
+            width=1100,
+            height=400,
+            barmode="group",
+            facet_col="destination",
+            # facet_row=facet_row,
+            category_orders=category_orders,
+        )
+        return fig
+
+    def max_avg_budget(df):
+        fig = px.bar(
+            dff,
+            x=x_axis,
+            y="max_avg_budget",
+            color="baseline",
+            title=f"Cumulative Budget Consumption",
+            width=1100,
+            height=400,
+            barmode="group",
+            facet_col="destination",
+            # facet_row=facet_row,
+            category_orders=category_orders,
+        )
+        return fig
+
+    def avg_max_budget(df):
+        fig = px.bar(
+            dff,
+            x=x_axis,
+            y="avg_max_budget",
+            color="baseline",
+            title=f"Cumulative Budget Consumption",
+            width=1100,
+            height=400,
+            barmode="group",
+            facet_col="destination",
+            # facet_row=facet_row,
+            category_orders=category_orders,
+        )
+        return fig
+
+    def avg_avg_budget(df):
+        fig = px.bar(
+            dff,
+            x=x_axis,
+            y="avg_avg_budget",
+            color="baseline",
+            title=f"Cumulative Budget Consumption",
+            width=1100,
+            height=400,
+            barmode="group",
+            facet_col="destination",
+            category_orders=category_orders,
+        )
+        return fig
+
+    pio.show(max_max_budget(df), renderer="png", include_plotlyjs=False)
     pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
     pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
     pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
@@ -395,3 +428,88 @@ def plot_accuracy(df, x_axis="workload_size"):
 if __name__ == "__main__":
     path = "ray/synthetic/budget_consumption_varying_conversions_rate"
     df = analyze_results(path, type="budget", parallelize=False)
+
+
+# def get_microbenchmark_budget_logs(row, results, i):
+#     scheduling_timestamps = [
+#         timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
+#     ]
+
+#     # Obtain conversions and impressions rate from dataset paths
+#     pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
+#     match = re.search(pattern, row["config"]["dataset"]["impressions_path"])
+#     if match:
+#         knob1 = match.group(1)
+#         knob2 = match.group(2)
+#     else:
+#         raise ValueError("Could not find conversion and impression rates in path")
+
+#     # Find the epochs "touched" in this experiment
+#     per_destination_touched_epochs = {}
+#     for [destination, epoch_min, epoch_max] in row["logs"]["epoch_range"]:
+#         if destination not in per_destination_touched_epochs:
+#             per_destination_touched_epochs[destination] = (math.inf, 0)
+
+#         epoch_range = per_destination_touched_epochs[destination]
+#         per_destination_touched_epochs[destination] = (
+#             min(epoch_range[0], epoch_min),
+#             max(epoch_range[1], epoch_max),
+#         )
+
+#     logs = row["logs"]["budget"]
+#     df = pd.DataFrame.from_records(
+#         logs,
+#         columns=[
+#             "timestamp",
+#             "destination",
+#             "user",
+#             "budget_consumed",
+#             "status",
+#         ],
+#     )
+
+#     records = []
+#     for destination, destination_df in df.groupby(["destination"]):
+
+#         # Find the users "touched" in this experiment
+#         num_touched_users = destination_df["user"].nunique()
+#         max_user_id = int(destination_df["user"].max()) + 1
+#         epoch_range = per_destination_touched_epochs[destination[0]]
+#         num_touched_epochs = epoch_range[1] - epoch_range[0] + 1
+#         max_epoch_index = epoch_range[1] + 1
+
+#         # Array bigger than the size of touched users but extra users are zeroed so they will be ignored
+#         users_epochs = np.zeros((max_user_id, max_epoch_index))
+
+#         for _, log in destination_df.iterrows():
+#             user = int(log["user"])
+#             budget_per_epoch = log["budget_consumed"]
+#             for epoch, budget_consumed in budget_per_epoch.items():
+#                 assert budget_consumed != math.inf and budget_consumed != float('inf') and budget_consumed != 'inf'
+#                 users_epochs[user][int(epoch)] += budget_consumed
+
+#             if log["timestamp"] in scheduling_timestamps:
+#                 sum_across_epochs = np.sum(users_epochs, axis=1)
+
+#                 records.append(
+#                     {
+#                         "destination": destination[0],
+#                         "num_reports": log["timestamp"],
+#                         "max_avg_budget": np.max(
+#                             sum_across_epochs / num_touched_epochs
+#                         ),
+#                         "max_max_budget": np.max(users_epochs),
+#                         "avg_max_budget": np.sum(np.max(users_epochs, axis=0))
+#                         / num_touched_epochs,
+#                         "avg_avg_budget": np.sum(sum_across_epochs)
+#                         / (num_touched_epochs * num_touched_users),
+#                         "status": log["status"],
+#                         "baseline": row["baseline"],
+#                         "num_days_per_epoch": row["num_days_per_epoch"],
+#                         "knob1": knob1,
+#                         "knob2": knob2,
+#                     }
+#                 )
+#     rdf = pd.DataFrame.from_records(records).reset_index(names="queries_ran")
+#     rdf["queries_ran"] += 1
+#     results[i] = rdf

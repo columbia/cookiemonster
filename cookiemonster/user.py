@@ -106,7 +106,7 @@ class User:
 
                 elif self.config.baseline == COOKIEMONSTER:
                     if partition.epochs_window_size() == 1:
-                        # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity 
+                        # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity
                         # Assuming Laplace here
                         epochs_to_pay = partition.epochs_window
                         noise_scale = global_sensitivity / conversion.epsilon
@@ -124,9 +124,12 @@ class User:
                         (x, y) = partition.epochs_window
                         for epoch in range(x, y + 1):
 
-                            if not origin_filters.can_run(epoch, BasicBudget(budget_required)):
+                            if not origin_filters.can_run(
+                                epoch, BasicBudget(budget_required)
+                            ):
                                 # Delete epoch from partition so that it will be ignored upon report creation, won't be added to epochs_to_pay either
-                                del partition.impressions_per_epoch[epoch]
+                                if epoch in partition.impressions_per_epoch:
+                                    del partition.impressions_per_epoch[epoch]
 
                             # Epochs empty of impressions are not paying any budget
                             if epoch in partition.impressions_per_epoch:

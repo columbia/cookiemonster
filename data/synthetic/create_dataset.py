@@ -50,7 +50,7 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
     start_date = datetime.datetime(2024, 1, 31)
     num_days = config.num_days - 31
 
-    publisher_user_profile["means"] = 3
+    publisher_user_profile["means"] = 1
     num_converted_users = int(config.user_participation_rate_per_query * config.num_users)
     # For each converted user we generate <user_contributions_per_query> conversions for each scheduling cycle
     data = {}
@@ -94,7 +94,7 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
 
     # Cap value to bound user contribution
     data["amount"] = np.clip(
-        data["amount"], a_min=None, a_max=config.cap_value
+        data["amount"], a_min=1, a_max=config.cap_value
     )
 
     conversions = pd.DataFrame(data)
