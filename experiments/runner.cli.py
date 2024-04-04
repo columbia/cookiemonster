@@ -197,7 +197,7 @@ def criteo_bias_vary_workload_size(dataset, ray_session_dir):
 
     config = {
         # "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "baseline": ["cookiemonster"],
+        "baseline": ["ipa"],
         "optimization": ["multiepoch"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path_base,
