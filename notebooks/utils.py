@@ -68,6 +68,8 @@ def get_budget_logs(row, results, i):
         for _, log in destination_df.iterrows():
             user = log["user"]
             budget_per_epoch = log["budget_consumed"]
+            # TODO: [PM] some records do not have status == OK. Rather, they have
+            # InsufficientBudgetError. So, this loop does not work.
             for epoch, budget_consumed in budget_per_epoch.items():
 
                 if user not in users_epochs_dict:
@@ -138,6 +140,7 @@ def get_bias_logs(row, results, i):
             num_queries_without_idp_bias += (
                 log["true_output"] - log["aggregation_output"] == 0
             )
+            # print("num queries without idp bias:", num_queries_without_idp_bias, "workload size: ", workload_size)
 
             # Aggregate bias across all queries ran in this workload/experiment
             idp_error = log["true_output"] - log["aggregation_output"]
@@ -383,7 +386,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
     # iplot(avg_budget(df))
 
 
-def plot_accuracy(df, x_axis="workload_size"):
+def plot_accuracy(df: pd.DataFrame, x_axis: str = "workload_size", save_dir: str | None = None):
 
     df = df.sort_values(["workload_size", "initial_budget"])
 
@@ -422,9 +425,17 @@ def plot_accuracy(df, x_axis="workload_size"):
             },
         )
         return fig
-
-    iplot(fraction_queries_without_idp_bias(df))
-    iplot(workload_idp_accuracy(df))
+    
+    frac_without_idp_bias_fig = fraction_queries_without_idp_bias(df)
+    workload_idp_acc_fig = workload_idp_accuracy(df)
+    
+    if save_dir:
+        advertiser = df['destination'].unique()[0]
+        frac_without_idp_bias_fig.write_image(f"{advertiser}_fraction_queries_without_idp_bias.png")
+        workload_idp_acc_fig.write_image(f"{advertiser}_workload_idp_accuracy.png")
+    
+    iplot(frac_without_idp_bias_fig)
+    iplot(workload_idp_acc_fig)
 
 
 if __name__ == "__main__":

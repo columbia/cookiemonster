@@ -23,7 +23,8 @@ def grid_run(
     num_days_per_epoch: List[int],
     num_days_attribution_window: int,
     workload_size: List[int],
-    scheduling_batch_size_per_query: int,
+    min_scheduling_batch_size_per_query: int,
+    max_scheduling_batch_size_per_query: int,
     initial_budget: float,
     logs_dir: str,
     loguru_level: str,
@@ -32,7 +33,7 @@ def grid_run(
 ):
 
     if ray_session_dir:
-        ray.init(_temp_dir=ray_session_dir)
+        ray.init(_temp_dir=ray_session_dir, log_to_driver=False)
 
     config = {
         "user": {
@@ -58,7 +59,8 @@ def grid_run(
         "aggregation_service": "local_laplacian",
         "aggregation_policy": {
             "type": "count_conversion_policy",
-            "interval": scheduling_batch_size_per_query,
+            "min_interval": min_scheduling_batch_size_per_query,
+            "max_interval": max_scheduling_batch_size_per_query,
         },
     }
 

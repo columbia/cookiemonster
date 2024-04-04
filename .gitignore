@@ -3,8 +3,10 @@
 logs
 *.csv
 *.png
+node_modules
 
 data/criteo/Criteo_Conversion_Search
+data/criteo/criteo-research-search-conversion.tar.gz
 *.log
 
 # Byte-compiled / optimized / DLL files
