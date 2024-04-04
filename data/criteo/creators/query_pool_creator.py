@@ -59,12 +59,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             "Time_delay_for_conversion",
             "Sale",
             "click_timestamp",
-            "click_day",
-            "click_datetime",
         ]
         self.impression_columns_to_use = [
             "click_timestamp",
-            "click_day",
             "user_id",
             "partner_id",
             "filter",
@@ -80,37 +77,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.advertiser_filter = config.get("advertiser_filter", [])
 
-    # TODO: [PM] add click_day dimension to query?
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("running basic df specialization...")
-        # create some other columns from existing data for easier reading
-        df = df.assign(
-            click_datetime=df["click_timestamp"].apply(
-                lambda x: datetime.fromtimestamp(x)
-            ),
-            conversion_timestamp=df["Time_delay_for_conversion"]
-            + df["click_timestamp"],
-        )
-
-        df = df.assign(
-            click_day=df["click_datetime"].apply(
-                lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
-            ),
-            conversion_datetime=df["conversion_timestamp"].apply(
-                lambda x: datetime.fromtimestamp(x)
-            ),
-        )
-
-        min_click_day = df["click_day"].min()
-        df["click_day"] -= min_click_day
-
-        df = df.assign(
-            conversion_day=df["conversion_datetime"].apply(
-                lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
-            )
-        )
-        df["conversion_day"] -= min_click_day
-        df["filter"] = "-"
+        df["filter"] = ""
         return df
 
     # TODO: [PM] Bring up with the group. Perhaps we will want to bring back the other
@@ -252,7 +221,7 @@ class QueryPoolDatasetCreator(BaseCreator):
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
         impressions = df[self.impression_columns_to_use]
         impressions = impressions.sort_values(by=["click_timestamp"])
-        impressions["key"] = "-"
+        impressions["key"] = ""
         return impressions
 
     def _get_used_dimension_names(self) -> set:
@@ -372,7 +341,6 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         conversions = self._create_record_per_query(conversions)
 
-        # Do not sort or shuffle the conversions after this line
         conversions = conversions.assign(
             epsilon=conversions.apply(
                 lambda conversion: self._calculate_epsilon(
@@ -391,6 +359,11 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
         )
 
+        conversions = conversions.assign(
+            conversion_timestamp=conversions["Time_delay_for_conversion"]
+            + conversions["click_timestamp"],
+        )
+
         self.log_query_epsilons(conversions)
 
         unused_dimension_names = (
@@ -405,6 +378,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         ]
 
         return conversions.drop(columns=to_drop)
+        
 
     def log_query_epsilons(self, conversions):
         queries = (
