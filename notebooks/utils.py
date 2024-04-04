@@ -72,8 +72,8 @@ def get_budget_logs(row, results, i):
 
                 if user not in users_epochs_dict:
                     users_epochs_dict[user] = np.zeros(max_epoch_index)
-                    if budget_consumed != math.inf and budget_consumed != "inf":
-                        users_epochs_dict[user][int(epoch)] += budget_consumed
+                if budget_consumed != math.inf and budget_consumed != "inf":
+                    users_epochs_dict[user][int(epoch)] += budget_consumed
 
             if log["timestamp"] in scheduling_timestamps:
 
@@ -285,8 +285,10 @@ def plot_budget_consumption_lines(df, facet_row=None):
     pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
     pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
 
-    # iplot(max_budget(df))
-    # iplot(avg_budget(df))
+    # iplot(max_max_budget(df))
+    # iplot(max_avg_budget(df))
+    # iplot(avg_max_budget(df))
+    # iplot(avg_avg_budget(df))
 
 
 def plot_budget_consumption_bars(df, x_axis="knob1"):
