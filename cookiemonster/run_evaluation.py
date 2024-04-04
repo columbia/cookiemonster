@@ -168,7 +168,6 @@ class Evaluation:
                     batch.biggest_id,
                     destination,
                     0,
-                    batch.epochs_window,
                     filter_result.budget_consumed,
                     filter_result.status,
                 )

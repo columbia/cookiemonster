@@ -1,6 +1,4 @@
-from typing import Dict, Any, Union
-from cookiemonster.events import Impression, Conversion
-from cookiemonster.budget_accountant import BudgetAccountantResult
+from typing import Dict, Any
 
 
 class EventLogger:

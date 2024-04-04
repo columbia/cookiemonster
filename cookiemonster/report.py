@@ -36,22 +36,25 @@ class Partition:
         self.attribution_logic = attribution_logic
         self.impressions_per_epoch: Dict[int, List[Impression]] = {}
         self.value = value
+        self.report = None
+        self.unbiased_report = None
 
     def epochs_window_size(self) -> int:
         return self.epochs_window[1] - self.epochs_window[0] + 1
 
     def compute_sensitivity(self, sensitivity_metric) -> float:
+        assert self.unbiased_report is not None
         match sensitivity_metric:
             case "L1":
-                return sum(list(self.report.histogram.values()))
+                return sum(list(self.unbiased_report.histogram.values()))
 
             case _:
                 raise ValueError(
                     f"Unsupported sensitivity metric: {sensitivity_metric}"
                 )
 
-    def create_report(self, filter, key_piece: str) -> None:
-        self.report = Report()
+    def create_report(self, key_piece: str) -> None:
+        report = Report()
 
         match self.attribution_logic:
             case "last_touch":
@@ -65,24 +68,22 @@ class Partition:
                             impression_key = ""
 
                         # Sort impression keys and stringify them
-                        bucket_key = impression_key + "_" + filter + "_" + key_piece
+                        bucket_key = impression_key + "_" + key_piece
                         bucket_value = self.value
 
-                        self.report.add(bucket_key, bucket_value)
+                        report.add(bucket_key, bucket_value)
                         break
 
-                if self.report.empty():
-                    bucket_key = "_" + filter + "_" + key_piece
+                if report.empty():
+                    bucket_key = "_" + key_piece
                     bucket_value = 0
-                    self.report.add(bucket_key, bucket_value)
+                    report.add(bucket_key, bucket_value)
 
             case _:
                 raise ValueError(
                     f"Unsupported attribution logic: {self.attribution_logic}"
                 )
-
-        # Unbiased report will never be Nulled - kept for experiments
-        self.unbiased_report = copy.deepcopy(self.report)
+        return report
 
     def null_report(self) -> None:
         # Set default value 0 to all histogram bins
