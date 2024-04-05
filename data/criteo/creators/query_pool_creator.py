@@ -30,7 +30,8 @@ class QueryPoolDatasetCreator(BaseCreator):
             "criteo_query_pool_conversions.csv",
         )
         self.query_pool: dict[QueryKey, QueryInfo] = {}  # query -> QueryInfo
-        self.query_ids: dict[str, dict[tuple[str, str, float], int]] = {}
+        self.seen_conversions: dict[QueryKey, int] = {}
+        self.seen_query_ids: set[tuple[str, str, str, int]] = set()
 
         self.advertiser_column_name = "partner_id"
         self.product_column_name = "product_id"
@@ -59,12 +60,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             "Time_delay_for_conversion",
             "Sale",
             "click_timestamp",
-            "click_day",
-            "click_datetime",
         ]
         self.impression_columns_to_use = [
             "click_timestamp",
-            "click_day",
             "user_id",
             "partner_id",
             "filter",
@@ -80,37 +78,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.advertiser_filter = config.get("advertiser_filter", [])
 
-    # TODO: [PM] add click_day dimension to query?
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("running basic df specialization...")
-        # create some other columns from existing data for easier reading
-        df = df.assign(
-            click_datetime=df["click_timestamp"].apply(
-                lambda x: datetime.fromtimestamp(x)
-            ),
-            conversion_timestamp=df["Time_delay_for_conversion"]
-            + df["click_timestamp"],
-        )
-
-        df = df.assign(
-            click_day=df["click_datetime"].apply(
-                lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
-            ),
-            conversion_datetime=df["conversion_timestamp"].apply(
-                lambda x: datetime.fromtimestamp(x)
-            ),
-        )
-
-        min_click_day = df["click_day"].min()
-        df["click_day"] -= min_click_day
-
-        df = df.assign(
-            conversion_day=df["conversion_datetime"].apply(
-                lambda x: (7 * (x.isocalendar().week - 1)) + x.isocalendar().weekday
-            )
-        )
-        df["conversion_day"] -= min_click_day
-        df["filter"] = "-"
+        df["filter"] = ""
         return df
 
     # TODO: [PM] Bring up with the group. Perhaps we will want to bring back the other
@@ -252,7 +222,7 @@ class QueryPoolDatasetCreator(BaseCreator):
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
         impressions = df[self.impression_columns_to_use]
         impressions = impressions.sort_values(by=["click_timestamp"])
-        impressions["key"] = "-"
+        impressions["key"] = ""
         return impressions
 
     def _get_used_dimension_names(self) -> set:
@@ -326,19 +296,21 @@ class QueryPoolDatasetCreator(BaseCreator):
             return -1
 
     def _get_key(self, conversion: pd.Series) -> int:
-        (advertiser, dimension_value, dimension_name) = conversion.query_key
-        epsilon = conversion.epsilon
-        sub_key = (dimension_value, dimension_name, epsilon)
-        queries = self.query_ids.get(advertiser)
-        if queries:
-            if queries.get(sub_key) is None:
-                queries[sub_key] = len(queries)
-        else:
-            query = {sub_key: 0}
-            self.query_ids[advertiser] = query
+        """
+        constructs a globally unique identifier for the query. assumes the
+        surrounding dataframe is already sorted in the way needed for processing
+        in the workload evaluation.
+        """
+        conversion_count = self.seen_conversions.get(conversion.query_key, 0)
+        query_id = (
+            *conversion.query_key,
+            conversion_count // self.max_conversions_required_for_dp,
+        )
+        self.seen_query_ids.add(query_id)
 
-        return self.query_ids[advertiser][sub_key]
+        self.seen_conversions[conversion.query_key] = conversion_count + 1
 
+        return len(self.seen_query_ids) - 1
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
@@ -359,20 +331,28 @@ class QueryPoolDatasetCreator(BaseCreator):
         """
         max_purchase_counts = 5
 
-        purchase_counts = conversions.apply(
-            lambda conversion: QueryPoolDatasetCreator._compute_product_count(
-                conversion, max_purchase_counts
+        conversions = conversions.assign(
+            count=conversions.apply(
+                lambda conversion: QueryPoolDatasetCreator._compute_product_count(
+                    conversion, max_purchase_counts
+                ),
+                axis=1,
             ),
-            axis=1,
+            conversion_timestamp=conversions.apply(
+                lambda conversion: max(0, conversion["Time_delay_for_conversion"])
+                + conversion["click_timestamp"],
+                axis=1,
+            ),
         )
-
-        conversions = conversions.assign(count=purchase_counts)
 
         self.log_description_of_conversions(conversions)
 
         conversions = self._create_record_per_query(conversions)
 
-        # Do not sort or shuffle the conversions after this line
+        conversions = conversions.sort_values(
+            by=[self.advertiser_column_name, "query_key", "conversion_timestamp"]
+        )
+
         conversions = conversions.assign(
             epsilon=conversions.apply(
                 lambda conversion: self._calculate_epsilon(
@@ -408,9 +388,10 @@ class QueryPoolDatasetCreator(BaseCreator):
 
     def log_query_epsilons(self, conversions):
         queries = (
-            conversions[["query_key", "epsilon"]]
+            conversions[["key", "query_key", "epsilon"]]
             .apply(
                 lambda conversion: (
+                    conversion["key"],
                     conversion["query_key"][0],
                     conversion["query_key"][1],
                     conversion["query_key"][2],
@@ -423,13 +404,13 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         query_epsilons = []
         for query in queries:
-            msg = f"\t{self.advertiser_column_name} '{query[0]}' {query[2]} '{query[1]}', epsilon: {query[3]}\n"
+            msg = f"\tquery {query[0]}: {self.advertiser_column_name} '{query[1]}' {query[3]} '{query[2]}', epsilon: {query[4]}\n"
             query_epsilons.append(msg)
         self.logger.info(f"Query pool epsilons:\n{''.join(query_epsilons)}")
 
         query_tuples = pd.DataFrame(
             [[*x] for x in queries],
-            columns=["advertiser", "dimension_value", "dimension_name", "epsilon"],
+            columns=["key", "advertiser", "dimension_value", "dimension_name", "epsilon"],
         )
 
         advertiser_grouping = query_tuples.groupby(["advertiser"])
