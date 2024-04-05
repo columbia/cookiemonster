@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-from datetime import datetime
 import itertools
 from omegaconf import DictConfig
 import prtpy
@@ -8,17 +6,6 @@ from uuid import uuid4
 
 from data.criteo.creators.base_creator import BaseCreator, pd
 from data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
-
-QueryKey = tuple[str, str, str]  # (advertiser_value, dimension_value, dimension_name)
-
-
-@dataclass
-class QueryInfo:
-    conversion_count: int
-    big_report_count: int
-    mini_report: bool
-    working_big_report_count: int = 0
-    working_conversion_count: int = 0
 
 
 class QueryPoolDatasetCreator(BaseCreator):
@@ -29,9 +16,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             "criteo_query_pool_impressions.csv",
             "criteo_query_pool_conversions.csv",
         )
-        self.query_pool: dict[QueryKey, QueryInfo] = {}  # query -> QueryInfo
-        self.seen_conversions: dict[QueryKey, int] = {}
-        self.seen_query_ids: set[tuple[str, str, str, int]] = set()
+        self.used_dimension_names = set()
 
         self.advertiser_column_name = "partner_id"
         self.product_column_name = "product_id"
@@ -67,6 +52,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             "partner_id",
             "filter",
         ]
+        self.enforce_one_user_contribution_per_query = (
+            config.enforce_one_user_contribution_per_query
+        )
         self.max_conversions_required_for_dp = config.max_conversions_required_for_dp
         self.min_conversions_required_for_dp = config.min_conversions_required_for_dp
         self.estimated_conversion_rate = config.estimated_conversion_rate
@@ -80,7 +68,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
     def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("running basic df specialization...")
-        df["filter"] = ""
+        df = df.assign(filter="")
         return df
 
     # TODO: [PM] Bring up with the group. Perhaps we will want to bring back the other
@@ -161,46 +149,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.dimension_names.append("synthetic_category")
         return df
 
-    def _populate_query_pools(self, df: pd.DataFrame) -> None:
-        self.logger.info("populating the query pools...")
-        conversions = df.loc[(df.Sale == 1)]
-        for dimension_name in self.dimension_names:
-            conversions = conversions.assign(dimension_name=dimension_name)
-            counts = conversions.groupby(
-                [self.advertiser_column_name, dimension_name, "dimension_name"]
-            ).Sale.count()
-            counts = counts[counts >= self.min_conversions_required_for_dp]
-            if not counts.empty:
-                for key, conversion_count in counts.to_dict().items():
-                    report_count = (
-                        conversion_count // self.max_conversions_required_for_dp
-                    )
-                    remaining = conversion_count % self.max_conversions_required_for_dp
-                    self.query_pool[key] = QueryInfo(
-                        conversion_count=conversion_count,
-                        big_report_count=report_count,
-                        mini_report=remaining >= self.min_conversions_required_for_dp,
-                    )
-
-        keys = [x for x in self.query_pool.keys()]
-        keys.sort()
-        log_lines = []
-        for key in keys:
-            query_info = self.query_pool[key]
-            (partner_id, dimension, dimension_name) = key
-            msg = "; ".join(
-                [
-                    f"{query_info.conversion_count} total conversion records from partner_id ({partner_id}), {dimension_name} ({dimension})",
-                    f"expect {query_info.big_report_count} big report(s) and {'1' if query_info.mini_report else '0'} mini report(s)",
-                ]
-            )
-            log_lines.append(msg)
-
-        query_pool_contents = str.join("\n\t", log_lines)
-        self.logger.info(
-            f"Generated the following query pool:\n\t{query_pool_contents}\n"
-        )
-
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(
             subset=[
@@ -215,7 +163,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         if self.augment_dataset:
             df = self._augment_df_with_advertiser_bin_cover(df)
 
-        self._populate_query_pools(df)
         df = self._run_basic_specialization(df)
         return df
 
@@ -225,34 +172,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         impressions["key"] = ""
         return impressions
 
-    def _get_used_dimension_names(self) -> set:
-        return set(map(lambda x: x[2], self.query_pool.keys()))
-
-    def _create_record_per_query(self, conversions: pd.DataFrame) -> pd.DataFrame:
-        self.logger.info("creating a conversion record per query...")
-        conversion_chunks = []
-        for dimension in self._get_used_dimension_names():
-            conversions = conversions.assign(
-                query_key=conversions.apply(
-                    lambda conversion: (
-                        conversion[self.advertiser_column_name],
-                        conversion[dimension],
-                        dimension,
-                    ),
-                    axis=1,
-                )
-            )
-            conversions = conversions.assign(
-                included=conversions.query_key.isin(self.query_pool.keys())
-            )
-            conversions_to_use = conversions.loc[conversions.included]
-
-            conversion_chunks.append(conversions_to_use)
-
-        return pd.concat(conversion_chunks)
-
-    @staticmethod
-    def _compute_product_count(conversion, cap: int) -> int:
+    def _compute_product_count(self, conversion, cap: int) -> int:
         sell_price = conversion["SalesAmountInEuro"]
         offer_price = conversion["product_price"]
         if sell_price and offer_price:
@@ -262,55 +182,99 @@ class QueryPoolDatasetCreator(BaseCreator):
         else:
             return 1
 
-    def _calculate_epsilon(
-        self, conversion: pd.Series, max_purchase_counts: int
-    ) -> float:
-        query_key = conversion["query_key"]
-        query_info = self.query_pool[query_key]
+    def _create_queries(
+        self, conversions: pd.DataFrame, max_purchase_counts: int
+    ) -> pd.DataFrame:
 
-        query_info.working_conversion_count += 1
-        if (
-            query_info.working_conversion_count % self.max_conversions_required_for_dp
-            == 0
-        ):
-            # this conversion ends a big report
-            query_info.working_big_report_count += 1
-            return get_epsilon_from_accuracy_for_counts(
-                self.max_conversions_required_for_dp, max_purchase_counts
-            )
-        elif query_info.working_big_report_count < query_info.big_report_count:
-            # we are still processing big reports
-            return get_epsilon_from_accuracy_for_counts(
-                self.max_conversions_required_for_dp, max_purchase_counts
-            )
-        elif query_info.mini_report:
-            # we are in a mini report
-            conversion_count = (
-                query_info.conversion_count % self.max_conversions_required_for_dp
-            )
-            return get_epsilon_from_accuracy_for_counts(
-                conversion_count, max_purchase_counts
-            )
-        else:
-            # no query, so no epsilon
-            return -1
+        def __mark_include(row: pd.Series, seen_users: set, row_count: int):
+            if row_count == self.max_conversions_required_for_dp:
+                row_count = 0
+                seen_users = set()
 
-    def _get_key(self, conversion: pd.Series) -> int:
-        """
-        constructs a globally unique identifier for the query. assumes the
-        surrounding dataframe is already sorted in the way needed for processing
-        in the workload evaluation.
-        """
-        conversion_count = self.seen_conversions.get(conversion.query_key, 0)
-        query_id = (
-            *conversion.query_key,
-            conversion_count // self.max_conversions_required_for_dp,
-        )
-        self.seen_query_ids.add(query_id)
+            user = row[self.user_column_name]
+            if user in seen_users:
+                return False
+            else:
+                seen_users.add(user)
+                row_count += 1
+                return True
 
-        self.seen_conversions[conversion.query_key] = conversion_count + 1
+        seen_users = set()
+        row_count = 0
+        advertisers = conversions[self.advertiser_column_name].unique()
+        query_batches = []
+        for advertiser in advertisers:
+            ad_conversions = conversions.loc[
+                conversions[self.advertiser_column_name] == advertiser
+            ]
+            for dimension_name in self.dimension_names:
+                dimension_values = ad_conversions[dimension_name].unique()
+                for dimension_value in dimension_values:
+                    query_result = ad_conversions.loc[
+                        ad_conversions[dimension_name] == dimension_value
+                    ]
+                    query_result = query_result.sort_values(by=["conversion_timestamp"])
 
-        return len(self.seen_query_ids) - 1
+                    # we have our total query. need to iterate row by row taking unique users up until
+                    # max conversion count for dp
+
+                    if self.enforce_one_user_contribution_per_query:
+                        query_result = query_result.assign(
+                            include=query_result.apply(
+                                lambda row: __mark_include(row, seen_users, row_count),
+                                axis=1,
+                            ),
+                        )
+                        query_result = query_result.loc[query_result.include]
+                        query_result = query_result.drop(columns=["include"])
+                        seen_users = set()
+                        row_count = 0
+
+                    query_result["query_key"] = [
+                        (advertiser, dimension_value, dimension_name)
+                    ] * query_result.shape[0]
+
+                    # now split the query_result into its batches
+                    query_result = query_result.reset_index(drop=True)
+                    query_result_length = query_result.shape[0]
+                    num_big_reports = (
+                        query_result_length // self.max_conversions_required_for_dp
+                    )
+                    i = 0
+                    while i < num_big_reports:
+                        start = i * self.max_conversions_required_for_dp
+                        end = (i + 1) * self.max_conversions_required_for_dp
+                        batch = query_result.iloc[start : end]
+                        assert batch.shape[0] >= self.min_conversions_required_for_dp
+                        assert batch.shape[0] <= self.max_conversions_required_for_dp
+                        query_batches.append(batch)
+                        self.used_dimension_names.add(dimension_name)
+                        i += 1
+
+                    i = i * self.max_conversions_required_for_dp
+                    if (
+                        i < query_result_length
+                        and query_result_length - i
+                        >= self.min_conversions_required_for_dp
+                    ):
+                        batch = query_result.iloc[i:]
+                        assert batch.shape[0] >= self.min_conversions_required_for_dp
+                        assert batch.shape[0] <= self.max_conversions_required_for_dp
+                        query_batches.append(batch)
+                        self.used_dimension_names.add(dimension_name)
+
+        final_batches = []
+        for i, batch in enumerate(query_batches):
+            final_batch = batch.assign(
+                epsilon=get_epsilon_from_accuracy_for_counts(
+                    batch.shape[0], max_purchase_counts
+                ),
+                aggregatable_cap_value=max_purchase_counts,
+                key=i,
+            )
+            final_batches.append(final_batch)
+
+        return pd.concat(final_batches)
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
@@ -333,7 +297,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         conversions = conversions.assign(
             count=conversions.apply(
-                lambda conversion: QueryPoolDatasetCreator._compute_product_count(
+                lambda conversion: self._compute_product_count(
                     conversion, max_purchase_counts
                 ),
                 axis=1,
@@ -344,44 +308,17 @@ class QueryPoolDatasetCreator(BaseCreator):
                 axis=1,
             ),
         )
-
-        self.log_description_of_conversions(conversions)
-
-        conversions = self._create_record_per_query(conversions)
-
-        conversions = conversions.sort_values(
-            by=[self.advertiser_column_name, "query_key", "conversion_timestamp"]
-        )
-
-        conversions = conversions.assign(
-            epsilon=conversions.apply(
-                lambda conversion: self._calculate_epsilon(
-                    conversion, max_purchase_counts
-                ),
-                axis=1,
-            ),
-            aggregatable_cap_value=max_purchase_counts,
-        )
-        conversions = conversions.drop(conversions.loc[conversions.epsilon == -1].index)
-
-        conversions = conversions.assign(
-            key=conversions.apply(
-                lambda conversion: self._get_key(conversion),
-                axis=1,
-            ),
-        )
+        conversions = conversions.drop(columns=self.conversion_columns_to_drop)
+        conversions = self._create_queries(conversions, max_purchase_counts)
 
         self.log_query_epsilons(conversions)
 
-        unused_dimension_names = (
-            set(self.dimension_names) - self._get_used_dimension_names()
-        )
+        unused_dimension_names = set(self.dimension_names) - self.used_dimension_names
         columns_we_created = ["query_key"]
 
         to_drop = [
             *unused_dimension_names,
             *columns_we_created,
-            *self.conversion_columns_to_drop,
         ]
 
         return conversions.drop(columns=to_drop)
@@ -392,9 +329,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             .apply(
                 lambda conversion: (
                     conversion["key"],
-                    conversion["query_key"][0],
-                    conversion["query_key"][1],
-                    conversion["query_key"][2],
+                    *conversion["query_key"],
                     conversion["epsilon"],
                 ),
                 axis=1,
@@ -410,7 +345,13 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         query_tuples = pd.DataFrame(
             [[*x] for x in queries],
-            columns=["key", "advertiser", "dimension_value", "dimension_name", "epsilon"],
+            columns=[
+                "key",
+                "advertiser",
+                "dimension_value",
+                "dimension_name",
+                "epsilon",
+            ],
         )
 
         advertiser_grouping = query_tuples.groupby(["advertiser"])
@@ -447,27 +388,3 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.logger.info(f"Query count per advertiser:\n{advertiser_query_count}")
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
         pd.reset_option("display.max_rows")
-
-    def log_description_of_conversions(self, conversions):
-        counts = conversions["count"]
-        self.logger.info(
-            f"purchase count description across all conversion events:\n{counts.describe()}"
-        )
-        self.logger.info(
-            f"purchase count skew across all conversion events: {counts.skew()}"
-        )
-
-        true_sums = []
-        for dimension in self.dimension_names:
-            true_sums_for_dimension = conversions.groupby(
-                [self.advertiser_column_name, dimension]
-            )["count"].sum()
-            true_sums.append(true_sums_for_dimension)
-
-        all_true_summary_reports = pd.concat(true_sums).reset_index(drop=True)
-        self.logger.info(
-            f"True summary reports across all queries description (no synthetic features added):\n{all_true_summary_reports.describe()}"
-        )
-        self.logger.info(
-            f"True summary reports across all queries skew (no synthetic features added): {all_true_summary_reports.skew()}"
-        )
