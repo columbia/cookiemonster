@@ -2,6 +2,7 @@
 .vscode/
 logs
 *.csv
+*.pqt
 *.png
 node_modules
 
