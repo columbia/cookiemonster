@@ -3,7 +3,6 @@
 logs
 *.csv
 *.pqt
-*.png
 node_modules
 *.zip
 
