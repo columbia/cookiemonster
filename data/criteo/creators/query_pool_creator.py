@@ -202,7 +202,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         seen_users = set()
         row_count = 0
         advertisers = conversions[self.advertiser_column_name].unique()
-        query_batches = []
+        query_batches = {}
         for advertiser in advertisers:
             ad_conversions = conversions.loc[
                 conversions[self.advertiser_column_name] == advertiser
@@ -247,7 +247,8 @@ class QueryPoolDatasetCreator(BaseCreator):
                         batch = query_result.iloc[start : end]
                         assert batch.shape[0] >= self.min_conversions_required_for_dp
                         assert batch.shape[0] <= self.max_conversions_required_for_dp
-                        query_batches.append(batch)
+                        advertiser_queries = query_batches.get(advertiser, [])
+                        advertiser_queries.append(batch)
                         self.used_dimension_names.add(dimension_name)
                         i += 1
 
@@ -260,19 +261,21 @@ class QueryPoolDatasetCreator(BaseCreator):
                         batch = query_result.iloc[i:]
                         assert batch.shape[0] >= self.min_conversions_required_for_dp
                         assert batch.shape[0] <= self.max_conversions_required_for_dp
-                        query_batches.append(batch)
+                        advertiser_queries = query_batches.get(advertiser, [])
+                        advertiser_queries.append(batch)
                         self.used_dimension_names.add(dimension_name)
 
         final_batches = []
-        for i, batch in enumerate(query_batches):
-            final_batch = batch.assign(
-                epsilon=get_epsilon_from_accuracy_for_counts(
-                    batch.shape[0], max_purchase_counts
-                ),
-                aggregatable_cap_value=max_purchase_counts,
-                key=i,
-            )
-            final_batches.append(final_batch)
+        for _, batches in query_batches:
+            for i, batch in enumerate(batches):
+                final_batch = batch.assign(
+                    epsilon=get_epsilon_from_accuracy_for_counts(
+                        batch.shape[0], max_purchase_counts
+                    ),
+                    aggregatable_cap_value=max_purchase_counts,
+                    key=i,
+                )
+                final_batches.append(final_batch)
 
         return pd.concat(final_batches)
 
