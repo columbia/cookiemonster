@@ -5,6 +5,7 @@ logs
 *.pqt
 *.png
 node_modules
+*.zip
 
 data/criteo/Criteo_Conversion_Search
 data/criteo/criteo-research-search-conversion.tar.gz
