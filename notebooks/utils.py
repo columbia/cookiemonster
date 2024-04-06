@@ -400,6 +400,7 @@ def plot_accuracy(
             width=1100,
             height=600,
             markers=True,
+            range_y=[0, 1],
             facet_col="destination",
             # facet_row=facet_row,
             category_orders={
@@ -418,6 +419,7 @@ def plot_accuracy(
             width=1100,
             height=600,
             markers=True,
+            range_y=[0, 1],
             facet_col="destination",
             # facet_row=facet_row,
             category_orders={
