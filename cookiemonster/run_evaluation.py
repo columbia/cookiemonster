@@ -111,12 +111,24 @@ class Evaluation:
                     # handle the tail for those queries that have enough events for DP, but are not
                     # the preferred batch size before moving on to the next query.
                     last_seen_advertiser, last_seen_query_id = last_seen
-                    different_advertiser = last_seen_advertiser and last_seen_advertiser != event.destination
-                    different_query = last_seen_query_id and last_seen_query_id != query_id
+                    different_advertiser = (
+                        last_seen_advertiser
+                        and last_seen_advertiser != event.destination
+                    )
+                    different_query = (
+                        last_seen_query_id and last_seen_query_id != query_id
+                    )
                     if different_advertiser or different_query:
-                        last_per_query_batch = self.per_destination_per_query_batch[last_seen_advertiser]
+                        last_per_query_batch = self.per_destination_per_query_batch[
+                            last_seen_advertiser
+                        ]
                         last_batch = last_per_query_batch[last_seen_query_id]
-                        if last_batch and self.aggregation_policy.should_calculate_summary_reports(last_batch, tail=True):
+                        if (
+                            last_batch
+                            and self.aggregation_policy.should_calculate_summary_reports(
+                                last_batch, tail=True
+                            )
+                        ):
                             self._calculate_summary_reports(
                                 query_id=last_seen_query_id,
                                 batch=last_batch,
@@ -124,7 +136,7 @@ class Evaluation:
                             )
 
                             del last_per_query_batch[last_seen_query_id]
-                            
+
                     batch = per_query_batch[query_id]
                     last_seen = (event.destination, query_id)
                     if self.aggregation_policy.should_calculate_summary_reports(batch):

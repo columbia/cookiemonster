@@ -244,7 +244,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     while i < num_big_reports:
                         start = i * self.max_conversions_required_for_dp
                         end = (i + 1) * self.max_conversions_required_for_dp
-                        batch = query_result.iloc[start : end]
+                        batch = query_result.iloc[start:end]
                         assert batch.shape[0] >= self.min_conversions_required_for_dp
                         assert batch.shape[0] <= self.max_conversions_required_for_dp
                         if advertiser not in query_batches:
