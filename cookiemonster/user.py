@@ -32,7 +32,6 @@ class User:
         self.logging_keys = config.logs.logging_keys
         self.filters_per_origin: Dict[str, BudgetAccountant] = {}
         self.impressions: Dict[int, List[Impression]] = {}
-        # self.conversions: List[Conversion] = []
 
     def process_event(
         self, event: Union[Impression, Conversion]
@@ -43,7 +42,6 @@ class User:
             self.impressions[event.epoch].append(event)
 
         elif isinstance(event, Conversion):
-            # self.conversions.append(event)
             return self.create_report(event)
 
         else:

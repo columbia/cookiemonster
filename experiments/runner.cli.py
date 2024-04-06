@@ -160,38 +160,37 @@ def bias_vary_workload_size(dataset, ray_session_dir):
 
 
 def criteo_bias_vary_workload_size(dataset, ray_session_dir):
+    """
+    Varying Workload methodology:
+      1. Generate conversions for the largest 6 advertisers (advertisers with the most queries in their query pool)
+      2. Run the varying workload with initial budget set to 1 across workload sizes of 1, 5, 20, 15, and 20.
+      3. Run the varying workload with initial budget set to 1 across workload sizes of 25, 30, 35, 40, 45.
+      4. Generate conversions for the advertisers with 9-10 queries.
+    * 5. Run the varying workload with initial budget set to 1 across workload sizes of 1, 3, 5, 7, 10.
+      6. Generate conversions for the advertisers with 5-6 queries.
+      7. Run the varying workload with initial budget set to 1 across workload sizes of 1, 2, 3, 4, 5, 6.
+    """
 
     logs_dir = f"{dataset}/bias_varying_workload_size"
 
-    impressions_path_base = f"{dataset}/{dataset}_query_pool_impressions.csv"
-    conversions_path_base = f"{dataset}/{dataset}_query_pool_conversions.csv"
-
-    """
-    RUN FOR THE BIG ADVERTISERS
-    3  E3DDEB04F8AFF944B11943BB57D2F620          216
-    4  F122B91F6D102E4630817566839A4F1F           44
-    2  9FF550C0B17A3C493378CB6E2DEEE6E4           39
-    1  9D9E93D1D461D7BAE47FB67EC0E01B62           32
-    0  319A2412BDB0EF669733053640B80112           22
-    """
+    impressions_path_base = f"{dataset}/{dataset}_query_pool_medium_impressions.csv"
+    conversions_path_base = f"{dataset}/{dataset}_query_pool_medium_conversions.csv"
 
     config = {
-        # "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "baseline": ["ipa"],
-        "optimization": ["multiepoch"],
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path_base,
         "conversions_path": conversions_path_base,
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,
-        "workload_size": [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 216],
+        "workload_size": [1, 3, 5, 7, 10],
         "max_scheduling_batch_size_per_query": 20_000,
         "min_scheduling_batch_size_per_query": 1_500,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
-        "logging_keys": [QUERY_RESULTS],
+        "logging_keys": [QUERY_RESULTS, BUDGET],
     }
 
     grid_run(**config)
