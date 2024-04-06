@@ -66,10 +66,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.advertiser_filter = config.get("advertiser_filter", [])
 
-    def _run_basic_specialization(self, df: pd.DataFrame) -> pd.DataFrame:
-        self.logger.info("running basic df specialization...")
-        df = df.assign(filter="")
-        return df
 
     # TODO: [PM] Bring up with the group. Perhaps we will want to bring back the other
     # grouping methods (from previous commits)
@@ -163,7 +159,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         if self.augment_dataset:
             df = self._augment_df_with_advertiser_bin_cover(df)
 
-        df = self._run_basic_specialization(df)
+        df = df.assign(filter="")
         return df
 
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -172,21 +168,16 @@ class QueryPoolDatasetCreator(BaseCreator):
         impressions["key"] = ""
         return impressions
 
-    def _compute_product_count(self, conversion, cap: int) -> int:
-        sell_price = conversion["SalesAmountInEuro"]
-        offer_price = conversion["product_price"]
-        if sell_price and offer_price:
-            return min(cap, sell_price // offer_price)
-        elif offer_price:
-            return 0
-        else:
-            return 1
-
     def _create_queries(
         self, conversions: pd.DataFrame, max_purchase_counts: int
     ) -> pd.DataFrame:
 
-        def __mark_include(row: pd.Series, seen_users: set, row_count: int):
+        seen_users = set()
+        row_count = 0
+
+        def __mark_include(row: pd.Series):
+            nonlocal seen_users
+            nonlocal row_count
             if row_count == self.max_conversions_required_for_dp:
                 row_count = 0
                 seen_users = set()
@@ -199,8 +190,6 @@ class QueryPoolDatasetCreator(BaseCreator):
                 row_count += 1
                 return True
 
-        seen_users = set()
-        row_count = 0
         advertisers = conversions[self.advertiser_column_name].unique()
         query_batches = {}
         for advertiser in advertisers:
@@ -215,13 +204,18 @@ class QueryPoolDatasetCreator(BaseCreator):
                     ]
                     query_result = query_result.sort_values(by=["conversion_timestamp"])
 
-                    # we have our total query. need to iterate row by row taking unique users up until
-                    # max conversion count for dp
+                    # we have our total query. now we need to break it up into batches
 
-                    if self.enforce_one_user_contribution_per_query:
+                    # no point in continuing if the total query isn't even a mini batch.
+                    if query_result.shape[0] < self.min_conversions_required_for_dp:
+                        continue
+
+                    if self.enforce_one_user_contribution_per_query:    
+                        # need to iterate row by row taking unique users up until
+                        # max conversion count for dp.
                         query_result = query_result.assign(
                             include=query_result.apply(
-                                lambda row: __mark_include(row, seen_users, row_count),
+                                lambda row: __mark_include(row),
                                 axis=1,
                             ),
                         )
@@ -282,6 +276,17 @@ class QueryPoolDatasetCreator(BaseCreator):
         return pd.concat(final_batches).sort_values(by=["conversion_timestamp"])
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        def __compute_product_count(conversion, cap: int) -> int:
+            sell_price = conversion["SalesAmountInEuro"]
+            offer_price = conversion["product_price"]
+            if sell_price and offer_price:
+                return min(cap, sell_price // offer_price)
+            elif offer_price:
+                return 0
+            else:
+                return 1
+            
         conversions = df.loc[df.Sale == 1]
 
         """
@@ -302,7 +307,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         conversions = conversions.assign(
             count=conversions.apply(
-                lambda conversion: self._compute_product_count(
+                lambda conversion: __compute_product_count(
                     conversion, max_purchase_counts
                 ),
                 axis=1,
@@ -341,6 +346,8 @@ class QueryPoolDatasetCreator(BaseCreator):
             )
             .unique()
         )
+
+        queries = sorted(queries, key=lambda q: (q[1], q[0]))
 
         query_epsilons = []
         for query in queries:
