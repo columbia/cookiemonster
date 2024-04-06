@@ -161,6 +161,17 @@ def bias_vary_workload_size(dataset, ray_session_dir):
 
 def criteo_bias_vary_workload_size(dataset, ray_session_dir):
 
+    """
+    Varying Workload methodology:
+      1. Generate conversions for the largest 6 advertisers (advertisers with the most queries in their query pool)
+    * 2. Run the varying workload with initial budget set to 1 across workload sizes of 1, 5, 20, 15, and 20.
+      3. Run the varying workload with initial budget set to 1 across workload sizes of 25, 30, 35, 40, 45.
+      4. Generate conversions for the middle 6 advertisers
+      5. Run the varying workload with initial budget set to 1 across workload sizes of 1, 3, 6, 9, 10.
+      6. Generate conversions for the smallest 6 advertisers
+      7. Run the varying workload with initial budget set to 1 across workload sizes of 1, 2, 3, 4.
+    """
+
     logs_dir = f"{dataset}/bias_varying_workload_size"
 
     impressions_path_base = f"{dataset}/{dataset}_query_pool_impressions.csv"
@@ -168,7 +179,6 @@ def criteo_bias_vary_workload_size(dataset, ray_session_dir):
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        # "baseline": ["ipa", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path_base,
         "conversions_path": conversions_path_base,
