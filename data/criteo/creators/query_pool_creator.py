@@ -13,8 +13,8 @@ class QueryPoolDatasetCreator(BaseCreator):
     def __init__(self, config: DictConfig) -> None:
         super().__init__(
             config,
-            "criteo_query_pool_impressions.csv",
-            "criteo_query_pool_conversions.csv",
+            "criteo_query_pool_medium_impressions.csv",
+            "criteo_query_pool_medium_conversions.csv",
         )
         self.used_dimension_names = set()
 
@@ -279,7 +279,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 )
                 final_batches.append(final_batch)
 
-        return pd.concat(final_batches)
+        return pd.concat(final_batches).sort_values(by=["conversion_timestamp"])
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         conversions = df.loc[df.Sale == 1]
