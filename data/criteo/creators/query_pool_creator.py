@@ -247,8 +247,9 @@ class QueryPoolDatasetCreator(BaseCreator):
                         batch = query_result.iloc[start : end]
                         assert batch.shape[0] >= self.min_conversions_required_for_dp
                         assert batch.shape[0] <= self.max_conversions_required_for_dp
-                        advertiser_queries = query_batches.get(advertiser, [])
-                        advertiser_queries.append(batch)
+                        if advertiser not in query_batches:
+                            query_batches[advertiser] = []
+                        query_batches[advertiser].append(batch)
                         self.used_dimension_names.add(dimension_name)
                         i += 1
 
@@ -261,12 +262,13 @@ class QueryPoolDatasetCreator(BaseCreator):
                         batch = query_result.iloc[i:]
                         assert batch.shape[0] >= self.min_conversions_required_for_dp
                         assert batch.shape[0] <= self.max_conversions_required_for_dp
-                        advertiser_queries = query_batches.get(advertiser, [])
-                        advertiser_queries.append(batch)
+                        if advertiser not in query_batches:
+                            query_batches[advertiser] = []
+                        query_batches[advertiser].append(batch)
                         self.used_dimension_names.add(dimension_name)
 
         final_batches = []
-        for _, batches in query_batches:
+        for batches in query_batches.values():
             for i, batch in enumerate(batches):
                 final_batch = batch.assign(
                     epsilon=get_epsilon_from_accuracy_for_counts(
