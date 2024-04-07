@@ -315,9 +315,13 @@ class Patcg(Dataset):
 
         while True:
             if not impression and impression_timestamp != math.inf:
-                impression, impression_timestamp, impression_user_id = self.read_impression()
+                impression, impression_timestamp, impression_user_id = (
+                    self.read_impression()
+                )
             if not conversion and conversion_timestamp != math.inf:
-                conversion, conversion_timestamp, conversion_user_id = self.read_conversion()
+                conversion, conversion_timestamp, conversion_user_id = (
+                    self.read_conversion()
+                )
 
             # Feed the event with the earliest timestamp
             if impression_timestamp == math.inf and conversion_timestamp == math.inf:
@@ -427,4 +431,3 @@ class Patcg(Dataset):
                 return self.read_conversion()
             except StopIteration:
                 return None, math.inf, None
-

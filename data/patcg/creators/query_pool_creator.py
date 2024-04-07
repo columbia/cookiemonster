@@ -76,13 +76,18 @@ class QueryPoolDatasetCreator(BaseCreator):
         def set_epsilon_given_accuracy(n):
             [a, b] = self.config.accuracy
             return self.config.cap_value * math.log(1 / b) / (n * a)  # 0.069
-        
+
         nonempty_batch_size = self.config.attribution_rate * batch_size / 10
         return set_epsilon_given_accuracy(nonempty_batch_size)
-        
 
     def _write_batch(
-        self, batch_size, nbatches, remaining, query_key, total_batches, conversions: pd.DataFrame
+        self,
+        batch_size,
+        nbatches,
+        remaining,
+        query_key,
+        total_batches,
+        conversions: pd.DataFrame,
     ) -> pd.DataFrame:
         self.logger.info(f"Create batches for query {query_key}...")
 
@@ -95,9 +100,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             print("     Query:", query_key, "Batch:", bs, be)
 
             unique_query_key = query_key * total_batches + i
-            query_path = os.path.join(
-                self.conversions_path, f"{unique_query_key}.csv"
-            )
+            query_path = os.path.join(self.conversions_path, f"{unique_query_key}.csv")
             # conversions.loc[bs:be, "query_key"] = unique_query_key
             conversions.loc[bs:be, "epsilon"] = self._set_epsilon(batch_size)
             conversions.iloc[bs:be].to_csv(query_path, header=True, index=False)
@@ -108,13 +111,10 @@ class QueryPoolDatasetCreator(BaseCreator):
             print("     Query:", query_key, "Minibatch", bs, be)
 
             unique_query_key = query_key * total_batches + nbatches
-            query_path = os.path.join(
-                self.conversions_path, f"{unique_query_key}.csv"
-            )
+            query_path = os.path.join(self.conversions_path, f"{unique_query_key}.csv")
             # conversions.loc[bs:be, "query_key"] = f"{query_key}_{nbatches}"
             conversions.loc[bs:be, "epsilon"] = self._set_epsilon(remaining)
             conversions.iloc[bs:be].to_csv(query_path, header=True, index=False)
-
 
     def _write_queries(self, conversions: pd.DataFrame) -> pd.DataFrame:
         self.logger.info(f"Creating queries...")
@@ -123,15 +123,16 @@ class QueryPoolDatasetCreator(BaseCreator):
         batch_size = self.config.scheduled_batch_size
         nbatches = num_conversions // batch_size
         remaining = num_conversions % batch_size
-        total_batches =  nbatches + 1 if remaining > 0 else nbatches
+        total_batches = nbatches + 1 if remaining > 0 else nbatches
 
         print("megabatches", nbatches)
         print("minibatch size", remaining)
 
         for i in range(self.config.dimension_domain_size):
-            self._write_batch(batch_size, nbatches, remaining,i,  total_batches, conversions)
+            self._write_batch(
+                batch_size, nbatches, remaining, i, total_batches, conversions
+            )
 
-            
     def create_conversions(self, conversions: pd.DataFrame) -> pd.DataFrame:
 
         # count    7.472919e+07
@@ -151,10 +152,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         # to have a total of 40 queries.
         # I should keep an actual batch size of 1.875M reports to approximately reach the desired batch size of 20k per query.
 
-                   
         if not os.path.exists(self.conversions_path):
             os.makedirs(self.conversions_path)
-                   
+
         conversions = self._enforce_user_contribution_cap(conversions)
         conversions = self._clip_contribution_value(conversions)
         conversions = self._write_queries(conversions)

@@ -79,4 +79,3 @@ class BaseCreator(ABC):
 
         self.logger.info("creating the conversions...")
         conversions = self.create_conversions(conversions)
-

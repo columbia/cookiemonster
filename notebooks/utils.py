@@ -13,13 +13,19 @@ CUSTOM_ORDER_BASELINES = ["ipa", "user_epoch_ara", "cookiemonster"]
 CUSTOM_ORDER_RATES = ["0.001", "0.01", "0.1", "1.0"]
 
 
+class Bias:
+    def __init__(self) -> None:
+        self.relative_accuracies = []
+        self.count = 0
+
+
 def get_df(path):
     logs = LOGS_PATH.joinpath(path)
     df = load_ray_experiment(logs)
     return df
 
 
-def get_budget_logs(row, results, i):
+def get_budget_logs(row, results, i, **kwargs):
     scheduling_timestamps = [
         timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
     ]
@@ -107,7 +113,7 @@ def get_budget_logs(row, results, i):
     results[i] = rdf
 
 
-def get_bias_logs(row, results, i):
+def get_bias_logs(row, results, i, **kwargs):
     logs = row["logs"]["query_results"]
     df = pd.DataFrame.from_records(
         logs,
@@ -122,42 +128,68 @@ def get_bias_logs(row, results, i):
     )
 
     records = []
+    t = kwargs.get("t", 0.90)
     for destination, destination_df in df.groupby(["destination"]):
 
-        accuracies = []
-        num_queries_with_null_reports = 0
         workload_size = len(destination_df)
 
+        null_report_bias = Bias()
+        e2e_bias = Bias()
+
         for _, log in destination_df.iterrows():
-            # Handle IPA case
-            if math.isnan(log["aggregation_output"]):
-                accuracies.append(0)
-                continue
+            true_sum = log["true_output"]
+            biased_sum = log["aggregation_output"]
+            sum_with_dp = log["aggregation_noisy_output"]
 
-            num_queries_with_null_reports += (
-                log["true_output"] - log["aggregation_output"] == 0
-            )
+            # NULL REPORT BIAS ANALYSIS
+            if math.isnan(biased_sum):
+                null_report_bias.relative_accuracies.append(0)
+            else:
+                null_report_bias_error = abs(true_sum - biased_sum)
+                relative_accuracy = 1 - (null_report_bias_error / true_sum)
 
-            # Aggregate bias across all queries ran in this workload/experiment
-            null_report_bias_error = log["true_output"] - log["aggregation_output"]
-            accuracies.append(1 - (null_report_bias_error / log["true_output"]))
+                null_report_bias.count += null_report_bias_error == 0
+                null_report_bias.relative_accuracies.append(relative_accuracy)
+
+            # E2E ANALYSIS
+            if math.isnan(sum_with_dp):
+                e2e_bias.relative_accuracies.append(0)
+            else:
+                e2e_error = abs(true_sum - sum_with_dp)
+                relative_accuracy = 1 - (e2e_error / true_sum)
+
+                e2e_bias.count += relative_accuracy >= t
+                e2e_bias.relative_accuracies.append(relative_accuracy)
+
+        baseline = row["baseline"]
+        num_days_per_epoch = row["num_days_per_epoch"]
+        initial_budget = row["config"]["user"]["initial_budget"]
+        requested_workload_size = row["workload_size"]
 
         records.append(
             {
                 "destination": destination[0],
                 "workload_size": workload_size,
-                "fraction_queries_without_null_reports": num_queries_with_null_reports
+                "requested_workload_size": requested_workload_size,
+                "fraction_queries_without_null_reports": null_report_bias.count
                 / workload_size,
-                "average_accuracy": sum(accuracies) / len(accuracies),
-                "baseline": row["baseline"],
-                "num_days_per_epoch": row["num_days_per_epoch"],
-                "initial_budget": float(row["config"]["user"]["initial_budget"]),
+                "null_report_bias_average_relative_accuracy": sum(
+                    null_report_bias.relative_accuracies
+                )
+                / len(null_report_bias.relative_accuracies),
+                "fraction_queries_relatively_accurate_e2e": e2e_bias.count
+                / workload_size,
+                "e2e_bias_average_relative_accuracy": sum(e2e_bias.relative_accuracies)
+                / len(e2e_bias.relative_accuracies),
+                "baseline": baseline,
+                "num_days_per_epoch": num_days_per_epoch,
+                "initial_budget": float(initial_budget),
             }
         )
     results[i] = pd.DataFrame.from_records(records)
 
 
-def analyze_results(path, type="budget", parallelize=True):
+def analyze_results(path, type="budget", parallelize=True, **kwargs):
     dfs = []
     df = get_df(path)
 
@@ -176,10 +208,7 @@ def analyze_results(path, type="budget", parallelize=True):
         results = Manager().dict()
         for i, row in df.iterrows():
             processes.append(
-                Process(
-                    target=get_logs,
-                    args=(row, results, i),
-                )
+                Process(target=get_logs, args=(row, results, i), kwargs=kwargs)
             )
             processes[i].start()
 
@@ -188,7 +217,7 @@ def analyze_results(path, type="budget", parallelize=True):
     else:
         results = {}
         for i, row in df.iterrows():
-            get_logs(row, results, i)
+            get_logs(row, results, i, **kwargs)
 
     for result in results.values():
         dfs.append(result)
@@ -381,7 +410,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
     # iplot(avg_budget(df))
 
 
-def plot_accuracy(
+def plot_null_reports_analysis(
     df: pd.DataFrame, x_axis: str = "workload_size", save_dir: str | None = None
 ):
 
@@ -409,9 +438,9 @@ def plot_accuracy(
         fig = px.line(
             df,
             x=x_axis,
-            y="average_accuracy",
+            y="null_report_bias_average_relative_accuracy",
             color="baseline",
-            title=f"Avg. relative accuracy across queries in workload",
+            title=f"Average relative accuracy with null report bias (no noise) across queries in workload",
             width=1100,
             height=600,
             markers=True,
@@ -429,10 +458,10 @@ def plot_accuracy(
     if save_dir:
         advertiser = df["destination"].unique()[0]
         frac_without_idp_bias_fig.write_image(
-            f"{save_dir}/{advertiser}_fraction_queries_with_null_reports.png"
+            f"{save_dir}/{advertiser}_null_report_bias_fraction_queries.png"
         )
         workload_idp_acc_fig.write_image(
-            f"{save_dir}/{advertiser}_average_relative_accuracy.png"
+            f"{save_dir}/{advertiser}_null_report_biase_average_relative_accuracy.png"
         )
 
     iplot(frac_without_idp_bias_fig)
@@ -444,7 +473,7 @@ if __name__ == "__main__":
     df = analyze_results(path, type="budget", parallelize=False)
 
 
-# def get_microbenchmark_budget_logs(row, results, i):
+# def get_microbenchmark_budget_logs(row, results, i, **kwargs):
 #     scheduling_timestamps = [
 #         timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
 #     ]
