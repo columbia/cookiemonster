@@ -66,7 +66,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.advertiser_filter = config.get("advertiser_filter", [])
 
-
     # TODO: [PM] Bring up with the group. Perhaps we will want to bring back the other
     # grouping methods (from previous commits)
     def _augment_df_with_advertiser_bin_cover(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -210,7 +209,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     if query_result.shape[0] < self.min_conversions_required_for_dp:
                         continue
 
-                    if self.enforce_one_user_contribution_per_query:    
+                    if self.enforce_one_user_contribution_per_query:
                         # need to iterate row by row taking unique users up until
                         # max conversion count for dp.
                         query_result = query_result.assign(
@@ -286,7 +285,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 return 0
             else:
                 return 1
-            
+
         conversions = df.loc[df.Sale == 1]
 
         """

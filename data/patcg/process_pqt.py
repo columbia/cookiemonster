@@ -4,6 +4,7 @@ import pandas as pd
 publishers = os.path.join(os.path.dirname(__file__), "publishers")
 advertisers = os.path.join(os.path.dirname(__file__), "advertisers")
 
+
 def convert_impressions_to_csv():
     parquet_dir = os.path.join(publishers, "publisher_exposures")
     dfs = []
@@ -14,7 +15,7 @@ def convert_impressions_to_csv():
             dfs.append(df)
         print(i, file)
     return pd.concat(dfs)
-    
+
 
 def convert_conversions_to_csv():
     parquet_dir = os.path.join(advertisers, "advertiser_conversions")
@@ -26,12 +27,13 @@ def convert_conversions_to_csv():
             dfs.append(df)
         print(i, file)
     return pd.concat(dfs)
-    
+
+
 def convert_to_csv():
     print("writing impressions...")
     impressions = convert_impressions_to_csv()
     impressions.to_csv(os.path.join(publishers, "impressions.csv"), index=False)
-    
+
     print("writing conversions...")
     conversions = convert_conversions_to_csv()
     conversions.to_csv(os.path.join(advertisers, "conversions.csv"), index=False)
@@ -40,7 +42,7 @@ def convert_to_csv():
 def filter_converters():
     conversions = pd.read_csv(os.path.join(advertisers, "conversions.csv"))
     converters = conversions[["device_id"]]
-    
+
     print("Dropping duplicate converters...")
     converters = converters.drop_duplicates("device_id", keep="last")
 
@@ -61,31 +63,43 @@ def filter_converters():
     print("Renaming users...")
     renamed_converters = converters.reset_index()
     renamed_converters["i"] = renamed_converters.index
-    
+
     print("renamed_converters", renamed_converters)
-    
+
     print("Renaming converters...")
     conversions = renamed_converters.merge(conversions, how="inner", on="device_id")
     conversions["device_id"] = conversions["i"]
     conversions = conversions.drop(columns=["i", "index"])
 
-    conversions.to_csv(os.path.join(advertisers, "renamed_conversions.csv"), index=False)
+    conversions.to_csv(
+        os.path.join(advertisers, "renamed_conversions.csv"), index=False
+    )
 
     print("Renaming exposed users...")
-    filtered_impressions = renamed_converters.merge(filtered_impressions, how="inner", on="device_id")
+    filtered_impressions = renamed_converters.merge(
+        filtered_impressions, how="inner", on="device_id"
+    )
     filtered_impressions["device_id"] = filtered_impressions["i"]
     filtered_impressions = filtered_impressions.drop(columns=["i", "index"])
-    filtered_impressions.to_csv(os.path.join(publishers, "renamed_filtered_impressions.csv"), index=False)
+    filtered_impressions.to_csv(
+        os.path.join(publishers, "renamed_filtered_impressions.csv"), index=False
+    )
+
 
 def tmp():
-    filtered_impressions = pd.read_csv(os.path.join(publishers, "renamed_filtered_impressions.csv"))
+    filtered_impressions = pd.read_csv(
+        os.path.join(publishers, "renamed_filtered_impressions.csv")
+    )
     filtered_impressions = filtered_impressions.drop(columns=["index"])
-    filtered_impressions.to_csv(os.path.join(publishers, "renamed_filtered_impressions.csv"), index=False)
-
+    filtered_impressions.to_csv(
+        os.path.join(publishers, "renamed_filtered_impressions.csv"), index=False
+    )
 
     conversions = pd.read_csv(os.path.join(advertisers, "renamed_conversions.csv"))
     conversions = conversions.drop(columns=["index"])
-    conversions.to_csv(os.path.join(advertisers, "renamed_conversions.csv"), index=False)
+    conversions.to_csv(
+        os.path.join(advertisers, "renamed_conversions.csv"), index=False
+    )
 
 
 def main():
