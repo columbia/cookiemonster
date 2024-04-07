@@ -161,6 +161,43 @@ adtech.get('/register-source-href', (req, res) => {
 })
 
 /* -------------------------------------------------------------------------- */
+/*         Seed source registration for performance benchmarking              */
+/* -------------------------------------------------------------------------- */
+
+adtech.get('/seed-source-registration', (req, res) => {
+  const attributionDestination = process.env.ADVERTISER_URL
+  // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
+  const sourceEventId = Math.floor(Math.random() * 1000000000000000)
+  
+const headerConfig = {
+  source_event_id: `${sourceEventId}`,
+  destination: attributionDestination,
+  // Optional: expiry of 7 days (default is 30)
+  expiry: '604800',
+  epoch: '2',
+  filter_data: {
+    campaignId: ['123']
+  },
+  aggregation_keys: {
+    // these source key pieces get binary OR'd with the trigger key piece
+    // to create the full histogram bin key
+    purchaseCount: generateSourceKeyPiece('COUNT, CampaignID=123'),
+    purchaseValue: generateSourceKeyPiece('VALUE, CampaignID=123')
+  },
+  // optional, but leaving as a comment for future use
+  // aggregatable_report_window: "86400" // optional duration in seconds after the source registration during which aggregatable reports can be created for this source.
+  debug_reporting: true
+}
+
+// Send a response with the header Attribution-Reporting-Register-Source in order to instruct the browser to register a source event
+res.set('Attribution-Reporting-Register-Source', JSON.stringify(headerConfig))
+log('REGISTERING SOURCE \n', headerConfig)
+
+res.sendStatus(200)
+
+})
+
+/* -------------------------------------------------------------------------- */
 /*                     Attribution trigger (conversion)                       */
 /* -------------------------------------------------------------------------- */
 
@@ -309,6 +346,19 @@ adtech.post(
     console.log('VERBOSE REPORT(S) RECEIVED:\n=== \n', req.body, '\n=== \n')
 
     res.sendStatus(200)
+  }
+)
+
+
+/* -------------------------------------------------------------------------- */
+/*                                JS Looper                                   */
+/* -------------------------------------------------------------------------- */
+
+adtech.get(
+  '/source-registration-seeder',
+  async (req, res) => {
+    console.log("HERE IS THE ADTECH URL:", adtechUrl)
+    res.render('source-registration-seeder', {adtechUrl})
   }
 )
 
