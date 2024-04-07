@@ -17,12 +17,15 @@ def experiments_start_and_join(experiments):
         p.join()
 
 
+
+## ----------------- MICROBENCHMARK  ----------------- ##
+
 def get_path(path_base, knob1, knob2):
     return f"{path_base}_knob1_{knob1}_knob2_{knob2}.csv"
 
 
-def budget_consumption_vary_knob1(dataset, ray_session_dir):
-
+def microbenchmark_budget_consumption_vary_knob1(ray_session_dir):
+    dataset = "microbenchmark"
     logs_dir = f"{dataset}/budget_consumption_varying_knob1"
 
     experiments = []
@@ -60,8 +63,8 @@ def budget_consumption_vary_knob1(dataset, ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-def budget_consumption_vary_knob2(dataset, ray_session_dir):
-
+def microbenchmark_budget_consumption_vary_knob2(ray_session_dir):
+    dataset = "microbenchmark"
     logs_dir = f"{dataset}/budget_consumption_varying_knob2"
 
     experiments = []
@@ -99,8 +102,8 @@ def budget_consumption_vary_knob2(dataset, ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
-
+def microbenchmark_budget_consumption_vary_epoch_granularity(ray_session_dir):
+    dataset = "microbenchmark"
     logs_dir = f"{dataset}/budget_consumption_varying_epoch_granularity"
 
     impressions_path_base = f"{dataset}/impressions"
@@ -129,8 +132,8 @@ def budget_consumption_vary_epoch_granularity(dataset, ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-def bias_vary_workload_size(dataset, ray_session_dir):
-
+def microbenchmark_bias_vary_workload_size(ray_session_dir):
+    dataset = "microbenchmark"
     logs_dir = f"{dataset}/bias_varying_workload_size2"
 
     impressions_path_base = f"{dataset}/impressions"
@@ -159,7 +162,9 @@ def bias_vary_workload_size(dataset, ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-def criteo_bias_vary_workload_size(dataset, ray_session_dir):
+## ----------------- CRITEO  ----------------- ##
+
+def criteo_bias_vary_workload_size(ray_session_dir):
     """
     Varying Workload methodology:
       1. Generate conversions for the largest 6 advertisers (advertisers with the most queries in their query pool)
@@ -171,6 +176,7 @@ def criteo_bias_vary_workload_size(dataset, ray_session_dir):
       7. Run the varying workload with initial budget set to 1 across workload sizes of 1, 2, 3, 4, 5, 6.
     """
 
+    dataset = "criteo"
     cohort = "large"
     logs_dir = f"{dataset}/{cohort}/bias_varying_workload_size"
     impressions_path = f"{dataset}/{dataset}_query_pool_{cohort}_impressions.csv"
@@ -196,8 +202,11 @@ def criteo_bias_vary_workload_size(dataset, ray_session_dir):
     grid_run(**config)
 
 
-def bias_vary_initial_budget(dataset, ray_session_dir):
+## ----------------- PATCG  ----------------- ##
 
+def patcg_bias_vary_initial_budget(ray_session_dir):
+
+    dataset = "patcg"
     logs_dir = f"{dataset}/bias_varying_initial_budget"
 
     impressions_path_base = f"{dataset}/impressions"
@@ -228,13 +237,12 @@ def bias_vary_initial_budget(dataset, ray_session_dir):
 @app.command()
 def run(
     exp: str = "budget_consumption_vary_conversions_rate",
-    dataset: str = "synthetic",
     ray_session_dir: str = "",
     loguru_level: str = "INFO",
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
     os.environ["TUNE_DISABLE_AUTO_CALLBACK_LOGGERS"] = "1"
-    globals()[f"{exp}"](dataset, ray_session_dir)
+    globals()[f"{exp}"](ray_session_dir)
 
 
 if __name__ == "__main__":
