@@ -135,7 +135,7 @@ def get_bias_logs(row, results, i, **kwargs):
             sum_with_dp = log["aggregation_noisy_output"]
 
             # need to confirm the relative accuracy calculation
-            relative_accuracy = 1 - (abs(sum_with_dp - true_sum) / true_sum)
+            relative_accuracy = sum_with_dp / true_sum
             if relative_accuracy >= t:
                 count_relatively_accurate += 1
 
