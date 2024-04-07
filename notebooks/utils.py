@@ -134,8 +134,9 @@ def get_bias_logs(row, results, i, **kwargs):
             biased_sum = log["aggregation_output"]
             sum_with_dp = log["aggregation_noisy_output"]
 
-            relative_accuracy = sum_with_dp / true_sum
-            if relative_accuracy >= t and relative_accuracy <= 1: # need to confirm what to do about exceeding true_sum here
+            # need to confirm the relative accuracy calculation
+            relative_accuracy = 1 - (abs(sum_with_dp - true_sum) / true_sum)
+            if relative_accuracy >= t:
                 count_relatively_accurate += 1
 
             # Handle IPA case
@@ -153,11 +154,13 @@ def get_bias_logs(row, results, i, **kwargs):
         baseline = row["baseline"]
         num_days_per_epoch = row["num_days_per_epoch"]
         initial_budget = row["config"]["user"]["initial_budget"]
+        requested_workload_size = row["workload_size"]
 
         records.append(
             {
                 "destination": destination[0],
                 "workload_size": workload_size,
+                "requested_workload_size": requested_workload_size,
                 "fraction_queries_without_null_reports": num_queries_with_null_reports
                 / workload_size,
                 "average_accuracy": sum(accuracies) / len(accuracies),
