@@ -141,9 +141,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         return conversions
 
     def _get_unique_key(self, conversions: pd.DataFrame) -> pd.DataFrame:
-        conversions = conversions.assign(
-            query_key=conversions.apply(lambda row: row.filter + row.batch_id, axis=1)
-        )
+        self.logger.info("Setting key...")
+        conversions["batch_id"] = conversions['filter'].astype(str) + conversions['batch_id'].astype(str)
+        conversions.rename(columns={"batch_id": "query_key"}, inplace=True)
         return conversions
 
     def create_conversions(self, conversions: pd.DataFrame) -> pd.DataFrame:

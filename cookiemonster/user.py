@@ -75,8 +75,7 @@ class User:
 
         # Create the unbiased report per partition
         for partition in partitions:
-            partition.unbiased_report = partition.create_report(conversion.key)
-
+            partition.unbiased_report = partition.create_report(conversion.filter, conversion.key)
         # IPA doesn't do on-device budget accounting
         if self.config.baseline != IPA:
 
@@ -159,7 +158,7 @@ class User:
 
         # Create the possibly biased report per partition
         for partition in partitions:
-            partition.report = partition.create_report(conversion.key)
+            partition.report = partition.create_report(conversion.filter, conversion.key)
 
         # Aggregate partition reports to create a final report
         final_report = Report()

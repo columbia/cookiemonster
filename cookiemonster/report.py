@@ -53,7 +53,7 @@ class Partition:
                     f"Unsupported sensitivity metric: {sensitivity_metric}"
                 )
 
-    def create_report(self, key_piece: str) -> None:
+    def create_report(self, filter, key_piece: str) -> None:
         report = Report()
 
         match self.attribution_logic:
@@ -68,14 +68,14 @@ class Partition:
                             impression_key = ""
 
                         # Sort impression keys and stringify them
-                        bucket_key = impression_key + "_" + key_piece
+                        bucket_key = impression_key + "_" + filter + "_" + key_piece
                         bucket_value = self.value
 
                         report.add(bucket_key, bucket_value)
                         break
 
                 if report.empty():
-                    bucket_key = "_" + key_piece
+                    bucket_key = "_" + filter + "_" + key_piece
                     bucket_value = 0
                     report.add(bucket_key, bucket_value)
 

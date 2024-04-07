@@ -1,26 +1,22 @@
 import os
 import logging
-from abc import ABC, abstractmethod
-
+import pandas as pd
 from omegaconf import DictConfig
+from abc import ABC, abstractmethod
+import dask.dataframe as dd
+
+
 
 logging.basicConfig(level=logging.INFO)
-
-# if os.getenv("USE_PANDAS", "false").lower() == "true":
-import pandas as pd
-# else:
-    # import modin.pandas as pd
-
-# os.environ["MODIN_ENGINE"] = "ray"
 
 
 class BaseCreator(ABC):
 
     impressions_file = os.path.join(
-        os.path.dirname(__file__), "..", "publishers", "converter_impressions.csv"
+        os.path.dirname(__file__), "..", "publishers", "renamed_filtered_impressions.csv"
     )
     conversions_file = os.path.join(
-        os.path.dirname(__file__), "..", "advertisers", "conversions.csv"
+        os.path.dirname(__file__), "..", "advertisers", "renamed_conversions.csv"
     )
 
     def __init__(
@@ -68,8 +64,8 @@ class BaseCreator(ABC):
         self.logger.info("creating the impressions...")
         impressions = self.create_impressions(impressions)
         
-        self.logger.info("writing impressions")
-        impressions.to_csv(BaseCreator.impressions_file, header=True, index=False)
+        self.logger.info(f"writing impressions to {self.impressions_filename}")
+        impressions.to_csv(self.impressions_filename, header=True, index=False)
         self.logger.info(f"dataset written to {self.impressions_filename}")
 
         del impressions
@@ -83,6 +79,8 @@ class BaseCreator(ABC):
         self.logger.info("creating the conversions...")
         conversions = self.create_conversions(conversions)
 
-        self.logger.info("writing conversions")
-        conversions.to_csv(BaseCreator.conversions_file, header=True, index=False)
+        self.logger.info(f"writing conversions {self.conversions_filename}")
+        dd.from_pandas(conversions, npartitions=2).to_csv(self.conversions_filename, header=True, index=False)
+
+        # conversions.to_csv(BaseCreator.conversions_file, header=True, index=False)
         self.logger.info(f"dataset written to {self.conversions_filename}")
