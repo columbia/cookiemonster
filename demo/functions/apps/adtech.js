@@ -351,13 +351,12 @@ adtech.post(
 
 
 /* -------------------------------------------------------------------------- */
-/*                                JS Looper                                   */
+/*                      Source Registration Seeder Page                       */
 /* -------------------------------------------------------------------------- */
 
 adtech.get(
   '/source-registration-seeder',
   async (req, res) => {
-    console.log("HERE IS THE ADTECH URL:", adtechUrl)
     res.render('source-registration-seeder', {adtechUrl})
   }
 )
