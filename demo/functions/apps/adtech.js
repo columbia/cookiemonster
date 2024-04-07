@@ -123,12 +123,36 @@ adtech.get('/ad-script-click-element', (req, res) => {
 /* -------------------------------------------------------------------------- */
 /*                  Source registration (ad click or view)                    */
 /* -------------------------------------------------------------------------- */
+adtech.get('/register-source', (req, res) => {
+  const attributionReporting = {
+    eventSourceEligible: true,
+    triggerEligible: false,
+  };
+  
+  fetch("http://arapi-adtech.localhost:8085/register-source-href?epoch=3", {keepalive: true, attributionReporting }).then(res => {
+    console.log(res)
+    });
+
+  res.sendStatus(200)
+})
 
 adtech.get('/register-source-href', (req, res) => {
     const attributionDestination = process.env.ADVERTISER_URL
     // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
     const sourceEventId = Math.floor(Math.random() * 1000000000000000)
     const legacyMeasurementCookie = req.cookies['__session']
+    var epoch = 1
+    var redirect = true
+    console.log(req.query)
+    if(req.query['epoch'] != undefined)
+    {
+      epoch = req.query['epoch']
+    }
+
+    if(req.query['no_redirect'] != undefined && req.query['no_redirect'] == 1)
+    {
+      redirect = false
+    }
 
   const headerConfig = {
     source_event_id: `${sourceEventId}`,
@@ -136,8 +160,8 @@ adtech.get('/register-source-href', (req, res) => {
     // Optional: expiry of 7 days (default is 30)
     expiry: '604800',
     // debug_key as legacyMeasurementCookie is a simple approach for demo purposes. In a real system, you may make debug_key a unique ID, and map it to additional source-time information that you deem useful for debugging or performance comparison.
-    debug_key: legacyMeasurementCookie,
-    epoch: '2',
+    debug_key: 91730128197565,
+    epoch: epoch,
     filter_data: {
       campaignId: ['123']
     },
@@ -156,7 +180,10 @@ adtech.get('/register-source-href', (req, res) => {
   res.set('Attribution-Reporting-Register-Source', JSON.stringify(headerConfig))
   log('REGISTERING SOURCE \n', headerConfig)
 
-  res.redirect(advertiserUrl)
+  if(redirect)
+    res.redirect(advertiserUrl)
+  else 
+    res.sendStatus(200)
 
 })
 
@@ -168,6 +195,17 @@ adtech.get('/register-source-href', (req, res) => {
 adtech.get('/conversion', (req, res) => {
   const productCategory = req.query['product-category']
   // const purchaseValue = req.query['purchase-value']
+  var epcoh_end = 2
+  var epoch_start = 1
+  if(req.query['epoch_end'] != undefined)
+  {
+    epcoh_end = req.query['epoch_end']
+  }
+
+  if(req.query['epoch_start'] != undefined)
+  {
+    epcoh_end = req.query['epoch_start']
+  }
 
   const filters = {
     // Because conversion_product_type has been set to category_1 in the header Attribution-Reporting-Register-Source, any incoming conversion whose productCategory does not match category_1 will be filtered out i.e. will not generate a report.
@@ -196,7 +234,7 @@ adtech.get('/conversion', (req, res) => {
 
 
   const globalEpsilon = 0.1
-  const attributionWindow = {epoch_start: 1, epoch_end: 2}
+  const attributionWindow = {epoch_start: epoch_start, epoch_end: epcoh_end}
   const attributionLogic = "last_touch"
   const partitioningLogic = ""
   
