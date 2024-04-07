@@ -19,7 +19,7 @@ def get_df(path):
     return df
 
 
-def get_budget_logs(row, results, i):
+def get_budget_logs(row, results, i, **kwargs):
     scheduling_timestamps = [
         timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
     ]
@@ -107,7 +107,7 @@ def get_budget_logs(row, results, i):
     results[i] = rdf
 
 
-def get_bias_logs(row, results, i):
+def get_bias_logs(row, results, i, **kwargs):
     logs = row["logs"]["query_results"]
     df = pd.DataFrame.from_records(
         logs,
@@ -122,25 +122,37 @@ def get_bias_logs(row, results, i):
     )
 
     records = []
+    t = kwargs.get("t", .90)
     for destination, destination_df in df.groupby(["destination"]):
 
         accuracies = []
         num_queries_with_null_reports = 0
         workload_size = len(destination_df)
-
+        count_relatively_accurate = 0
         for _, log in destination_df.iterrows():
+            true_sum = log["true_output"]
+            biased_sum = log["aggregation_output"]
+            sum_with_dp = log["aggregation_noisy_output"]
+
+            relative_accuracy = sum_with_dp / true_sum
+            if relative_accuracy >= t and relative_accuracy <= 1: # need to confirm what to do about exceeding true_sum here
+                count_relatively_accurate += 1
+
             # Handle IPA case
-            if math.isnan(log["aggregation_output"]):
+            if math.isnan(biased_sum):
                 accuracies.append(0)
-                continue
+            else:
+                null_report_bias_error = true_sum - biased_sum
+                num_queries_with_null_reports += (
+                    null_report_bias_error == 0
+                )
 
-            num_queries_with_null_reports += (
-                log["true_output"] - log["aggregation_output"] == 0
-            )
+                # Aggregate bias across all queries ran in this workload/experiment
+                accuracies.append(1 - (null_report_bias_error / true_sum))
 
-            # Aggregate bias across all queries ran in this workload/experiment
-            null_report_bias_error = log["true_output"] - log["aggregation_output"]
-            accuracies.append(1 - (null_report_bias_error / log["true_output"]))
+        baseline = row["baseline"]
+        num_days_per_epoch = row["num_days_per_epoch"]
+        initial_budget = row["config"]["user"]["initial_budget"]
 
         records.append(
             {
@@ -149,15 +161,17 @@ def get_bias_logs(row, results, i):
                 "fraction_queries_without_null_reports": num_queries_with_null_reports
                 / workload_size,
                 "average_accuracy": sum(accuracies) / len(accuracies),
-                "baseline": row["baseline"],
-                "num_days_per_epoch": row["num_days_per_epoch"],
-                "initial_budget": float(row["config"]["user"]["initial_budget"]),
+                "fraction_relatively_accurate": count_relatively_accurate
+                / workload_size,
+                "baseline": baseline,
+                "num_days_per_epoch": num_days_per_epoch,
+                "initial_budget": float(initial_budget),
             }
         )
     results[i] = pd.DataFrame.from_records(records)
 
 
-def analyze_results(path, type="budget", parallelize=True):
+def analyze_results(path, type="budget", parallelize=True, **kwargs):
     dfs = []
     df = get_df(path)
 
@@ -179,6 +193,7 @@ def analyze_results(path, type="budget", parallelize=True):
                 Process(
                     target=get_logs,
                     args=(row, results, i),
+                    kwargs=kwargs
                 )
             )
             processes[i].start()
@@ -188,7 +203,7 @@ def analyze_results(path, type="budget", parallelize=True):
     else:
         results = {}
         for i, row in df.iterrows():
-            get_logs(row, results, i)
+            get_logs(row, results, i, **kwargs)
 
     for result in results.values():
         dfs.append(result)
@@ -381,7 +396,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
     # iplot(avg_budget(df))
 
 
-def plot_accuracy(
+def plot_null_reports_analysis(
     df: pd.DataFrame, x_axis: str = "workload_size", save_dir: str | None = None
 ):
 
@@ -444,7 +459,7 @@ if __name__ == "__main__":
     df = analyze_results(path, type="budget", parallelize=False)
 
 
-# def get_microbenchmark_budget_logs(row, results, i):
+# def get_microbenchmark_budget_logs(row, results, i, **kwargs):
 #     scheduling_timestamps = [
 #         timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
 #     ]
