@@ -124,33 +124,31 @@ def get_bias_logs(row, results, i):
     records = []
     for destination, destination_df in df.groupby(["destination"]):
 
-        idp_accuracies = []
-        num_queries_without_idp_bias = 0
+        accuracies = []
+        num_queries_with_null_reports = 0
         workload_size = len(destination_df)
-        # print(workload_size)
 
         for _, log in destination_df.iterrows():
             # Handle IPA case
             if math.isnan(log["aggregation_output"]):
-                idp_accuracies.append(0)
+                accuracies.append(0)
                 continue
 
-            num_queries_without_idp_bias += (
+            num_queries_with_null_reports += (
                 log["true_output"] - log["aggregation_output"] == 0
             )
-            # print("num queries without idp bias:", num_queries_without_idp_bias, "workload size: ", workload_size)
 
             # Aggregate bias across all queries ran in this workload/experiment
-            idp_error = log["true_output"] - log["aggregation_output"]
-            idp_accuracies.append(1 - (idp_error / log["true_output"]))
+            null_report_bias_error = log["true_output"] - log["aggregation_output"]
+            accuracies.append(1 - (null_report_bias_error / log["true_output"]))
 
         records.append(
             {
                 "destination": destination[0],
                 "workload_size": workload_size,
-                "fraction_queries_without_dp_bias": num_queries_without_idp_bias
+                "fraction_queries_without_null_reports": num_queries_with_null_reports
                 / workload_size,
-                "workload_dp_accuracy": sum(idp_accuracies) / len(idp_accuracies),
+                "average_accuracy": sum(accuracies) / len(accuracies),
                 "baseline": row["baseline"],
                 "num_days_per_epoch": row["num_days_per_epoch"],
                 "initial_budget": float(row["config"]["user"]["initial_budget"]),
@@ -177,7 +175,6 @@ def analyze_results(path, type="budget", parallelize=True):
         processes = []
         results = Manager().dict()
         for i, row in df.iterrows():
-            # print(i)
             processes.append(
                 Process(
                     target=get_logs,
@@ -394,15 +391,14 @@ def plot_accuracy(
         fig = px.line(
             df,
             x=x_axis,
-            y="fraction_queries_without_dp_bias",
+            y="fraction_queries_without_null_reports",
             color="baseline",
-            title=f"Fraction of queries reaching accuracy target",
+            title=f"Fraction of queries without null reports",
             width=1100,
             height=600,
             markers=True,
             range_y=[0, 1.2],
             facet_col="destination",
-            # facet_row=facet_row,
             category_orders={
                 "baseline": CUSTOM_ORDER_BASELINES,
             },
@@ -413,7 +409,7 @@ def plot_accuracy(
         fig = px.line(
             df,
             x=x_axis,
-            y="workload_dp_accuracy",
+            y="average_accuracy",
             color="baseline",
             title=f"Avg. relative accuracy across queries in workload",
             width=1100,
@@ -421,7 +417,6 @@ def plot_accuracy(
             markers=True,
             range_y=[0, 1.2],
             facet_col="destination",
-            # facet_row=facet_row,
             category_orders={
                 "baseline": CUSTOM_ORDER_BASELINES,
             },
@@ -434,10 +429,10 @@ def plot_accuracy(
     if save_dir:
         advertiser = df["destination"].unique()[0]
         frac_without_idp_bias_fig.write_image(
-            f"{save_dir}/{advertiser}_fraction_queries_without_dp_bias.png"
+            f"{save_dir}/{advertiser}_fraction_queries_with_null_reports.png"
         )
         workload_idp_acc_fig.write_image(
-            f"{save_dir}/{advertiser}_workload_dp_accuracy.png"
+            f"{save_dir}/{advertiser}_average_relative_accuracy.png"
         )
 
     iplot(frac_without_idp_bias_fig)

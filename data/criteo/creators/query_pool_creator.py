@@ -13,8 +13,8 @@ class QueryPoolDatasetCreator(BaseCreator):
     def __init__(self, config: DictConfig) -> None:
         super().__init__(
             config,
-            "criteo_query_pool_medium_impressions.csv",
-            "criteo_query_pool_medium_conversions.csv",
+            "criteo_query_pool_large_impressions.csv",
+            "criteo_query_pool_large_conversions.csv",
         )
         self.used_dimension_names = set()
 
