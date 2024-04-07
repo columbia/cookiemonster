@@ -1,17 +1,16 @@
 {
     "user": {
         "sensitivity_metric": "L1",
-        "baseline": "user_epoch_ara",
-        "optimization": "multiepoch",
-        "initial_budget": 10
+        "baseline": "ipa",
+        "initial_budget": 1
     },
     "dataset": {
         "name": "synthetic",
-        "impressions_path": "data/synthetic/synthetic_impressions_conv_rate_1.0_impr_rate_0.1.csv",
-        "conversions_path": "data/synthetic/synthetic_conversions_conv_rate_1.0_impr_rate_0.1.csv",
-        "num_days_per_epoch": 14,
+        "impressions_path": "data/patcg/patcg_impressions.csv",
+        "conversions_path": "data/patcg/patcg_conversions",
+        "num_days_per_epoch": 7,
         "num_days_attribution_window": 30,
-        "workload_size": 4
+        "workload_size": 1
     },
     "logs": {
         "verbose": false,
@@ -19,11 +18,13 @@
         "save_dir": "",
         "mlflow": true,
         "mlflow_experiment_id": "",
-        "loguru_level": "INFO"
+        "loguru_level": "INFO",
+        "logging_keys": ["budget"]
     },
     "aggregation_service": "local_laplacian",
     "aggregation_policy": {
         "type": "count_conversion_policy",
-        "interval": 20000
+        "max_scheduling_batch_size_per_query": 18682297,
+        "min_scheduling_batch_size_per_query": 11032925
     }
 }

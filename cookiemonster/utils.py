@@ -2,9 +2,8 @@ import json
 import uuid
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple, Any, Union
+from typing import Dict, List, Tuple, Any
 
-from cookiemonster.budget import BasicBudget
 from cookiemonster.budget_accountant import BudgetAccountant
 
 
@@ -18,8 +17,9 @@ kNulledReport = "Null"
 IPA = "ipa"
 USER_EPOCH_ARA = "user_epoch_ara"
 COOKIEMONSTER = "cookiemonster"
-MONOEPOCH = "monoepoch"
-MULTIEPOCH = "multiepoch"
+
+BUDGET = "budget"
+QUERY_RESULTS = "query_results"
 
 
 def maybe_initialize_filters(
@@ -64,12 +64,11 @@ def process_logs(logs: Dict[str, List[Dict[str, Any]]], config: Dict[str, Any]) 
     proceessed_logs = {
         "logs": logs,
         "baseline": config["user"]["baseline"],
-        "optimization": config["user"]["optimization"],
-        "initial_budget": config["user"]["initial_budget"],
-        "num_days_per_epoch": config["dataset"]["num_days_per_epoch"],
-        "num_days_attribution_window": config["dataset"]["num_days_attribution_window"],
-        "workload_size": config["dataset"]["workload_size"],
         "dataset": config["dataset"]["name"],
+        "workload_size": config["dataset"]["workload_size"],
+        "num_days_per_epoch": config["dataset"]["num_days_per_epoch"],
+        "initial_budget": config["user"]["initial_budget"],
+        "num_days_attribution_window": config["dataset"]["num_days_attribution_window"],
         "config": config,
     }
     return proceessed_logs

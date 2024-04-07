@@ -17,25 +17,28 @@ def run_and_report(config: dict, replace=False) -> None:
 
 def grid_run(
     baseline: List[str],
-    optimization: List[str],
     dataset_name: str,
     impressions_path: str,
     conversions_path: str,
     num_days_per_epoch: List[int],
     num_days_attribution_window: int,
     workload_size: List[int],
-    scheduling_batch_size_per_query: int,
+    min_scheduling_batch_size_per_query: int,
+    max_scheduling_batch_size_per_query: int,
     initial_budget: float,
     logs_dir: str,
     loguru_level: str,
-    mlflow_experiment_id: str,
+    ray_session_dir: str,
+    logging_keys: List[str],
 ):
+
+    if ray_session_dir:
+        ray.init(_temp_dir=ray_session_dir, log_to_driver=False)
 
     config = {
         "user": {
             "sensitivity_metric": "L1",
             "baseline": tune.grid_search(baseline),
-            "optimization": tune.grid_search(optimization),
             "initial_budget": tune.grid_search(initial_budget),
         },
         "dataset": {
@@ -50,14 +53,14 @@ def grid_run(
             "verbose": False,
             "save": True,
             "save_dir": "",
-            "mlflow": False,
-            "mlflow_experiment_id": mlflow_experiment_id,
+            "logging_keys": logging_keys,
             "loguru_level": loguru_level,
         },
         "aggregation_service": "local_laplacian",
         "aggregation_policy": {
             "type": "count_conversion_policy",
-            "interval": scheduling_batch_size_per_query,
+            "min_interval": min_scheduling_batch_size_per_query,
+            "max_interval": max_scheduling_batch_size_per_query,
         },
     }
 
@@ -67,7 +70,7 @@ def grid_run(
         run_and_report,
         config=config,
         resources_per_trial={"cpu": 1},
-        local_dir=str(RAY_LOGS.joinpath(logs_dir)),
+        storage_path=str(RAY_LOGS.joinpath(logs_dir)),
         resume=False,
         verbose=1,
         callbacks=[

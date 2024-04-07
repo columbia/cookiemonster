@@ -43,16 +43,13 @@ Synthetic:
 ```bash
 cd cookiemonster/data/synthetic
 
-python3 create_dataset.py --user-conversions-rate 0.1 &&
-python3 create_dataset.py --user-conversions-rate 0.25 &&
-python3 create_dataset.py --user-conversions-rate 0.5 &&
-python3 create_dataset.py --user-conversions-rate 0.75 &&
-python3 create_dataset.py --user-conversions-rate 1.0
-
-python3 create_dataset.py --per-day-user-impressions-rate 0.25 &&
-python3 create_dataset.py --per-day-user-impressions-rate 0.5 &&
-python3 create_dataset.py --per-day-user-impressions-rate 0.75 &&
-python3 create_dataset.py --per-day-user-impressions-rate 1.0
+python3 create_dataset.py --user-participation-rate-per-query 0.001 --per-day-user-impressions-rate 0.1 &&
+python3 create_dataset.py --user-participation-rate-per-query 0.01 --per-day-user-impressions-rate 0.1 &&
+python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.1 &&
+python3 create_dataset.py --user-participation-rate-per-query 1.0 --per-day-user-impressions-rate 0.1 &&
+python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.001 &&
+python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.01 &&
+python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 1.0
 ```
 
 ## Run experiments

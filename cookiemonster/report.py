@@ -13,9 +13,7 @@ class Report:
             self.histogram[key] = 0
         self.histogram[key] += value
 
-    def empty(
-        self,
-    ):
+    def empty(self):
         return self.histogram == {}
 
     def __add__(self, other) -> "Report":
@@ -38,14 +36,17 @@ class Partition:
         self.attribution_logic = attribution_logic
         self.impressions_per_epoch: Dict[int, List[Impression]] = {}
         self.value = value
+        self.report = None
+        self.unbiased_report = None
 
     def epochs_window_size(self) -> int:
         return self.epochs_window[1] - self.epochs_window[0] + 1
 
     def compute_sensitivity(self, sensitivity_metric) -> float:
+        assert self.unbiased_report is not None
         match sensitivity_metric:
             case "L1":
-                return sum(list(self.report.histogram.values()))
+                return sum(list(self.unbiased_report.histogram.values()))
 
             case _:
                 raise ValueError(
@@ -53,7 +54,7 @@ class Partition:
                 )
 
     def create_report(self, filter, key_piece: str) -> None:
-        self.report = Report()
+        report = Report()
 
         match self.attribution_logic:
             case "last_touch":
@@ -70,21 +71,21 @@ class Partition:
                         bucket_key = impression_key + "_" + filter + "_" + key_piece
                         bucket_value = self.value
 
-                        self.report.add(bucket_key, bucket_value)
+                        report.add(bucket_key, bucket_value)
                         break
 
-                if self.report.empty():
+                if report.empty():
                     bucket_key = "_" + filter + "_" + key_piece
                     bucket_value = 0
-                    self.report.add(bucket_key, bucket_value)
+                    report.add(bucket_key, bucket_value)
 
             case _:
                 raise ValueError(
                     f"Unsupported attribution logic: {self.attribution_logic}"
                 )
-
-        # Unbiased report will never be Nulled - kept for experiments
-        self.unbiased_report = copy.deepcopy(self.report)
+        return report
 
     def null_report(self) -> None:
-        self.report = Report()
+        # Set default value 0 to all histogram bins
+        for query_id in self.report.histogram.keys():
+            self.report.histogram[query_id] = 0

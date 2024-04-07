@@ -22,6 +22,8 @@ kaleido = "0.2.1"
 numpy = "^1.26.4"
 notebook = "^7.1.2"
 jupyter = "^1.0.0"
+prtpy = "^0.8.2"
+dask = {extras = ["dataframe"], version = "^2024.4.1"}
 
 [tool.poetry.dev-dependencies]
 

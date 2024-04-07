@@ -1,23 +1,4 @@
-from typing import Dict, Any, Union
-from cookiemonster.events import Impression, Conversion
-from cookiemonster.budget_accountant import BudgetAccountantResult
-
-
-def log_budget_helper(
-    logger: "EventLogger",
-    event: Union[Impression, Conversion],
-    user_id: Any,
-    filter_result: BudgetAccountantResult,
-):
-    logger.log(
-        "budget",
-        event.id,
-        event.destination,
-        user_id,
-        event.epochs_window,
-        filter_result.budget_consumed,
-        filter_result.status,
-    )
+from typing import Dict, Any
 
 
 class EventLogger:

@@ -12,7 +12,10 @@ class AggregationServiceType(str, Enum):
 
 class AggregationResult:
     def __init__(
-        self, true_output, aggregation_output, aggregation_noisy_output
+        self,
+        true_output: float,
+        aggregation_output: float,
+        aggregation_noisy_output: float,
     ) -> None:
         self.true_output = true_output
         self.aggregation_output = aggregation_output
