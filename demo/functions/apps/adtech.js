@@ -195,13 +195,15 @@ adtech.get('/seed-source-registration', (req, res) => {
   const attributionDestination = process.env.ADVERTISER_URL
   // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
   const sourceEventId = Math.floor(Math.random() * 1000000000000000)
-  
+  epoch = 2
+  if(req.query['epoch'] != undefined)
+    epoch = req.query['epoch']
 const headerConfig = {
   source_event_id: `${sourceEventId}`,
   destination: attributionDestination,
   // Optional: expiry of 7 days (default is 30)
   expiry: '604800',
-  epoch: '2',
+  epoch: epoch,
   filter_data: {
     campaignId: ['123']
   },
@@ -395,7 +397,14 @@ adtech.post(
 adtech.get(
   '/source-registration-seeder',
   async (req, res) => {
-    res.render('source-registration-seeder', {adtechUrl})
+    var epoch_start = 1
+    var epoch_end = 1
+    if(req.query['epoch_start'] != undefined)
+      epoch_start = req.query['epoch_start']
+    if(req.query['epoch_end'] != undefined)
+      epoch_end = req.query['epoch_end']
+
+    res.render('source-registration-seeder', {adtechUrl,epoch_start,epoch_end})
   }
 )
 
