@@ -123,35 +123,15 @@ adtech.get('/ad-script-click-element', (req, res) => {
 /* -------------------------------------------------------------------------- */
 /*                  Source registration (ad click or view)                    */
 /* -------------------------------------------------------------------------- */
-adtech.get('/register-source', (req, res) => {
-  const attributionReporting = {
-    eventSourceEligible: true,
-    triggerEligible: false,
-  };
-  
-  fetch("http://arapi-adtech.localhost:8085/register-source-href?epoch=3", {keepalive: true, attributionReporting }).then(res => {
-    console.log(res)
-    });
-
-  res.sendStatus(200)
-})
-
 adtech.get('/register-source-href', (req, res) => {
     const attributionDestination = process.env.ADVERTISER_URL
     // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
     const sourceEventId = Math.floor(Math.random() * 1000000000000000)
     const legacyMeasurementCookie = req.cookies['__session']
     var epoch = 1
-    var redirect = true
-    console.log(req.query)
     if(req.query['epoch'] != undefined)
     {
       epoch = req.query['epoch']
-    }
-
-    if(req.query['no_redirect'] != undefined && req.query['no_redirect'] == 1)
-    {
-      redirect = false
     }
 
   const headerConfig = {
@@ -160,7 +140,7 @@ adtech.get('/register-source-href', (req, res) => {
     // Optional: expiry of 7 days (default is 30)
     expiry: '604800',
     // debug_key as legacyMeasurementCookie is a simple approach for demo purposes. In a real system, you may make debug_key a unique ID, and map it to additional source-time information that you deem useful for debugging or performance comparison.
-    debug_key: 91730128197565,
+    debug_key: legacyMeasurementCookie,
     epoch: epoch,
     filter_data: {
       campaignId: ['123']
@@ -180,10 +160,7 @@ adtech.get('/register-source-href', (req, res) => {
   res.set('Attribution-Reporting-Register-Source', JSON.stringify(headerConfig))
   log('REGISTERING SOURCE \n', headerConfig)
 
-  if(redirect)
-    res.redirect(advertiserUrl)
-  else 
-    res.sendStatus(200)
+  res.redirect(advertiserUrl)
 
 })
 
