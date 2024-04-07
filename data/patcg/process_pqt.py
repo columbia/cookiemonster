@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 
-publishers = os.path.join(os.path.dirname(__file__), "publishers")
-advertisers = os.path.join(os.path.dirname(__file__), "advertisers")
+publishers = os.path.join(os.path.dirname(__file__), "smaller_data/publishers")
+advertisers = os.path.join(os.path.dirname(__file__), "smaller_data/advertisers")
 
 
 def convert_impressions_to_csv():
@@ -86,27 +86,10 @@ def filter_converters():
     )
 
 
-def tmp():
-    filtered_impressions = pd.read_csv(
-        os.path.join(publishers, "renamed_filtered_impressions.csv")
-    )
-    filtered_impressions = filtered_impressions.drop(columns=["index"])
-    filtered_impressions.to_csv(
-        os.path.join(publishers, "renamed_filtered_impressions.csv"), index=False
-    )
-
-    conversions = pd.read_csv(os.path.join(advertisers, "renamed_conversions.csv"))
-    conversions = conversions.drop(columns=["index"])
-    conversions.to_csv(
-        os.path.join(advertisers, "renamed_conversions.csv"), index=False
-    )
-
-
 def main():
 
-    # convert_to_csv()
-    # filter_converters()
-    tmp()
+    convert_to_csv()
+    filter_converters()
 
 
 if __name__ == "__main__":

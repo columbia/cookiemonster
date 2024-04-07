@@ -213,65 +213,7 @@ def patcg_bias_vary_workload_size(ray_session_dir):
     logs_dir = f"{dataset}/bias_varying_workload_size"
 
     impressions_path = f"{dataset}/{dataset}_impressions.csv"
-    conversions_path = f"{dataset}/{dataset}_conversions.csv"
-
-    config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "dataset_name": f"{dataset}",
-        "impressions_path": impressions_path,
-        "conversions_path": conversions_path,
-        "num_days_per_epoch": [7],
-        "num_days_attribution_window": 30,
-        "workload_size": [1, 10, 20, 30, 40],
-        "max_scheduling_batch_size_per_query": 18682297,
-        "min_scheduling_batch_size_per_query": 11032925,
-        "initial_budget": [1],
-        "logs_dir": logs_dir,
-        "loguru_level": "INFO",
-        "ray_session_dir": ray_session_dir,
-        "logging_keys": [QUERY_RESULTS],
-    }
-
-    grid_run(**config)
-    # analyze(f"ray/{logs_dir}")
-
-
-def patcg_budget_consumption_vary_epoch_granularity(ray_session_dir):
-    dataset = "patcg"
-    logs_dir = f"{dataset}/budget_consumption_varying_epoch_granularity"
-
-    impressions_path = f"{dataset}/{dataset}_impressions.csv"
-    conversions_path = f"{dataset}/{dataset}_conversions.csv"
-
-
-    config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "dataset_name": f"{dataset}",
-        "impressions_path": impressions_path,
-        "conversions_path": conversions_path,
-        "num_days_per_epoch": [1, 7, 14, 21, 28],
-        "num_days_attribution_window": 30,
-        "workload_size": [10],
-        "max_scheduling_batch_size_per_query": 18682297,
-        "min_scheduling_batch_size_per_query": 11032925,
-        "initial_budget": [1],
-        "logs_dir": logs_dir,
-        "loguru_level": "INFO",
-        "ray_session_dir": ray_session_dir,
-        "logging_keys": [BUDGET],
-    }
-
-    grid_run(**config)
-    # analyze(f"ray/{logs_dir}")
-
-def patcg_bias_vary_initial_budget(ray_session_dir):
-
-    dataset = "patcg"
-    logs_dir = f"{dataset}/bias_varying_initial_budget"
-
-    impressions_path = f"{dataset}/{dataset}_impressions.csv"
-    conversions_path = f"{dataset}/{dataset}_conversions.csv"
-
+    conversions_path = f"{dataset}/{dataset}_conversions"
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
@@ -283,14 +225,72 @@ def patcg_bias_vary_initial_budget(ray_session_dir):
         "workload_size": [40],
         "max_scheduling_batch_size_per_query": 18682297,
         "min_scheduling_batch_size_per_query": 11032925,
-        "initial_budget": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
         "logging_keys": [QUERY_RESULTS],
     }
+
     grid_run(**config)
     # analyze(f"ray/{logs_dir}")
+
+
+# def patcg_budget_consumption_vary_epoch_granularity(ray_session_dir):
+#     dataset = "patcg"
+#     logs_dir = f"{dataset}/budget_consumption_varying_epoch_granularity"
+
+#     impressions_path = f"{dataset}/{dataset}_impressions.csv"
+#     conversions_path = f"{dataset}/{dataset}_conversions.csv"
+
+
+#     config = {
+#         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+#         "dataset_name": f"{dataset}",
+#         "impressions_path": impressions_path,
+#         "conversions_path": conversions_path,
+#         "num_days_per_epoch": [1, 7, 14, 21, 28],
+#         "num_days_attribution_window": 30,
+#         "workload_size": [10],
+#         "max_scheduling_batch_size_per_query": 18682297,
+#         "min_scheduling_batch_size_per_query": 11032925,
+#         "initial_budget": [1],
+#         "logs_dir": logs_dir,
+#         "loguru_level": "INFO",
+#         "ray_session_dir": ray_session_dir,
+#         "logging_keys": [BUDGET],
+#     }
+
+#     grid_run(**config)
+#     # analyze(f"ray/{logs_dir}")
+
+# def patcg_bias_vary_initial_budget(ray_session_dir):
+
+#     dataset = "patcg"
+#     logs_dir = f"{dataset}/bias_varying_initial_budget"
+
+#     impressions_path = f"{dataset}/{dataset}_impressions.csv"
+#     conversions_path = f"{dataset}/{dataset}_conversions.csv"
+
+
+#     config = {
+#         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+#         "dataset_name": f"{dataset}",
+#         "impressions_path": impressions_path,
+#         "conversions_path": conversions_path,
+#         "num_days_per_epoch": [7],
+#         "num_days_attribution_window": 30,
+#         "workload_size": [40],
+#         "max_scheduling_batch_size_per_query": 18682297,
+#         "min_scheduling_batch_size_per_query": 11032925,
+#         "initial_budget": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+#         "logs_dir": logs_dir,
+#         "loguru_level": "INFO",
+#         "ray_session_dir": ray_session_dir,
+#         "logging_keys": [QUERY_RESULTS],
+#     }
+#     grid_run(**config)
+#     # analyze(f"ray/{logs_dir}")
 
 
 @app.command()

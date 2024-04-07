@@ -91,11 +91,9 @@ class Microbenchmark(Dataset):
         self.queries = list(range(self.workload_size))
         self.conversions_data.query("product_id in @self.queries", inplace=True)
 
-    def read_impression(
-        self, impressions_reader: Iterable
-    ) -> tuple[Event | None, int | None, str | None]:
+    def read_impression(self) -> tuple[Event | None, int | None, str | None]:
         try:
-            _, row = next(impressions_reader)
+            _, row = next(self.impressions_reader)
 
             impression_timestamp = row["timestamp"]
             impression_date = datetime.fromtimestamp(impression_timestamp)
@@ -121,11 +119,9 @@ class Microbenchmark(Dataset):
         except StopIteration:
             return None, math.inf, None
 
-    def read_conversion(
-        self, conversions_reader: Iterable
-    ) -> tuple[Event | None, int | None, str | None]:
+    def read_conversion(self) -> tuple[Event | None, int | None, str | None]:
         try:
-            _, row = next(conversions_reader)
+            _, row = next(self.conversions_reader)
             conversion_timestamp = row["timestamp"]
             self.conversions_counter += 1
 
@@ -194,11 +190,9 @@ class Criteo(Dataset):
         self.queries = list(range(self.workload_size))
         self.conversions_data.query("key in @self.queries", inplace=True)
 
-    def read_impression(
-        self, impression_reader: Iterable
-    ) -> tuple[Event | None, int | None, str | None]:
+    def read_impression(self) -> tuple[Event | None, int | None, str | None]:
         try:
-            _, row = next(impression_reader)
+            _, row = next(self.impression_reader)
 
             impression_timestamp = row["click_timestamp"]
             impression_date = datetime.fromtimestamp(impression_timestamp)
@@ -228,11 +222,9 @@ class Criteo(Dataset):
         except StopIteration:
             return None, math.inf, None
 
-    def read_conversion(
-        self, conversion_reader: Iterable
-    ) -> tuple[Event | None, int | None, str | None]:
+    def read_conversion(self) -> tuple[Event | None, int | None, str | None]:
         try:
-            _, row = next(conversion_reader)
+            _, row = next(self.conversion_reader)
             conversion_timestamp = row["conversion_timestamp"]
             self.conversions_counter += 1
 
@@ -343,7 +335,7 @@ class Patcg(Dataset):
         try:
             _, row = next(self.impressions_reader)
 
-            impression_timestamp = row["timestamp"]
+            impression_timestamp = row["exp_timestamp"]
             impression_date = datetime.fromtimestamp(impression_timestamp)
             impression_day = (
                 7 * (impression_date.isocalendar().week - 1)
@@ -351,13 +343,14 @@ class Patcg(Dataset):
             impression_epoch = math.ceil(
                 impression_day / self.config.num_days_per_epoch
             )
-            impression_user_id = row["user_id"]
+            impression_user_id = row["device_id"]
+            advertiser_id = 1
 
-            filter = "" if math.isnan(row["filter"]) else row["filter"]
+            filter = "" if math.isnan(row["filter"]) else str(int(row["filter"]))
             impression = Impression(
                 timestamp=impression_timestamp,
                 epoch=impression_epoch,
-                destination=row["advertiser_id"],
+                destination=advertiser_id,
                 filter=filter,
                 key=str(row["key"]),
                 user_id=impression_user_id,
@@ -370,7 +363,7 @@ class Patcg(Dataset):
     def read_conversion(self) -> tuple[Event | None, int | None, str | None]:
         try:
             _, row = next(self.conversions_reader)
-            conversion_timestamp = row["timestamp"]
+            conversion_timestamp = row["conv_timestamp"]
             self.conversions_counter += 1
 
             num_seconds_attribution_window = (
@@ -405,21 +398,23 @@ class Patcg(Dataset):
                 conversion_epoch,
             )
 
-            conversion_user_id = row["user_id"]
-            filter = "" if math.isnan(row["filter"]) else row["filter"]
+            conversion_user_id = row["device_id"]
+            advertiser_id = 1
+            filter = "" if math.isnan(row["filter"]) else str(int(row["filter"]))
+            key = "" if "key" not in row else str(row["key"])
             conversion = Conversion(
                 timestamp=conversion_timestamp,
                 id=self.conversions_counter,
                 epoch=conversion_epoch,
-                destination=row["advertiser_id"],
+                destination=advertiser_id,
                 attribution_window=attribution_window,
                 epochs_window=epochs_window,
                 attribution_logic="last_touch",
                 partitioning_logic="",
-                aggregatable_value=row["amount"],
-                aggregatable_cap_value=row["aggregatable_cap_value"],
+                aggregatable_value=row["conv_amount"],
+                aggregatable_cap_value=15,
                 filter=filter,
-                key=str(row["key"]),
+                key=key,
                 epsilon=row["epsilon"],
                 user_id=conversion_user_id,
             )

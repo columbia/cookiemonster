@@ -1,5 +1,6 @@
 import os
 import typer
+import sys
 from loguru import logger
 from typing import Dict, Any
 from termcolor import colored
@@ -25,13 +26,14 @@ from cookiemonster.utils import (
 
 app = typer.Typer()
 
+logger.remove()
+logger.add(sys.stdout, level="INFO")
 
 class Evaluation:
     def __init__(self, config: Dict[str, Any]):
         self.config = OmegaConf.create(config)
         self.dataset = Dataset.create(self.config.dataset)
         self.users: Dict[str, User] = {}
-
         self.logger = EventLogger()
 
         # filters shared across users for IPA
@@ -48,6 +50,8 @@ class Evaluation:
         )
 
     def run(self):
+        logger.info(f"\n\n\nRUN\n\n\n")
+
         """Reads events from a dataset and asks users to process them"""
         event_reader = self.dataset.event_reader()
         while res := next(event_reader):
