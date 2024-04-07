@@ -13,6 +13,12 @@ CUSTOM_ORDER_BASELINES = ["ipa", "user_epoch_ara", "cookiemonster"]
 CUSTOM_ORDER_RATES = ["0.001", "0.01", "0.1", "1.0"]
 
 
+class Bias:
+    def __init__(self) -> None:
+        self.relative_accuracies = []
+        self.count = 0
+
+
 def get_df(path):
     logs = LOGS_PATH.joinpath(path)
     df = load_ray_experiment(logs)
@@ -122,34 +128,38 @@ def get_bias_logs(row, results, i, **kwargs):
     )
 
     records = []
-    t = kwargs.get("t", .90)
+    t = kwargs.get("t", 0.90)
     for destination, destination_df in df.groupby(["destination"]):
 
-        accuracies = []
-        num_queries_with_null_reports = 0
         workload_size = len(destination_df)
-        count_relatively_accurate = 0
+
+        null_report_bias = Bias()
+        e2e_bias = Bias()
+
         for _, log in destination_df.iterrows():
             true_sum = log["true_output"]
             biased_sum = log["aggregation_output"]
             sum_with_dp = log["aggregation_noisy_output"]
 
-            # need to confirm the relative accuracy calculation
-            relative_accuracy = sum_with_dp / true_sum
-            if relative_accuracy >= t:
-                count_relatively_accurate += 1
-
-            # Handle IPA case
+            # NULL REPORT BIAS ANALYSIS
             if math.isnan(biased_sum):
-                accuracies.append(0)
+                null_report_bias.relative_accuracies.append(0)
             else:
-                null_report_bias_error = true_sum - biased_sum
-                num_queries_with_null_reports += (
-                    null_report_bias_error == 0
-                )
+                null_report_bias_error = abs(true_sum - biased_sum)
+                relative_accuracy = 1 - (null_report_bias_error / true_sum)
 
-                # Aggregate bias across all queries ran in this workload/experiment
-                accuracies.append(1 - (null_report_bias_error / true_sum))
+                null_report_bias.count += null_report_bias_error == 0
+                null_report_bias.relative_accuracies.append(relative_accuracy)
+
+            # E2E ANALYSIS
+            if math.isnan(sum_with_dp):
+                e2e_bias.relative_accuracies.append(0)
+            else:
+                e2e_error = abs(true_sum - sum_with_dp)
+                relative_accuracy = 1 - (e2e_error / true_sum)
+
+                e2e_bias.count += relative_accuracy >= t
+                e2e_bias.relative_accuracies.append(relative_accuracy)
 
         baseline = row["baseline"]
         num_days_per_epoch = row["num_days_per_epoch"]
@@ -161,11 +171,16 @@ def get_bias_logs(row, results, i, **kwargs):
                 "destination": destination[0],
                 "workload_size": workload_size,
                 "requested_workload_size": requested_workload_size,
-                "fraction_queries_without_null_reports": num_queries_with_null_reports
+                "fraction_queries_without_null_reports": null_report_bias.count
                 / workload_size,
-                "average_accuracy": sum(accuracies) / len(accuracies),
-                "fraction_relatively_accurate": count_relatively_accurate
+                "null_report_bias_average_relative_accuracy": sum(
+                    null_report_bias.relative_accuracies
+                )
+                / len(null_report_bias.relative_accuracies),
+                "fraction_queries_relatively_accurate_e2e": e2e_bias.count
                 / workload_size,
+                "e2e_bias_average_relative_accuracy": sum(e2e_bias.relative_accuracies)
+                / len(e2e_bias.relative_accuracies),
                 "baseline": baseline,
                 "num_days_per_epoch": num_days_per_epoch,
                 "initial_budget": float(initial_budget),
@@ -193,11 +208,7 @@ def analyze_results(path, type="budget", parallelize=True, **kwargs):
         results = Manager().dict()
         for i, row in df.iterrows():
             processes.append(
-                Process(
-                    target=get_logs,
-                    args=(row, results, i),
-                    kwargs=kwargs
-                )
+                Process(target=get_logs, args=(row, results, i), kwargs=kwargs)
             )
             processes[i].start()
 
@@ -427,9 +438,9 @@ def plot_null_reports_analysis(
         fig = px.line(
             df,
             x=x_axis,
-            y="average_accuracy",
+            y="null_report_bias_average_relative_accuracy",
             color="baseline",
-            title=f"Avg. relative accuracy across queries in workload",
+            title=f"Average relative accuracy with null report bias (no noise) across queries in workload",
             width=1100,
             height=600,
             markers=True,
@@ -447,10 +458,10 @@ def plot_null_reports_analysis(
     if save_dir:
         advertiser = df["destination"].unique()[0]
         frac_without_idp_bias_fig.write_image(
-            f"{save_dir}/{advertiser}_fraction_queries_with_null_reports.png"
+            f"{save_dir}/{advertiser}_null_report_bias_fraction_queries.png"
         )
         workload_idp_acc_fig.write_image(
-            f"{save_dir}/{advertiser}_average_relative_accuracy.png"
+            f"{save_dir}/{advertiser}_null_report_biase_average_relative_accuracy.png"
         )
 
     iplot(frac_without_idp_bias_fig)

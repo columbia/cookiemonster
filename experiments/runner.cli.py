@@ -17,8 +17,8 @@ def experiments_start_and_join(experiments):
         p.join()
 
 
-
 ## ----------------- MICROBENCHMARK ----------------- ##
+
 
 def get_path(path_base, knob1, knob2):
     return f"{path_base}_knob1_{knob1}_knob2_{knob2}.csv"
@@ -168,6 +168,7 @@ def microbenchmark_bias_vary_workload_size(ray_session_dir):
 
 ## ----------------- CRITEO ----------------- ##
 
+
 def criteo_bias_vary_workload_size(ray_session_dir):
     """
     Varying Workload methodology:
@@ -208,6 +209,7 @@ def criteo_bias_vary_workload_size(ray_session_dir):
 
 ## ----------------- PATCG ----------------- ##
 
+
 def patcg_bias_vary_workload_size(ray_session_dir):
     dataset = "patcg"
     logs_dir = f"{dataset}/bias_varying_workload_size"
@@ -243,7 +245,6 @@ def patcg_budget_consumption_vary_epoch_granularity(ray_session_dir):
     impressions_path = f"{dataset}/{dataset}_impressions.csv"
     conversions_path = f"{dataset}/{dataset}_conversions.csv"
 
-
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "dataset_name": f"{dataset}",
@@ -264,6 +265,7 @@ def patcg_budget_consumption_vary_epoch_granularity(ray_session_dir):
     grid_run(**config)
     # analyze(f"ray/{logs_dir}")
 
+
 def patcg_bias_vary_initial_budget(ray_session_dir):
 
     dataset = "patcg"
@@ -271,7 +273,6 @@ def patcg_bias_vary_initial_budget(ray_session_dir):
 
     impressions_path = f"{dataset}/{dataset}_impressions.csv"
     conversions_path = f"{dataset}/{dataset}_conversions.csv"
-
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
