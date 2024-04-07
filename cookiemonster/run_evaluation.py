@@ -1,6 +1,5 @@
 import os
 import typer
-import sys
 from loguru import logger
 from typing import Dict, Any
 from termcolor import colored
@@ -23,11 +22,10 @@ from cookiemonster.utils import (
     QUERY_RESULTS,
 )
 
+logger.add("loguru.log", level="INFO", rotation="100 MB")
 
 app = typer.Typer()
 
-logger.remove()
-logger.add(sys.stdout, level="INFO")
 
 class Evaluation:
     def __init__(self, config: Dict[str, Any]):
@@ -50,13 +48,10 @@ class Evaluation:
         )
 
     def run(self):
-        logger.info(f"\n\n\nRUN\n\n\n")
-
         """Reads events from a dataset and asks users to process them"""
         event_reader = self.dataset.event_reader()
         while res := next(event_reader):
             (user_id, event) = res
-
             logger.info(colored(str(event), "blue"))
 
             if user_id not in self.users:
