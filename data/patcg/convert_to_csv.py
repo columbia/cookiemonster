@@ -5,14 +5,14 @@ import pandas as pd
 def main():
     # Path to the directory containing Parquet files
     # parquet_dir = '/mydata/cookiemonster/data/patcg/publishers/publisher_exposures/'
-    parquet_dir = '/mydata/cookiemonster/data/patcg/advertisers/advertiser_conversions/'
+    parquet_dir = "/mydata/cookiemonster/data/patcg/advertisers/advertiser_conversions/"
 
     # List to store DataFrame objects
     dfs = []
 
     # Iterate over each file in the directory
     for i, file in enumerate(os.listdir(parquet_dir)):
-        if file.endswith('.pqt'):
+        if file.endswith(".pqt"):
             # Read Parquet file into a DataFrame
             df = pd.read_parquet(os.path.join(parquet_dir, file))
             # print(df)
@@ -28,12 +28,13 @@ def main():
 
     # Path to save the merged DataFrame as CSV
     # csv_path = '/mydata/cookiemonster/data/patcg/publishers/impressions.csv'
-    csv_path = '/mydata/cookiemonster/data/patcg/advertisers/conversions.csv'
+    csv_path = "/mydata/cookiemonster/data/patcg/advertisers/conversions.csv"
 
     # Save the DataFrame as CSV
     merged_df.to_csv(csv_path, index=False)
 
     print(f"Merged DataFrame saved as CSV: {csv_path}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

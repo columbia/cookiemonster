@@ -1,8 +1,7 @@
 {
     "attribution_rate": 0.01,
     "accuracy": [0.05, 0.01],
-    "scheduled_batch_size": 1875000,
+    "scheduled_batch_size": 18682297,
     "cap_value": 15,
-    "user_contributions_per_query": 1
-
+    "dimension_domain_size": 10
 }
