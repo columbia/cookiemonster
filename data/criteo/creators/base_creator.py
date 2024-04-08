@@ -1,17 +1,9 @@
 from abc import ABC, abstractmethod
+import pandas as pd
 import logging
 import numpy as np
-import os
-
 from omegaconf import DictConfig
-
-if os.getenv("USE_PANDAS", "false").lower() == "true":
-    import pandas as pd
-else:
-    import modin.pandas as pd
-
-os.environ["MODIN_ENGINE"] = "ray"
-
+import os
 
 class BaseCreator(ABC):
 

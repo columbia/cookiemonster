@@ -1,6 +1,6 @@
 {
     "enforce_one_user_contribution_per_query": true,
-    "max_conversions_required_for_dp": 20000,
+    "max_conversions_required_for_dp": 5000,
     "min_conversions_required_for_dp": 1500,
     "estimated_conversion_rate": 0.08,
     "advertiser_filter": [
