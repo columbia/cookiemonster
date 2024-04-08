@@ -128,7 +128,7 @@ def get_bias_logs(row, results, i, **kwargs):
     )
 
     records = []
-    t = kwargs.get("t", 0.90)
+    t = kwargs.get("t", 0.95)
     for destination, destination_df in df.groupby(["destination"]):
 
         workload_size = len(destination_df)
@@ -416,13 +416,13 @@ def plot_null_reports_analysis(
 
     df = df.sort_values(["workload_size", "initial_budget"])
 
-    def fraction_queries_without_dp_bias(df):
+    def fraction_queries_without_null_reports(df):
         fig = px.line(
             df,
             x=x_axis,
             y="fraction_queries_without_null_reports",
             color="baseline",
-            title=f"Fraction of queries without null reports",
+            title=f"fraction_queries_without_null_reports",
             width=1100,
             height=600,
             markers=True,
@@ -434,13 +434,31 @@ def plot_null_reports_analysis(
         )
         return fig
 
-    def workload_dp_accuracy(df):
+    def fraction_queries_reaching_realtive_accuracy(df):
+        fig = px.line(
+            df,
+            x=x_axis,
+            y="fraction_queries_relatively_accurate_e2e",
+            color="baseline",
+            title=f"fraction_queries_relatively_accurate_e2e",
+            width=1100,
+            height=600,
+            markers=True,
+            range_y=[0, 1.2],
+            facet_col="destination",
+            category_orders={
+                "baseline": CUSTOM_ORDER_BASELINES,
+            },
+        )
+        return fig
+    
+    def null_bias_average_relative_accuracy(df):
         fig = px.line(
             df,
             x=x_axis,
             y="null_report_bias_average_relative_accuracy",
             color="baseline",
-            title=f"Average relative accuracy with null report bias (no noise) across queries in workload",
+            title=f"null_report_bias_average_relative_accuracy",
             width=1100,
             height=600,
             markers=True,
@@ -452,21 +470,41 @@ def plot_null_reports_analysis(
         )
         return fig
 
-    frac_without_idp_bias_fig = fraction_queries_without_dp_bias(df)
-    workload_idp_acc_fig = workload_dp_accuracy(df)
+    def e2e_bias_average_relative_accuracy(df):
+        fig = px.line(
+            df,
+            x=x_axis,
+            y="e2e_bias_average_relative_accuracy",
+            color="baseline",
+            title=f"e2e_bias_average_relative_accuracy",
+            width=1100,
+            height=600,
+            markers=True,
+            range_y=[0, 1.2],
+            facet_col="destination",
+            category_orders={
+                "baseline": CUSTOM_ORDER_BASELINES,
+            },
+        )
+        return fig
 
+    p1 = fraction_queries_without_null_reports(df)
+    p2 = null_bias_average_relative_accuracy(df)
+    p3 = fraction_queries_reaching_realtive_accuracy(df)
+    p4 = e2e_bias_average_relative_accuracy(df)
     if save_dir:
         advertiser = df["destination"].unique()[0]
-        frac_without_idp_bias_fig.write_image(
+        p1.write_image(
             f"{save_dir}/{advertiser}_null_report_bias_fraction_queries.png"
         )
-        workload_idp_acc_fig.write_image(
+        p2.write_image(
             f"{save_dir}/{advertiser}_null_report_biase_average_relative_accuracy.png"
         )
 
-    iplot(frac_without_idp_bias_fig)
-    iplot(workload_idp_acc_fig)
-
+    iplot(p1)
+    iplot(p3)
+    iplot(p2)
+    iplot(p4)
 
 if __name__ == "__main__":
     path = "ray/synthetic/budget_consumption_varying_conversions_rate"
