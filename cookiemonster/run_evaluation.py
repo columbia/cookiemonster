@@ -25,10 +25,6 @@ from cookiemonster.utils import (
 
 app = typer.Typer()
 
-logger.remove()
-logger.add(sys.stdout, level="INFO")
-print(logger)
-
 
 class Evaluation:
     def __init__(self, config: Dict[str, Any]):
@@ -55,7 +51,7 @@ class Evaluation:
         for i, res in enumerate(self.dataset.event_reader()):
             (user_id, event) = res
 
-            if i % 10000 == 0:
+            if i % 50000 == 0:
                 logger.info(colored(str(event), "blue"))
 
             if user_id not in self.users:
