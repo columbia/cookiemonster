@@ -3,7 +3,6 @@ import logging
 import pandas as pd
 from omegaconf import DictConfig
 from abc import ABC, abstractmethod
-import dask.dataframe as dd
 
 
 logging.basicConfig(level=logging.INFO)
@@ -14,11 +13,16 @@ class BaseCreator(ABC):
     impressions_file = os.path.join(
         os.path.dirname(__file__),
         "..",
+        "smaller_data",
         "publishers",
         "renamed_filtered_impressions.csv",
     )
     conversions_file = os.path.join(
-        os.path.dirname(__file__), "..", "advertisers", "renamed_conversions.csv"
+        os.path.dirname(__file__),
+        "..",
+        "smaller_data",
+        "advertisers",
+        "renamed_conversions.csv",
     )
 
     def __init__(
@@ -40,14 +44,6 @@ class BaseCreator(ABC):
         return df
 
     @abstractmethod
-    def specialize_impressions(self, impressions: pd.DataFrame) -> pd.DataFrame:
-        pass
-
-    @abstractmethod
-    def specialize_conversions(self, conversions: pd.DataFrame) -> pd.DataFrame:
-        pass
-
-    @abstractmethod
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
         pass
 
@@ -58,9 +54,6 @@ class BaseCreator(ABC):
     def create_datasets(self) -> None:
         self.logger.info("reading in PATCG impressions...")
         impressions = self._read_dataframe(BaseCreator.impressions_file)
-
-        self.logger.info("specializing impressions...")
-        impressions = self.specialize_impressions(impressions)
 
         self.logger.info("creating the impressions...")
         impressions = self.create_impressions(impressions)
@@ -74,8 +67,9 @@ class BaseCreator(ABC):
         self.logger.info("reading in PATCG conversions...")
         conversions = self._read_dataframe(BaseCreator.conversions_file)
 
-        self.logger.info("specializing conversions...")
-        conversions = self.specialize_conversions(conversions)
-
         self.logger.info("creating the conversions...")
         conversions = self.create_conversions(conversions)
+
+        self.logger.info(f"writing conversions to {self.conversions_path}")
+        conversions.to_csv(self.conversions_path, header=True, index=False)
+        self.logger.info(f"dataset written to {self.conversions_path}")

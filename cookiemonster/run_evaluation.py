@@ -1,4 +1,5 @@
 import os
+import sys
 import typer
 from loguru import logger
 from typing import Dict, Any
@@ -22,9 +23,11 @@ from cookiemonster.utils import (
     QUERY_RESULTS,
 )
 
-logger.add("loguru.log", level="INFO", rotation="100 MB")
-
 app = typer.Typer()
+
+logger.remove()
+logger.add(sys.stdout, level="INFO")
+print(logger)
 
 
 class Evaluation:
@@ -49,10 +52,11 @@ class Evaluation:
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
-        event_reader = self.dataset.event_reader()
-        while res := next(event_reader):
+        for i, res in enumerate(self.dataset.event_reader()):
             (user_id, event) = res
-            logger.info(colored(str(event), "blue"))
+
+            if i % 10000 == 0:
+                logger.info(colored(str(event), "blue"))
 
             if user_id not in self.users:
                 self.users[user_id] = User(user_id, self.config)

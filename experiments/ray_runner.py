@@ -69,7 +69,7 @@ def grid_run(
     experiment_analysis = tune.run(
         run_and_report,
         config=config,
-        resources_per_trial={"cpu": 1},
+        resources_per_trial={"cpu": 2},
         storage_path=str(RAY_LOGS.joinpath(logs_dir)),
         resume=False,
         verbose=1,

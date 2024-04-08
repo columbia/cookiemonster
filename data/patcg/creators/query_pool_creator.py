@@ -9,41 +9,35 @@ class QueryPoolDatasetCreator(BaseCreator):
     def __init__(self, config: DictConfig) -> None:
         super().__init__(
             config,
-            "patcg_impressions.csv",
-            "patcg_conversions",
+            "v2_patcg_impressions.csv",
+            "v2_patcg_conversions.csv",
         )
         self.dimension_domain_size = 10
         self.user_column_name = "device_id"
 
-    def specialize_impressions(self, impressions: pd.DataFrame) -> pd.DataFrame:
-        impressions.rename(columns={"exp_attribute_2": "ad_creative"}, inplace=True)
-        impressions = impressions[["exp_timestamp", "device_id", "ad_creative"]]
-        return impressions
-
     def create_impressions(self, impressions: pd.DataFrame) -> pd.DataFrame:
+        impressions = impressions.drop(columns=["exp_attribute_2"])
+        impressions = impressions[["exp_timestamp", "device_id"]]
         impressions = impressions.sort_values(by=["exp_timestamp"])
-        impressions["filter"] = impressions["ad_creative"].astype(str)
+        impressions["filter"] = ""
         impressions["key"] = ""
         return impressions
 
-    def specialize_conversions(self, conversions: pd.DataFrame) -> pd.DataFrame:
-        conversions = conversions[["conv_timestamp", "device_id", "conv_amount"]]
-        conversions = conversions.sort_values(by=["conv_timestamp"])
-        return conversions
-
-    def _enforce_user_contribution_cap(self, conversions: pd.DataFrame) -> pd.DataFrame:
+    def _process_batches(self, conversions: pd.DataFrame) -> pd.DataFrame:
         self.logger.info("Enforcing cap on user contribution...")
+        batch_size = self.config.max_batch_size
+
         seen_users = set()
         row_count = 0
 
         def __mark_include(row: pd.Series):
             nonlocal seen_users
             nonlocal row_count
-            if row_count == self.config.scheduled_batch_size:
+            if row_count == batch_size:
                 row_count = 0
                 seen_users = set()
 
-            user = row["device_id"]
+            user = row[self.user_column_name]
             if user in seen_users:
                 return False
             else:
@@ -51,17 +45,54 @@ class QueryPoolDatasetCreator(BaseCreator):
                 row_count += 1
                 return True
 
-        conversions = conversions.assign(
-            include=conversions.apply(
-                lambda row: __mark_include(row),
-                axis=1,
-            ),
-        )
+        queries = []
+        for dimension_value in range(self.dimension_domain_size):
+            self.logger.info(f"Processing query {dimension_value}...")
+            query_result = conversions.loc[conversions["product_id"] == dimension_value]
+            query_result = query_result.sort_values(by=["conv_timestamp"])
 
-        conversions = conversions.loc[conversions.include]
-        conversions = conversions.drop(columns=["include"])
-        conversions = conversions.reset_index(drop=True)
-        print(conversions.shape)
+            query_result = query_result.assign(
+                include=query_result.apply(
+                    lambda row: __mark_include(row),
+                    axis=1,
+                ),
+            )
+            query_result = query_result.loc[query_result.include]
+            query_result = query_result.drop(columns=["include"])
+            seen_users = set()
+            row_count = 0
+
+            # now split the query_result into its batches
+            query_result = query_result.reset_index(drop=True)
+            query_result_length = query_result.shape[0]
+            nbatches = query_result_length // batch_size
+            remaining = query_result_length % batch_size
+            total_batches = nbatches + 1 if remaining > 0 else nbatches
+
+            i = 0
+            self.logger.info(f"Processing batches...")
+            while i < nbatches:
+                start = i * batch_size
+                end = (i + 1) * batch_size
+                unique_query_key = dimension_value * total_batches + i
+                query_result.loc[start:end, "query_key"] = unique_query_key
+                print(unique_query_key)
+                query_result.loc[start:end, "epsilon"] = self._set_epsilon()
+                i += 1
+
+            i = i * batch_size
+            if (
+                i < query_result_length
+                and query_result_length - i >= self.config.min_batch_size
+            ):
+                unique_query_key = dimension_value * total_batches + nbatches
+                print(unique_query_key)
+                query_result.loc[i:, "query_key"] = unique_query_key
+                query_result.loc[i:, "epsilon"] = self._set_epsilon()
+            
+            queries.append(query_result)
+
+        conversions = pd.concat(queries, ignore_index=True)
         return conversions
 
     def _clip_contribution_value(self, conversions: pd.DataFrame) -> pd.DataFrame:
@@ -70,68 +101,11 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         return conversions
 
-    def _set_epsilon(self, batch_size) -> pd.DataFrame:
-        # self.logger.info("Setting epsilons...")
-
-        def set_epsilon_given_accuracy(n):
-            [a, b] = self.config.accuracy
-            return self.config.cap_value * math.log(1 / b) / (n * a)  # 0.069
-
-        nonempty_batch_size = self.config.attribution_rate * batch_size / 10
-        return set_epsilon_given_accuracy(nonempty_batch_size)
-
-    def _write_batch(
-        self,
-        batch_size,
-        nbatches,
-        remaining,
-        query_key,
-        total_batches,
-        conversions: pd.DataFrame,
-    ) -> pd.DataFrame:
-        self.logger.info(f"Create batches for query {query_key}...")
-
-        conversions["filter"] = query_key
-
-        for i in range(nbatches):
-            bs = i * batch_size
-            be = (i + 1) * batch_size - 1
-
-            print("     Query:", query_key, "Batch:", bs, be)
-
-            unique_query_key = query_key * total_batches + i
-            query_path = os.path.join(self.conversions_path, f"{unique_query_key}.csv")
-            # conversions.loc[bs:be, "query_key"] = unique_query_key
-            conversions.loc[bs:be, "epsilon"] = self._set_epsilon(batch_size)
-            conversions.iloc[bs:be].to_csv(query_path, header=True, index=False)
-
-        if remaining > 0:
-            bs = nbatches * batch_size
-            be = nbatches * batch_size + remaining - 1
-            print("     Query:", query_key, "Minibatch", bs, be)
-
-            unique_query_key = query_key * total_batches + nbatches
-            query_path = os.path.join(self.conversions_path, f"{unique_query_key}.csv")
-            # conversions.loc[bs:be, "query_key"] = f"{query_key}_{nbatches}"
-            conversions.loc[bs:be, "epsilon"] = self._set_epsilon(remaining)
-            conversions.iloc[bs:be].to_csv(query_path, header=True, index=False)
-
-    def _write_queries(self, conversions: pd.DataFrame) -> pd.DataFrame:
-        self.logger.info(f"Creating queries...")
-
-        num_conversions = len(conversions)
-        batch_size = self.config.scheduled_batch_size
-        nbatches = num_conversions // batch_size
-        remaining = num_conversions % batch_size
-        total_batches = nbatches + 1 if remaining > 0 else nbatches
-
-        print("megabatches", nbatches)
-        print("minibatch size", remaining)
-
-        for i in range(self.config.dimension_domain_size):
-            self._write_batch(
-                batch_size, nbatches, remaining, i, total_batches, conversions
-            )
+    def _set_epsilon(self) -> pd.DataFrame:
+        [a, b] = self.config.accuracy
+        expected_result = 1000 * 5
+        epsilon = self.config.cap_value * math.log(1 / b) / (a * expected_result)
+        return epsilon
 
     def create_conversions(self, conversions: pd.DataFrame) -> pd.DataFrame:
 
@@ -145,17 +119,14 @@ class QueryPoolDatasetCreator(BaseCreator):
         # max      1.882690e+03
         # Name: conv_amount, dtype: float64
 
-        # We have a total of 75M conversions and an attribution rate of ~1%.
-        # Around 750K conversions will be attributed. Assuming each attribution will count towards
-        # only one out of the 10 queries, we expect around 75K attributed conversions per query assuming they are uniform.
-        # So say we want a batch size of non-empty reports of around 20K we should schedule each query around 4 times
-        # to have a total of 40 queries.
-        # I should keep an actual batch size of 1.875M reports to approximately reach the desired batch size of 20k per query.
+        conversions.rename(columns={"conv_attribute_2": "product_id"}, inplace=True)
+        conversions = conversions[
+            ["conv_timestamp", "device_id", "product_id", "conv_amount"]
+        ]
 
-        if not os.path.exists(self.conversions_path):
-            os.makedirs(self.conversions_path)
-
-        conversions = self._enforce_user_contribution_cap(conversions)
+        conversions = self._process_batches(conversions)
+        conversions = conversions.sort_values(by=["conv_timestamp"])
         conversions = self._clip_contribution_value(conversions)
-        conversions = self._write_queries(conversions)
+        conversions["filter"] = ""
+        conversions = conversions.drop(columns=["product_id"])
         return conversions

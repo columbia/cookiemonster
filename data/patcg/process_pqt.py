@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 
-publishers = os.path.join(os.path.dirname(__file__), "smaller_data/publishers")
-advertisers = os.path.join(os.path.dirname(__file__), "smaller_data/advertisers")
+publishers = os.path.join(os.path.dirname(__file__), "publishers")
+advertisers = os.path.join(os.path.dirname(__file__), "advertisers")
 
 
 def convert_impressions_to_csv():
@@ -11,7 +11,7 @@ def convert_impressions_to_csv():
     for i, file in enumerate(os.listdir(parquet_dir)):
         if file.endswith(".pqt"):
             df = pd.read_parquet(os.path.join(parquet_dir, file))
-            df = df[["exp_timestamp", "device_id", "exp_attribute_2"]]
+            df = df[["exp_timestamp", "device_id"]]
             dfs.append(df)
         print(i, file)
     return pd.concat(dfs)
@@ -23,7 +23,7 @@ def convert_conversions_to_csv():
     for i, file in enumerate(os.listdir(parquet_dir)):
         if file.endswith(".pqt"):
             df = pd.read_parquet(os.path.join(parquet_dir, file))
-            df = df[["conv_timestamp", "device_id", "conv_amount"]]
+            df = df[["conv_timestamp", "device_id", "conv_attribute_2", "conv_amount"]]
             dfs.append(df)
         print(i, file)
     return pd.concat(dfs)
