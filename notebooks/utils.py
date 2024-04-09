@@ -169,7 +169,6 @@ def get_bias_logs(row, results, i, **kwargs):
                 e2e_bias.count += relative_accuracy >= t
                 e2e_bias.relative_accuracies.append(relative_accuracy)
 
-<<<<<<< Updated upstream
             # E2E RMSE ANALYSIS
             if math.isnan(sum_with_dp):
                 e2e_rmsre.relative_accuracies.append(0)
@@ -177,13 +176,6 @@ def get_bias_logs(row, results, i, **kwargs):
                 x = abs(true_sum - biased_sum) ** 2 + 2 * (row["sensitivity"] ** 2) / (row["epsilon"] ** 2)
                 y = true_sum ** 2
                 e2e_rmsre.relative_accuracies.append(1 - math.sqrt(x / y))
-
-        baseline = row["baseline"]
-        num_days_per_epoch = row["num_days_per_epoch"]
-        initial_budget = row["config"]["user"]["initial_budget"]
-        requested_workload_size = row["workload_size"]
-=======
->>>>>>> Stashed changes
 
         records.append(
             {
