@@ -115,6 +115,11 @@ def get_budget_logs(row, results, i, **kwargs):
 
 def get_bias_logs(row, results, i, **kwargs):
     logs = row["logs"]["query_results"]
+    baseline = row["baseline"]
+    num_days_per_epoch = row["num_days_per_epoch"]
+    initial_budget = row["config"]["user"]["initial_budget"]
+    requested_workload_size = row["workload_size"]
+
     df = pd.DataFrame.from_records(
         logs,
         columns=[
@@ -164,6 +169,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 e2e_bias.count += relative_accuracy >= t
                 e2e_bias.relative_accuracies.append(relative_accuracy)
 
+<<<<<<< Updated upstream
             # E2E RMSE ANALYSIS
             if math.isnan(sum_with_dp):
                 e2e_rmsre.relative_accuracies.append(0)
@@ -176,6 +182,8 @@ def get_bias_logs(row, results, i, **kwargs):
         num_days_per_epoch = row["num_days_per_epoch"]
         initial_budget = row["config"]["user"]["initial_budget"]
         requested_workload_size = row["workload_size"]
+=======
+>>>>>>> Stashed changes
 
         records.append(
             {
@@ -196,6 +204,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 "baseline": baseline,
                 "num_days_per_epoch": num_days_per_epoch,
                 "initial_budget": float(initial_budget),
+                "relative_accuracy": e2e_bias.relative_accuracies,
             }
         )
     results[i] = pd.DataFrame.from_records(records)
