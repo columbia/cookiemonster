@@ -192,7 +192,7 @@ class Criteo(Dataset):
 
     def read_impression(self) -> tuple[Event | None, int | None, str | None]:
         try:
-            _, row = next(self.impression_reader)
+            _, row = next(self.impressions_reader)
 
             impression_timestamp = row["click_timestamp"]
             impression_date = datetime.fromtimestamp(impression_timestamp)
@@ -224,7 +224,7 @@ class Criteo(Dataset):
 
     def read_conversion(self) -> tuple[Event | None, int | None, str | None]:
         try:
-            _, row = next(self.conversion_reader)
+            _, row = next(self.conversions_reader)
             conversion_timestamp = row["conversion_timestamp"]
             self.conversions_counter += 1
 

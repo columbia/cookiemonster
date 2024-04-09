@@ -148,6 +148,8 @@ def get_bias_logs(row, results, i, **kwargs):
             true_sum = log["true_output"]
             biased_sum = log["aggregation_output"]
             sum_with_dp = log["aggregation_noisy_output"]
+            sensitivity = log["sensitivity"]
+            epsilon = log["epsilon"]
 
             # NULL REPORT BIAS ANALYSIS
             if math.isnan(biased_sum):
@@ -170,10 +172,10 @@ def get_bias_logs(row, results, i, **kwargs):
                 e2e_bias.relative_accuracies.append(relative_accuracy)
 
             # E2E RMSE ANALYSIS
-            if math.isnan(sum_with_dp):
+            if math.isnan(biased_sum):
                 e2e_rmsre.relative_accuracies.append(0)
             else:
-                x = abs(true_sum - biased_sum) ** 2 + 2 * (row["sensitivity"] ** 2) / (row["epsilon"] ** 2)
+                x = abs(true_sum - biased_sum) ** 2 + 2 * (sensitivity ** 2) / (epsilon ** 2)
                 y = true_sum ** 2
                 e2e_rmsre.relative_accuracies.append(1 - math.sqrt(x / y))
 
@@ -196,8 +198,9 @@ def get_bias_logs(row, results, i, **kwargs):
                 "baseline": baseline,
                 "num_days_per_epoch": num_days_per_epoch,
                 "initial_budget": float(initial_budget),
-                "relative_accuracy": e2e_bias.relative_accuracies,
-                "rmse_accuracy": e2e_rmsre.relative_accuracies,
+                "e2e_bias_relative_accuracies": e2e_bias.relative_accuracies,
+                "null_report_bias_relative_accuracies": null_report_bias.relative_accuracies,
+                "rmse_accuracies": e2e_rmsre.relative_accuracies,
             }
         )
     results[i] = pd.DataFrame.from_records(records)
@@ -549,7 +552,7 @@ def plot_cdf_accuracy(
     def e2e_rmsre_accuracy_ecdf(df):
         fig = px.ecdf(
             df,
-            y="rmse_accuracy",
+            y="rmse_accuracies",
             color="baseline",
             title=f"e2e_rmsre_accuracy cdf",
             width=1100,
@@ -565,9 +568,9 @@ def plot_cdf_accuracy(
         )
         return fig
     dff = df.query("requested_workload_size == @workload_size")
-    dff = dff[["destination", "baseline", "rmse_accuracy"]]
-    dff = dff.explode("rmse_accuracy")
-    dff = dff.sort_values(["rmse_accuracy"])
+    dff = dff[["destination", "baseline", "rmse_accuracies"]]
+    dff = dff.explode("rmse_accuracies")
+    dff = dff.sort_values(["rmse_accuracies"])
     # print(dff["rmse_accuracy"].values)
     p1 = e2e_rmsre_accuracy_ecdf(dff)
     iplot(p1)

@@ -49,6 +49,9 @@ class Evaluation:
     def run(self):
         """Reads events from a dataset and asks users to process them"""
         for i, res in enumerate(self.dataset.event_reader()):
+            if not res:
+                break
+            
             (user_id, event) = res
 
             if i % 50000 == 0:
