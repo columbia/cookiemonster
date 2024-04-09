@@ -197,6 +197,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 "num_days_per_epoch": num_days_per_epoch,
                 "initial_budget": float(initial_budget),
                 "relative_accuracy": e2e_bias.relative_accuracies,
+                "rmse_accuracy": e2e_rmsre.relative_accuracies,
             }
         )
     results[i] = pd.DataFrame.from_records(records)
@@ -465,24 +466,6 @@ def plot_null_reports_analysis(
         )
         return fig
 
-    # def fraction_queries_reaching_rmse(df):
-    #     fig = px.line(
-    #         df,
-    #         x=x_axis,
-    #         y="fraction_queries_relatively_accurate_e2e",
-    #         color="baseline",
-    #         title=f"fraction_queries_relatively_accurate_e2e",
-    #         width=1100,
-    #         height=600,
-    #         markers=True,
-    #         # range_y=[0, 1.2],
-    #         facet_col="destination",
-    #         category_orders={
-    #             "baseline": CUSTOM_ORDER_BASELINES,
-    #         },
-    #     )
-    #     return fig
-
     def null_bias_average_relative_accuracy(df):
         fig = px.line(
             df,
@@ -542,6 +525,7 @@ def plot_null_reports_analysis(
     p3 = fraction_queries_reaching_realtive_accuracy(df)
     p4 = e2e_bias_average_relative_accuracy(df)
     p5 = e2e_rmsre_accuracy(df)
+
     if save_dir:
         advertiser = df["destination"].unique()[0]
         p1.write_image(
@@ -556,6 +540,39 @@ def plot_null_reports_analysis(
     iplot(p3)
     iplot(p4)
     iplot(p5)
+
+def plot_cdf_accuracy(
+    df: pd.DataFrame, workload_size: int, save_dir: str | None = None
+):
+
+    # print(dff)
+    def e2e_rmsre_accuracy_ecdf(df):
+        fig = px.ecdf(
+            df,
+            y="rmse_accuracy",
+            color="baseline",
+            title=f"e2e_rmsre_accuracy cdf",
+            width=1100,
+            height=600,
+            # range_y=[0.1, 1.2],
+            # range_x=[0, 1],
+            orientation='h',
+            log_y=True,
+            facet_col="destination",
+            category_orders={
+                "baseline": CUSTOM_ORDER_BASELINES,
+            },
+        )
+        return fig
+    dff = df.query("requested_workload_size == @workload_size")
+    dff = dff[["destination", "baseline", "rmse_accuracy"]]
+    dff = dff.explode("rmse_accuracy")
+    dff = dff.sort_values(["rmse_accuracy"])
+    # print(dff["rmse_accuracy"].values)
+    p1 = e2e_rmsre_accuracy_ecdf(dff)
+    iplot(p1)
+
+
 
 if __name__ == "__main__":
     path = "ray/synthetic/budget_consumption_varying_conversions_rate"

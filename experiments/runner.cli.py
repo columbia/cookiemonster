@@ -214,8 +214,8 @@ def patcg_bias_vary_workload_size(ray_session_dir):
     dataset = "patcg"
     logs_dir = f"{dataset}/bias_varying_workload_size"
 
-    impressions_path = f"{dataset}/v2_{dataset}_impressions.csv"
-    conversions_path = f"{dataset}/v2_{dataset}_conversions.csv"
+    impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
+    conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
@@ -223,10 +223,10 @@ def patcg_bias_vary_workload_size(ray_session_dir):
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
         "num_days_per_epoch": [7],
-        "num_days_attribution_window": 30,
-        "workload_size": [30],
-        "max_scheduling_batch_size_per_query": 808025,
-        "min_scheduling_batch_size_per_query": 750000,
+        "num_days_attribution_window": 7,
+        "workload_size": [1, 10, 20, 40, 60, 80],
+        "max_scheduling_batch_size_per_query": 303009,
+        "min_scheduling_batch_size_per_query": 280000,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
