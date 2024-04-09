@@ -32,6 +32,7 @@ class User:
         self.logging_keys = config.logs.logging_keys
         self.filters_per_origin: Dict[str, BudgetAccountant] = {}
         self.impressions: Dict[int, List[Impression]] = {}
+        self.initial_budget = float(self.config.initial_budget)
 
     def process_event(
         self, event: Union[Impression, Conversion]
@@ -94,7 +95,7 @@ class User:
                     self.filters_per_origin,
                     conversion.destination,
                     partition.epochs_window,
-                    float(self.config.initial_budget),
+                    self.initial_budget
                 )
 
                 # Compute the required budget and the epochs to pay depending on the baseline
@@ -122,9 +123,8 @@ class User:
                         epochs_to_pay = []
                         (x, y) = partition.epochs_window
                         for epoch in range(x, y + 1):
-
                             if not origin_filters.can_run(
-                                epoch, BasicBudget(budget_required)
+                                epoch, budget_required
                             ):
                                 # Delete epoch from partition so that it will be ignored upon report creation, won't be added to epochs_to_pay either
                                 if epoch in partition.impressions_per_epoch:

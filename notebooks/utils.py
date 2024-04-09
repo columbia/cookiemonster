@@ -267,6 +267,7 @@ def plot_budget_consumption_lines(df, facet_row=None):
             width=1100,
             height=1200,
             markers=True,
+            # log_y=True,
             facet_col="destination",
             facet_row=facet_row,
             category_orders=category_orders,
@@ -284,6 +285,7 @@ def plot_budget_consumption_lines(df, facet_row=None):
             width=1100,
             height=1200,
             markers=True,
+            # log_y=True,
             facet_col="destination",
             facet_row=facet_row,
             category_orders=category_orders,
@@ -301,6 +303,7 @@ def plot_budget_consumption_lines(df, facet_row=None):
             width=1100,
             height=1200,
             markers=True,
+            # log_y=True,
             facet_col="destination",
             facet_row=facet_row,
             category_orders=category_orders,
@@ -318,21 +321,22 @@ def plot_budget_consumption_lines(df, facet_row=None):
             width=1100,
             height=1200,
             markers=True,
+            # log_y=True,
             facet_col="destination",
             facet_row=facet_row,
             category_orders=category_orders,
         )
         return fig
 
-    pio.show(max_max_budget(df), renderer="png", include_plotlyjs=False)
-    pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
-    pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
-    pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
+    # pio.show(max_max_budget(df), renderer="png", include_plotlyjs=False)
+    # pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
+    # pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
+    # pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
 
-    # iplot(max_max_budget(df))
+    iplot(max_max_budget(df))
     # iplot(max_avg_budget(df))
     # iplot(avg_max_budget(df))
-    # iplot(avg_avg_budget(df))
+    iplot(avg_avg_budget(df))
 
 
 def plot_budget_consumption_bars(df, x_axis="knob1"):
@@ -364,6 +368,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
             title=f"Cumulative Budget Consumption",
             width=1100,
             height=400,
+            log_y=True,
             barmode="group",
             facet_col="destination",
             # facet_row=facet_row,
@@ -380,6 +385,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
             title=f"Cumulative Budget Consumption",
             width=1100,
             height=400,
+            log_y=True,
             barmode="group",
             facet_col="destination",
             # facet_row=facet_row,
@@ -396,6 +402,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
             title=f"Cumulative Budget Consumption",
             width=1100,
             height=400,
+            log_y=True,
             barmode="group",
             facet_col="destination",
             # facet_row=facet_row,
@@ -412,19 +419,22 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
             title=f"Cumulative Budget Consumption",
             width=1100,
             height=400,
+            log_y=True,
             barmode="group",
             facet_col="destination",
             category_orders=category_orders,
         )
         return fig
 
-    pio.show(max_max_budget(df), renderer="png", include_plotlyjs=False)
-    pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
-    pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
-    pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
+    # pio.show(max_max_budget(df), renderer="png", include_plotlyjs=False)
+    # pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
+    # pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
+    # pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
 
-    # iplot(max_budget(df))
-    # iplot(avg_budget(df))
+    iplot(max_max_budget(df))
+    # iplot(max_avg_budget(df))
+    # iplot(avg_max_budget(df))
+    iplot(avg_avg_budget(df))
 
 
 def plot_null_reports_analysis(

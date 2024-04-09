@@ -158,7 +158,7 @@ def create_microbenchmark(config: OmegaConf):
     # Set epsilons
     def _set_epsilon():
         [a, b] = config.accuracy
-        expected_result = 2500 # 500 * 5
+        expected_result = config.scheduled_batch_size * 5 # 500 * 5
         epsilon = config.cap_value * math.log(1 / b) / (a * expected_result)
         return epsilon
 

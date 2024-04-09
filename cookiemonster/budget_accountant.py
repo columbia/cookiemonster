@@ -6,9 +6,9 @@ kOk = "OK"
 kInsufficientBudgetError = "InsufficientBudgetError"
 
 
-class BudgetAccountantKey:
-    def __init__(self, block):
-        self.key = f"{block}"
+# class BudgetAccountantKey:
+#     def __init__(self, block):
+#         self.key = f"{block}"
 
 
 class BudgetAccountantResult:
@@ -30,25 +30,22 @@ class BudgetAccountant:
         return len(self.filter.keys())
 
     def update_block_budget(self, block, budget):
-        key = BudgetAccountantKey(block).key
         # Add budget in the key value store
-        self.filter[key] = budget
+        self.filter[block] = budget
 
     def get_block_budget(self, block):
         """Returns the remaining budget of block"""
-        key = BudgetAccountantKey(block).key
-        if key in self.filter:
-            return self.filter[key]
+        if block in self.filter:
+            return self.filter[block]
         # logger.info(f"Block {block} does not exist")
         return None
 
     def get_all_block_budgets(self):
-        return {block: budget.epsilon for block, budget in self.filter.items()}
+        return {block: budget for block, budget in self.filter.items()}
 
     def add_new_block_budget(self, block, initial_budget):
         assert block not in self.filter
-        budget = BasicBudget(initial_budget)
-        self.update_block_budget(block, budget)
+        self.update_block_budget(block, initial_budget)
 
     def can_run(self, blocks: Union[int, List[int], Tuple[int, int]], run_budget):
         if isinstance(blocks, int):
@@ -58,7 +55,7 @@ class BudgetAccountant:
 
         for block in blocks:
             budget = self.get_block_budget(block)
-            if not budget.can_allocate(run_budget):
+            if budget < run_budget:
                 return False
         return True
 
@@ -78,13 +75,13 @@ class BudgetAccountant:
         # Check if all blocks have enough remaining budget
         for block in blocks:
             # Check if epoch has enough budget
-            if not self.can_run(block, BasicBudget(epsilon)):
+            if not self.can_run(block, epsilon):
                 return BudgetAccountantResult(kInsufficientBudgetError, math.inf)
 
         # Consume budget from all blocks
         budgets_consumed = {}
         for block in blocks:
-            self.consume_block_budget(block, BasicBudget(epsilon))
+            self.consume_block_budget(block, epsilon)
             budgets_consumed[block] = epsilon
             # total_budget_consumed += epsilon
 
@@ -103,7 +100,7 @@ class BudgetAccountant:
 
     def dump(self):
         budgets = [
-            (block, budget.dump()) for (block, budget) in self.get_all_block_budgets()
+            (block, budget) for (block, budget) in self.get_all_block_budgets()
         ]
         return budgets
 

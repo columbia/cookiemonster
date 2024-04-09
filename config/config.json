@@ -1,15 +1,15 @@
 {
     "user": {
         "sensitivity_metric": "L1",
-        "baseline": "cookiemonster",
+        "baseline": "user_epoch_ara",
         "initial_budget": 1
     },
     "dataset": {
         "name": "patcg",
-        "impressions_path": "data/patcg/v2_patcg_impressions.csv",
-        "conversions_path": "data/patcg/v2_patcg_conversions.csv",
-        "num_days_per_epoch": 7,
-        "num_days_attribution_window": 30,
+        "impressions_path": "data/patcg/v375_patcg_impressions.csv",
+        "conversions_path": "data/patcg/v375_patcg_conversions.csv",
+        "num_days_per_epoch": 1,
+        "num_days_attribution_window": 7,
         "workload_size": 1
     },
     "logs": {
@@ -19,12 +19,12 @@
         "mlflow": true,
         "mlflow_experiment_id": "",
         "loguru_level": "INFO",
-        "logging_keys": ["budget"]
+        "logging_keys": ["query_results"]
     },
     "aggregation_service": "local_laplacian",
     "aggregation_policy": {
         "type": "count_conversion_policy",
-        "max_interval": 808025,
-        "min_interval": 750000
+        "max_interval": 303009,
+        "min_interval": 280000
     }
 }

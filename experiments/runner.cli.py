@@ -26,7 +26,7 @@ def get_path(path_base, knob1, knob2):
 
 def microbenchmark_budget_consumption_vary_knob1(ray_session_dir):
     dataset = "microbenchmark"
-    logs_dir = f"{dataset}/budget_consumption_varying_knob1"
+    logs_dir = f"{dataset}/budget_consumption_varying_knob1_1000"
 
     experiments = []
 
@@ -42,8 +42,8 @@ def microbenchmark_budget_consumption_vary_knob1(ray_session_dir):
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,
         "workload_size": [5],
-        "min_scheduling_batch_size_per_query": 500,
-        "max_scheduling_batch_size_per_query": 500,
+        "min_scheduling_batch_size_per_query": 1000,
+        "max_scheduling_batch_size_per_query": 1000,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
@@ -82,8 +82,8 @@ def microbenchmark_budget_consumption_vary_knob2(ray_session_dir):
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,
         "workload_size": [5],
-        "min_scheduling_batch_size_per_query": 500,
-        "max_scheduling_batch_size_per_query": 500,
+        "min_scheduling_batch_size_per_query": 1000,
+        "max_scheduling_batch_size_per_query": 1000,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
@@ -219,7 +219,7 @@ def patcg_bias_vary_workload_size(ray_session_dir):
         "conversions_path": conversions_path,
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 7,
-        "workload_size": [1, 10, 20, 40, 60, 80],
+        "workload_size": [80],
         "max_scheduling_batch_size_per_query": 303009,
         "min_scheduling_batch_size_per_query": 280000,
         "initial_budget": [1],
@@ -233,33 +233,32 @@ def patcg_bias_vary_workload_size(ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-# def patcg_budget_consumption_vary_epoch_granularity(ray_session_dir):
-#     dataset = "patcg"
-#     logs_dir = f"{dataset}/budget_consumption_varying_epoch_granularity"
+def patcg_bias_vary_epoch_granularity(ray_session_dir):
+    dataset = "patcg"
+    logs_dir = f"{dataset}/bias_varying_epoch_granularity"
 
-#     impressions_path = f"{dataset}/{dataset}_impressions.csv"
-#     conversions_path = f"{dataset}/{dataset}_conversions.csv"
+    impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
+    conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
 
+    config = {
+        "baseline": ["user_epoch_ara", "cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [14], #, 7, 14, 21, 28],
+        "num_days_attribution_window": 7,
+        "workload_size": [80],
+         "max_scheduling_batch_size_per_query": 303009,
+        "min_scheduling_batch_size_per_query": 280000,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [QUERY_RESULTS],
+    }
 
-#     config = {
-#         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-#         "dataset_name": f"{dataset}",
-#         "impressions_path": impressions_path,
-#         "conversions_path": conversions_path,
-#         "num_days_per_epoch": [1, 7, 14, 21, 28],
-#         "num_days_attribution_window": 30,
-#         "workload_size": [10],
-#         "max_scheduling_batch_size_per_query": 18682297,
-#         "min_scheduling_batch_size_per_query": 11032925,
-#         "initial_budget": [1],
-#         "logs_dir": logs_dir,
-#         "loguru_level": "INFO",
-#         "ray_session_dir": ray_session_dir,
-#         "logging_keys": [BUDGET],
-#     }
-
-#     grid_run(**config)
-#     # analyze(f"ray/{logs_dir}")
+    grid_run(**config)
+    # analyze(f"ray/{logs_dir}")
 
 # def patcg_bias_vary_initial_budget(ray_session_dir):
 
