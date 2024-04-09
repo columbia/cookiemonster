@@ -5,7 +5,7 @@ from uuid import uuid4
 
 
 from data.criteo.creators.base_creator import BaseCreator, pd
-from data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
+from cookiemonster.epsilon_calculator import get_epsilon_for_high_probability_relative_error_wrt_avg_prior
 
 
 class QueryPoolDatasetCreator(BaseCreator):
@@ -168,7 +168,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         return impressions
 
     def _create_queries(
-        self, conversions: pd.DataFrame, max_purchase_counts: int
+        self, conversions: pd.DataFrame, max_purchase_counts: int, expected_average_purchase_counts: int
     ) -> pd.DataFrame:
 
         seen_users = set()
@@ -264,8 +264,12 @@ class QueryPoolDatasetCreator(BaseCreator):
         for batches in query_batches.values():
             for i, batch in enumerate(batches):
                 final_batch = batch.assign(
-                    epsilon=get_epsilon_from_accuracy_for_counts(
-                        batch.shape[0], max_purchase_counts
+                    epsilon=get_epsilon_for_high_probability_relative_error_wrt_avg_prior(
+                        sensitivity=max_purchase_counts,
+                        batch_size=batch.shape[0],
+                        expected_average_result=expected_average_purchase_counts,
+                        relative_error=0.05,
+                        failure_probability=0.01,
                     ),
                     aggregatable_cap_value=max_purchase_counts,
                     key=i,
@@ -303,6 +307,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         So, 5 seems like a reasonable cap value.
         """
         max_purchase_counts = 5
+        expected_average_purchase_counts = 2
 
         conversions = conversions.assign(
             count=conversions.apply(
@@ -318,7 +323,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
         )
         conversions = conversions.drop(columns=self.conversion_columns_to_drop)
-        conversions = self._create_queries(conversions, max_purchase_counts)
+        conversions = self._create_queries(conversions, max_purchase_counts, expected_average_purchase_counts)
 
         self.log_query_epsilons(conversions)
 
