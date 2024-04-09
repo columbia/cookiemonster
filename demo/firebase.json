@@ -1,7 +1,7 @@
 {
   "hosting": [
     {
-      "site": "arapi-home",
+      "site": "home",
       "public": "sites/home",
       "ignore": [
         "firebase.json",
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "site": "arapi-adtech",
+      "site": "adtech",
       "public": "sites/adtech",
       "ignore": [
         "firebase.json",
@@ -35,7 +35,7 @@
       ]
     },
     {
-      "site": "arapi-advertiser",
+      "site": "advertiser",
       "public": "sites/advertiser",
       "ignore": [
         "firebase.json",
@@ -50,7 +50,7 @@
       ]
     },
     {
-      "site": "arapi-publisher",
+      "site": "publisher",
       "public": "sites/publisher",
       "ignore": [
         "firebase.json",
