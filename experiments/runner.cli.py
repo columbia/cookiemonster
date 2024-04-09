@@ -173,8 +173,8 @@ def criteo_bias_vary_workload_size(ray_session_dir):
     """
     Varying Workload methodology:
       1. Generate conversions for the largest 6 advertisers (advertisers with the most queries in their query pool)
-    * 2. Run the varying workload with initial budget set to 1 across workload sizes of 5, 10, 15, 20, 25, 30.
-      3. Run the varying workload with initial budget set to 1 across workload sizes of 35, 40, 45, 50.
+      2. Run the varying workload with initial budget set to 1 across workload sizes of 5, 10, 15, 20, 25, 30.
+    * 3. Run the varying workload with initial budget set to 1 across workload sizes of 35, 40, 45, 50.
     """
 
     dataset = "criteo"
@@ -190,7 +190,7 @@ def criteo_bias_vary_workload_size(ray_session_dir):
         "conversions_path": conversions_path,
         "num_days_per_epoch": [7],
         "num_days_attribution_window": 30,
-        "workload_size": [5, 10, 15, 20, 25, 30],
+        "workload_size": [35, 40, 45, 50],
         "max_scheduling_batch_size_per_query": 5_000,
         "min_scheduling_batch_size_per_query": 1_500,
         "initial_budget": [1],

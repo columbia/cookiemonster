@@ -148,6 +148,8 @@ def get_bias_logs(row, results, i, **kwargs):
             true_sum = log["true_output"]
             biased_sum = log["aggregation_output"]
             sum_with_dp = log["aggregation_noisy_output"]
+            sensitivity = log["sensitivity"]
+            epsilon = log["epsilon"]
 
             # NULL REPORT BIAS ANALYSIS
             if math.isnan(biased_sum):
@@ -173,7 +175,7 @@ def get_bias_logs(row, results, i, **kwargs):
             if math.isnan(sum_with_dp):
                 e2e_rmsre.relative_accuracies.append(0)
             else:
-                x = abs(true_sum - biased_sum) ** 2 + 2 * (row["sensitivity"] ** 2) / (row["epsilon"] ** 2)
+                x = abs(true_sum - sum_with_dp) ** 2 + 2 * (sensitivity ** 2) / (epsilon ** 2)
                 y = true_sum ** 2
                 e2e_rmsre.relative_accuracies.append(1 - math.sqrt(x / y))
 
