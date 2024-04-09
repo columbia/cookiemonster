@@ -182,6 +182,8 @@ class Evaluation:
                         None,
                         None,
                         None,
+                        batch.global_epsilon,
+                        batch.global_sensitivity,
                     )
                 logger.info(colored(f"IPA can't run query", "red"))
                 return
@@ -205,6 +207,8 @@ class Evaluation:
                 aggregation_result.true_output,
                 aggregation_result.aggregation_output,
                 aggregation_result.aggregation_noisy_output,
+                batch.global_epsilon,
+                batch.global_sensitivity,
             )
 
 

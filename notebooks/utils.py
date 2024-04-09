@@ -124,6 +124,8 @@ def get_bias_logs(row, results, i, **kwargs):
             "true_output",
             "aggregation_output",
             "aggregation_noisy_output",
+            "epsilon",
+            "sensitivity"
         ],
     )
 
@@ -135,6 +137,7 @@ def get_bias_logs(row, results, i, **kwargs):
 
         null_report_bias = Bias()
         e2e_bias = Bias()
+        e2e_rmsre = Bias()
 
         for _, log in destination_df.iterrows():
             true_sum = log["true_output"]
@@ -161,6 +164,14 @@ def get_bias_logs(row, results, i, **kwargs):
                 e2e_bias.count += relative_accuracy >= t
                 e2e_bias.relative_accuracies.append(relative_accuracy)
 
+            # E2E RMSE ANALYSIS
+            if math.isnan(sum_with_dp):
+                e2e_rmsre.relative_accuracies.append(0)
+            else:
+                x = abs(true_sum - biased_sum) ** 2 + 2 * (row["sensitivity"] ** 2) / (row["epsilon"] ** 2)
+                y = true_sum ** 2
+                e2e_rmsre.relative_accuracies.append(1 - math.sqrt(x / y))
+
         baseline = row["baseline"]
         num_days_per_epoch = row["num_days_per_epoch"]
         initial_budget = row["config"]["user"]["initial_budget"]
@@ -181,6 +192,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 / workload_size,
                 "e2e_bias_average_relative_accuracy": sum(e2e_bias.relative_accuracies)
                 / len(e2e_bias.relative_accuracies),
+                "e2e_rmsre_accuracy": sum(e2e_rmsre.relative_accuracies) / len(e2e_rmsre.relative_accuracies),
                 "baseline": baseline,
                 "num_days_per_epoch": num_days_per_epoch,
                 "initial_budget": float(initial_budget),
@@ -426,7 +438,7 @@ def plot_null_reports_analysis(
             width=1100,
             height=600,
             markers=True,
-            range_y=[0, 1.2],
+            # range_y=[0, 1.2],
             facet_col="destination",
             category_orders={
                 "baseline": CUSTOM_ORDER_BASELINES,
@@ -444,14 +456,32 @@ def plot_null_reports_analysis(
             width=1100,
             height=600,
             markers=True,
-            range_y=[0, 1.2],
+            # range_y=[0, 1.2],
             facet_col="destination",
             category_orders={
                 "baseline": CUSTOM_ORDER_BASELINES,
             },
         )
         return fig
-    
+
+    # def fraction_queries_reaching_rmse(df):
+    #     fig = px.line(
+    #         df,
+    #         x=x_axis,
+    #         y="fraction_queries_relatively_accurate_e2e",
+    #         color="baseline",
+    #         title=f"fraction_queries_relatively_accurate_e2e",
+    #         width=1100,
+    #         height=600,
+    #         markers=True,
+    #         # range_y=[0, 1.2],
+    #         facet_col="destination",
+    #         category_orders={
+    #             "baseline": CUSTOM_ORDER_BASELINES,
+    #         },
+    #     )
+    #     return fig
+
     def null_bias_average_relative_accuracy(df):
         fig = px.line(
             df,
@@ -462,7 +492,7 @@ def plot_null_reports_analysis(
             width=1100,
             height=600,
             markers=True,
-            range_y=[0, 1.2],
+            # range_y=[0, 1.2],
             facet_col="destination",
             category_orders={
                 "baseline": CUSTOM_ORDER_BASELINES,
@@ -480,7 +510,25 @@ def plot_null_reports_analysis(
             width=1100,
             height=600,
             markers=True,
-            range_y=[0, 1.2],
+            # range_y=[0, 1.2],
+            facet_col="destination",
+            category_orders={
+                "baseline": CUSTOM_ORDER_BASELINES,
+            },
+        )
+        return fig
+
+    def e2e_rmsre_accuracy(df):
+        fig = px.line(
+            df,
+            x=x_axis,
+            y="e2e_rmsre_accuracy",
+            color="baseline",
+            title=f"e2e_rmsre_accuracy",
+            width=1100,
+            height=600,
+            markers=True,
+            # range_y=[0, 1.2],
             facet_col="destination",
             category_orders={
                 "baseline": CUSTOM_ORDER_BASELINES,
@@ -492,6 +540,7 @@ def plot_null_reports_analysis(
     p2 = null_bias_average_relative_accuracy(df)
     p3 = fraction_queries_reaching_realtive_accuracy(df)
     p4 = e2e_bias_average_relative_accuracy(df)
+    p5 = e2e_rmsre_accuracy(df)
     if save_dir:
         advertiser = df["destination"].unique()[0]
         p1.write_image(
@@ -502,9 +551,10 @@ def plot_null_reports_analysis(
         )
 
     iplot(p1)
-    iplot(p3)
     iplot(p2)
+    iplot(p3)
     iplot(p4)
+    iplot(p5)
 
 if __name__ == "__main__":
     path = "ray/synthetic/budget_consumption_varying_conversions_rate"
