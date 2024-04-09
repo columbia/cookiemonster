@@ -196,7 +196,8 @@ def get_bias_logs(row, results, i, **kwargs):
                 "baseline": baseline,
                 "num_days_per_epoch": num_days_per_epoch,
                 "initial_budget": float(initial_budget),
-                "relative_accuracy": e2e_bias.relative_accuracies,
+                "e2e_bias_relative_accuracies": e2e_bias.relative_accuracies,
+                "null_report_bias_relative_accuracies": null_report_bias.relative_accuracies,
             }
         )
     results[i] = pd.DataFrame.from_records(records)
