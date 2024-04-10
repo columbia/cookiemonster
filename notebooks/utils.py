@@ -177,7 +177,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 e2e_bias.count += relative_accuracy >= t
                 e2e_bias.relative_accuracies.append(relative_accuracy)
 
-            # E2E RMSE ANALYSIS
+            # E2E RMSRE ANALYSIS
             if math.isnan(biased_sum):
                 e2e_rmsre.relative_accuracies.append(0)
             else:
@@ -206,7 +206,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 "initial_budget": float(initial_budget),
                 "e2e_bias_relative_accuracies": e2e_bias.relative_accuracies,
                 "null_report_bias_relative_accuracies": null_report_bias.relative_accuracies,
-                "rmse_accuracies": e2e_rmsre.relative_accuracies,
+                "rmsre_accuracies": e2e_rmsre.relative_accuracies,
                 "num_days_attribution_window": num_days_attribution_window,
                 "attribution_window": attribution_window
             }
@@ -541,57 +541,61 @@ def plot_null_reports_analysis(
         )
         return fig
 
-    p1 = fraction_queries_without_null_reports(df)
-    p2 = null_bias_average_relative_accuracy(df)
-    p3 = fraction_queries_reaching_realtive_accuracy(df)
-    p4 = e2e_bias_average_relative_accuracy(df)
-    p5 = e2e_rmsre_accuracy(df)
+    plots = [
+        (fraction_queries_without_null_reports, "fraction_queries_without_null_reports"),
+        (null_bias_average_relative_accuracy, "null_bias_average_relative_accuracy"),
+        (fraction_queries_reaching_realtive_accuracy, "fraction_queries_reaching_realtive_accuracy"),
+        (e2e_bias_average_relative_accuracy, "e2e_bias_average_relative_accuracy"),
+        (e2e_rmsre_accuracy, "e2e_rmsre_accuracy"),
+    ]
 
-    if save_dir:
-        advertiser = df["destination"].unique()[0]
-        p1.write_image(
-            f"{save_dir}/{advertiser}_null_report_bias_fraction_queries.png"
-        )
-        p2.write_image(
-            f"{save_dir}/{advertiser}_null_report_biase_average_relative_accuracy.png"
-        )
+    for plot, name in plots:
+        fig = plot(df)
+        if save_dir:
+            fig.write_image(f"{save_dir}/{name}.png")
+        iplot(fig)
 
-    iplot(p1)
-    iplot(p2)
-    iplot(p3)
-    iplot(p4)
-    iplot(p5)
 
 def plot_cdf_accuracy(
-    df: pd.DataFrame, workload_size: int, save_dir: str | None = None
+    df: pd.DataFrame,
+    workload_size: int = 0,
+    epoch_size: int = 0,
+    by_destination = True,
+    log_y: bool = True,
+    category_orders: dict = {},
 ):
 
-    # print(dff)
     def e2e_rmsre_accuracy_ecdf(df):
+        focus = f"workload size {workload_size}" if workload_size else f"epoch size {epoch_size}"
         fig = px.ecdf(
             df,
-            y="rmse_accuracies",
+            y="rmsre_accuracies",
             color="baseline",
-            title=f"e2e_rmsre_accuracy cdf",
+            title=f"CDF for E2E RMSRE Relative Accuracy ({focus})",
             width=1100,
             height=600,
-            # range_y=[0.1, 1.2],
-            # range_x=[0, 1],
             orientation='h',
-            log_y=True,
-            facet_col="destination",
+            log_y=log_y,
+            facet_col="destination" if by_destination else None,
             category_orders={
                 "baseline": CUSTOM_ORDER_BASELINES,
+                **category_orders,
             },
         )
+        fig.update_layout(
+            yaxis_title="rmsre relative accuracy",
+        )
         return fig
-    dff = df.query("requested_workload_size == @workload_size")
-    dff = dff[["destination", "baseline", "rmse_accuracies"]]
-    dff = dff.explode("rmse_accuracies")
-    dff = dff.sort_values(["rmse_accuracies"])
-    # print(dff["rmse_accuracy"].values)
+    if workload_size:
+        dff = df.query("requested_workload_size == @workload_size")
+    if epoch_size:
+        dff = df.query("num_days_per_epoch == @epoch_size")
+    dff = dff[["destination", "baseline", "rmsre_accuracies"]]
+    dff = dff.explode("rmsre_accuracies")
+    dff = dff.sort_values(["rmsre_accuracies"])
     p1 = e2e_rmsre_accuracy_ecdf(dff)
     iplot(p1)
+    return p1
 
 
 
