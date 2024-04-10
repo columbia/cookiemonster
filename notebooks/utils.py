@@ -153,10 +153,6 @@ def get_bias_logs(row, results, i, **kwargs):
             sensitivity = log["sensitivity"]
             epsilon = log["epsilon"]
 
-            if not true_sum:
-                print(f"0 sum for {destination}, {log['query_id']}")
-                continue
-
             # NULL REPORT BIAS ANALYSIS
             if math.isnan(biased_sum):
                 null_report_bias.relative_accuracies.append(0)
@@ -602,88 +598,3 @@ def plot_cdf_accuracy(
 if __name__ == "__main__":
     path = "ray/synthetic/budget_consumption_varying_conversions_rate"
     df = analyze_results(path, type="budget", parallelize=False)
-
-
-# def get_microbenchmark_budget_logs(row, results, i, **kwargs):
-#     scheduling_timestamps = [
-#         timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
-#     ]
-
-#     # Obtain conversions and impressions rate from dataset paths
-#     pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
-#     match = re.search(pattern, row["config"]["dataset"]["impressions_path"])
-#     if match:
-#         knob1 = match.group(1)
-#         knob2 = match.group(2)
-#     else:
-#         raise ValueError("Could not find conversion and impression rates in path")
-
-#     # Find the epochs "touched" in this experiment
-#     per_destination_touched_epochs = {}
-#     for [destination, epoch_min, epoch_max] in row["logs"]["epoch_range"]:
-#         if destination not in per_destination_touched_epochs:
-#             per_destination_touched_epochs[destination] = (math.inf, 0)
-
-#         epoch_range = per_destination_touched_epochs[destination]
-#         per_destination_touched_epochs[destination] = (
-#             min(epoch_range[0], epoch_min),
-#             max(epoch_range[1], epoch_max),
-#         )
-
-#     logs = row["logs"]["budget"]
-#     df = pd.DataFrame.from_records(
-#         logs,
-#         columns=[
-#             "timestamp",
-#             "destination",
-#             "user",
-#             "budget_consumed",
-#             "status",
-#         ],
-#     )
-
-#     records = []
-#     for destination, destination_df in df.groupby(["destination"]):
-
-#         # Find the users "touched" in this experiment
-#         num_touched_users = destination_df["user"].nunique()
-#         max_user_id = int(destination_df["user"].max()) + 1
-#         epoch_range = per_destination_touched_epochs[destination[0]]
-#         num_touched_epochs = epoch_range[1] - epoch_range[0] + 1
-#         max_epoch_index = epoch_range[1] + 1
-
-#         # Array bigger than the size of touched users but extra users are zeroed so they will be ignored
-#         users_epochs = np.zeros((max_user_id, max_epoch_index))
-
-#         for _, log in destination_df.iterrows():
-#             user = int(log["user"])
-#             budget_per_epoch = log["budget_consumed"]
-#             for epoch, budget_consumed in budget_per_epoch.items():
-#                 assert budget_consumed != math.inf and budget_consumed != float('inf') and budget_consumed != 'inf'
-#                 users_epochs[user][int(epoch)] += budget_consumed
-
-#             if log["timestamp"] in scheduling_timestamps:
-#                 sum_across_epochs = np.sum(users_epochs, axis=1)
-
-#                 records.append(
-#                     {
-#                         "destination": destination[0],
-#                         "num_reports": log["timestamp"],
-#                         "max_avg_budget": np.max(
-#                             sum_across_epochs / num_touched_epochs
-#                         ),
-#                         "max_max_budget": np.max(users_epochs),
-#                         "avg_max_budget": np.sum(np.max(users_epochs, axis=0))
-#                         / num_touched_epochs,
-#                         "avg_avg_budget": np.sum(sum_across_epochs)
-#                         / (num_touched_epochs * num_touched_users),
-#                         "status": log["status"],
-#                         "baseline": row["baseline"],
-#                         "num_days_per_epoch": row["num_days_per_epoch"],
-#                         "knob1": knob1,
-#                         "knob2": knob2,
-#                     }
-#                 )
-#     rdf = pd.DataFrame.from_records(records).reset_index(names="queries_ran")
-#     rdf["queries_ran"] += 1
-#     results[i] = rdf
