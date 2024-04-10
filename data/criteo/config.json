@@ -3,12 +3,11 @@
     "max_conversions_required_for_dp": 450,
     "min_conversions_required_for_dp": 300,
     "estimated_conversion_rate": 0.08,
+    "_comment": "advertisers sorted in decreasing order of multiconverter rates",
     "advertiser_filter": [
-        "E3DDEB04F8AFF944B11943BB57D2F620",
-        "F122B91F6D102E4630817566839A4F1F",
-        "9FF550C0B17A3C493378CB6E2DEEE6E4",
-        "9D9E93D1D461D7BAE47FB67EC0E01B62",
         "319A2412BDB0EF669733053640B80112",
-        "51EBAAC05E372CBCDF0F207517A225AB"
+        "F122B91F6D102E4630817566839A4F1F",
+        "9D9E93D1D461D7BAE47FB67EC0E01B62",
+        "9FF550C0B17A3C493378CB6E2DEEE6E4"
     ]
 }
