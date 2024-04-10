@@ -203,7 +203,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 / workload_size,
                 "e2e_bias_average_relative_accuracy": sum(e2e_bias.values)
                 / len(e2e_bias.values),
-                # "e2e_rmsre_accuracy": sum(e2e_rmsre.values) / len(e2e_rmsre.values),
+                "e2e_avg_rmsre": sum(e2e_rmsre.values) / len(e2e_rmsre.values),
                 "baseline": baseline,
                 "num_days_per_epoch": num_days_per_epoch,
                 "initial_budget": float(initial_budget),
@@ -525,13 +525,15 @@ def plot_null_reports_analysis(
         )
         return fig
 
-    def e2e_rmsre_accuracy(df):
+    def e2e_avg_rmsre(df):
+        max_ = df["e2e_avg_rmsre"].max() * 1.5
+        df = df.fillna({"e2e_avg_rmsre": max_})
         fig = px.line(
             df,
             x=x_axis,
-            y="e2e_rmsre_accuracy",
+            y="e2e_avg_rmsre",
             color="baseline",
-            title=f"e2e_rmsre_accuracy",
+            title=f"e2e_avg_rmsre",
             width=1100,
             height=600,
             markers=True,
@@ -548,7 +550,7 @@ def plot_null_reports_analysis(
         (null_bias_average_relative_accuracy, "null_bias_average_relative_accuracy"),
         (fraction_queries_reaching_realtive_accuracy, "fraction_queries_reaching_realtive_accuracy"),
         (e2e_bias_average_relative_accuracy, "e2e_bias_average_relative_accuracy"),
-        (e2e_rmsre_accuracy, "e2e_rmsre_accuracy"),
+        (e2e_avg_rmsre, "e2e_avg_rmsre"),
     ]
 
     for plot, name in plots:
