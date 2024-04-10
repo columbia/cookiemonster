@@ -139,7 +139,7 @@ def get_bias_logs(row, results, i, **kwargs):
     t = kwargs.get("t", 0.95)
     for destination, destination_df in df.groupby(["destination"]):
 
-        workload_size = len(destination_df[destination_df.true_output > 0])
+        workload_size = len(destination_df)
 
         null_report_bias = Bias()
         e2e_bias = Bias()
@@ -176,7 +176,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 e2e_bias.count += relative_accuracy >= t
                 e2e_bias.relative_accuracies.append(relative_accuracy)
 
-            # E2E RMSE ANALYSIS
+            # E2E RMSRE ANALYSIS
             if math.isnan(biased_sum):
                 e2e_rmsre.relative_accuracies.append(0)
             else:
@@ -205,7 +205,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 "initial_budget": float(initial_budget),
                 "e2e_bias_relative_accuracies": e2e_bias.relative_accuracies,
                 "null_report_bias_relative_accuracies": null_report_bias.relative_accuracies,
-                "rmse_accuracies": e2e_rmsre.relative_accuracies,
+                "rmsre_accuracies": e2e_rmsre.relative_accuracies,
                 "num_days_attribution_window": num_days_attribution_window,
             }
         )
@@ -561,35 +561,45 @@ def plot_null_reports_analysis(
     iplot(p5)
 
 def plot_cdf_accuracy(
-    df: pd.DataFrame, workload_size: int, save_dir: str | None = None
+    df: pd.DataFrame,
+    workload_size: int = 0,
+    epoch_size: int = 0,
+    by_destination = True,
+    log_y: bool = True,
+    category_orders: dict = {},
 ):
 
-    # print(dff)
     def e2e_rmsre_accuracy_ecdf(df):
+        focus = f"workload size {workload_size}" if workload_size else f"epoch size {epoch_size}"
         fig = px.ecdf(
             df,
-            y="rmse_accuracies",
+            y="rmsre_accuracies",
             color="baseline",
-            title=f"e2e_rmsre_accuracy cdf",
+            title=f"CDF for E2E RMSRE Relative Accuracy ({focus})",
             width=1100,
             height=600,
-            # range_y=[0.1, 1.2],
-            # range_x=[0, 1],
             orientation='h',
-            log_y=True,
-            facet_col="destination",
+            log_y=log_y,
+            facet_col="destination" if by_destination else None,
             category_orders={
                 "baseline": CUSTOM_ORDER_BASELINES,
+                **category_orders,
             },
         )
+        fig.update_layout(
+            yaxis_title="rmsre relative accuracy",
+        )
         return fig
-    dff = df.query("requested_workload_size == @workload_size")
-    dff = dff[["destination", "baseline", "rmse_accuracies"]]
-    dff = dff.explode("rmse_accuracies")
-    dff = dff.sort_values(["rmse_accuracies"])
-    # print(dff["rmse_accuracy"].values)
+    if workload_size:
+        dff = df.query("requested_workload_size == @workload_size")
+    if epoch_size:
+        dff = df.query("num_days_per_epoch == @epoch_size")
+    dff = dff[["destination", "baseline", "rmsre_accuracies"]]
+    dff = dff.explode("rmsre_accuracies")
+    dff = dff.sort_values(["rmsre_accuracies"])
     p1 = e2e_rmsre_accuracy_ecdf(dff)
     iplot(p1)
+    return p1
 
 
 
