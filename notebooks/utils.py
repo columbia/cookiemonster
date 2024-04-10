@@ -39,6 +39,9 @@ def get_budget_logs(row, results, i, **kwargs):
     if match:
         knob1 = match.group(1)
         knob2 = match.group(2)
+    else:
+        knob1 = ""
+        knob2 = ""
 
     # Find the epochs "touched" in this experiment
     per_destination_touched_epochs = {}
@@ -76,12 +79,12 @@ def get_budget_logs(row, results, i, **kwargs):
 
         for _, log in destination_df.iterrows():
             user = log["user"]
+            status = log["status"]
             budget_per_epoch = log["budget_consumed"]
-            for epoch, budget_consumed in budget_per_epoch.items():
-
-                if user not in users_epochs_dict:
-                    users_epochs_dict[user] = np.zeros(max_epoch_index)
-                if budget_consumed != math.inf and budget_consumed != "inf":
+            if status == "OK":
+                for epoch, budget_consumed in budget_per_epoch.items():
+                    if user not in users_epochs_dict:
+                        users_epochs_dict[user] = np.zeros(max_epoch_index)
                     users_epochs_dict[user][int(epoch)] += budget_consumed
 
             if log["timestamp"] in scheduling_timestamps:
