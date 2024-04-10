@@ -8,8 +8,8 @@
         "name": "patcg",
         "impressions_path": "data/patcg/v375_patcg_impressions.csv",
         "conversions_path": "data/patcg/v375_patcg_conversions.csv",
-        "num_days_per_epoch": 1,
-        "num_days_attribution_window": 7,
+        "num_days_per_epoch": 60,
+        "num_days_attribution_window": 30,
         "workload_size": 1
     },
     "logs": {
