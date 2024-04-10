@@ -13,14 +13,12 @@ class BaseCreator(ABC):
     impressions_file = os.path.join(
         os.path.dirname(__file__),
         "..",
-        "smaller_data",
         "publishers",
         "renamed_filtered_impressions.csv",
     )
     conversions_file = os.path.join(
         os.path.dirname(__file__),
         "..",
-        "smaller_data",
         "advertisers",
         "renamed_conversions.csv",
     )

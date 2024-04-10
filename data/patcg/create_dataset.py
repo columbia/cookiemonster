@@ -8,7 +8,7 @@ app = Typer()
 
 @app.command()
 def create_dataset(
-    datasettype: str = "query-pool", config: str = "data/patcg/config.json"
+    datasettype: str = "query-pool", config: str = "config.json"
 ):
     omegaconf = OmegaConf.load(config)
     dataset_creator = registered_dataset_creators.get(datasettype)

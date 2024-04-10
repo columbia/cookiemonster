@@ -54,7 +54,7 @@ class Evaluation:
             
             (user_id, event) = res
 
-            if i % 50000 == 0:
+            if i % 100000 == 0:
                 logger.info(colored(str(event), "blue"))
 
             if user_id not in self.users:

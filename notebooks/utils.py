@@ -120,6 +120,7 @@ def get_bias_logs(row, results, i, **kwargs):
     initial_budget = row["config"]["user"]["initial_budget"]
     num_days_attribution_window = row["config"]["dataset"]["num_days_attribution_window"]
     requested_workload_size = row["workload_size"]
+    attribution_window = row["config"]["dataset"]["num_days_attribution_window"]
 
     df = pd.DataFrame.from_records(
         logs,
@@ -139,7 +140,7 @@ def get_bias_logs(row, results, i, **kwargs):
     t = kwargs.get("t", 0.95)
     for destination, destination_df in df.groupby(["destination"]):
 
-        workload_size = len(destination_df[destination_df.true_output > 0])
+        workload_size = len(destination_df)
 
         null_report_bias = Bias()
         e2e_bias = Bias()
@@ -207,6 +208,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 "null_report_bias_relative_accuracies": null_report_bias.relative_accuracies,
                 "rmse_accuracies": e2e_rmsre.relative_accuracies,
                 "num_days_attribution_window": num_days_attribution_window,
+                "attribution_window": attribution_window
             }
         )
     results[i] = pd.DataFrame.from_records(records)
@@ -447,7 +449,7 @@ def plot_null_reports_analysis(
     df: pd.DataFrame, x_axis: str = "workload_size", save_dir: str | None = None
 ):
 
-    df = df.sort_values(["workload_size", "initial_budget"])
+    df = df.sort_values([x_axis, "initial_budget"])
 
     def fraction_queries_without_null_reports(df):
         fig = px.line(

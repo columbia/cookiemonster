@@ -16,7 +16,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.user_column_name = "device_id"
 
     def create_impressions(self, impressions: pd.DataFrame) -> pd.DataFrame:
-        impressions = impressions.drop(columns=["exp_attribute_2"])
         impressions = impressions[["exp_timestamp", "device_id"]]
         impressions = impressions.sort_values(by=["exp_timestamp"])
         impressions["filter"] = ""
