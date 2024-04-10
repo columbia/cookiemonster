@@ -177,9 +177,9 @@ def criteo_bias_varying_num_queries(ray_session_dir):
     """
 
     dataset = "criteo"
-    logs_dir = f"{dataset}/bias_varying_num_queries"
-    impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
-    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
+    logs_dir = f"{dataset}/top_multiconverters_bias_varying_num_queries"
+    impressions_path = f"{dataset}/{dataset}_query_pool_top_multiconverters_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_top_multiconverters_conversions.csv"
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
@@ -188,7 +188,7 @@ def criteo_bias_varying_num_queries(ray_session_dir):
         "conversions_path": conversions_path,
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
-        "workload_size": [75, 135, 225, 300, 375, 450], # num queries
+        "workload_size": [10, 20, 30, 40, 50], # [75, 135, 225, 300, 375, 450], # num queries
         "max_scheduling_batch_size_per_query": 450,
         "min_scheduling_batch_size_per_query": 300,
         "initial_budget": [1],
