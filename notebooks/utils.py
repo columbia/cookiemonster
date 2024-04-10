@@ -118,6 +118,7 @@ def get_bias_logs(row, results, i, **kwargs):
     baseline = row["baseline"]
     num_days_per_epoch = row["num_days_per_epoch"]
     initial_budget = row["config"]["user"]["initial_budget"]
+    num_days_attribution_window = row["config"]["dataset"]["num_days_attribution_window"]
     requested_workload_size = row["workload_size"]
 
     df = pd.DataFrame.from_records(
@@ -138,7 +139,7 @@ def get_bias_logs(row, results, i, **kwargs):
     t = kwargs.get("t", 0.95)
     for destination, destination_df in df.groupby(["destination"]):
 
-        workload_size = len(destination_df)
+        workload_size = len(destination_df[destination_df.true_output > 0])
 
         null_report_bias = Bias()
         e2e_bias = Bias()
@@ -150,6 +151,10 @@ def get_bias_logs(row, results, i, **kwargs):
             sum_with_dp = log["aggregation_noisy_output"]
             sensitivity = log["sensitivity"]
             epsilon = log["epsilon"]
+
+            if not true_sum:
+                print(f"0 sum for {destination}, {log['query_id']}")
+                continue
 
             # NULL REPORT BIAS ANALYSIS
             if math.isnan(biased_sum):
@@ -201,6 +206,7 @@ def get_bias_logs(row, results, i, **kwargs):
                 "e2e_bias_relative_accuracies": e2e_bias.relative_accuracies,
                 "null_report_bias_relative_accuracies": null_report_bias.relative_accuracies,
                 "rmse_accuracies": e2e_rmsre.relative_accuracies,
+                "num_days_attribution_window": num_days_attribution_window,
             }
         )
     results[i] = pd.DataFrame.from_records(records)
