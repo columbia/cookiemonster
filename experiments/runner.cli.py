@@ -169,18 +169,17 @@ def microbenchmark_bias_vary_workload_size(ray_session_dir):
 ## ----------------- CRITEO ----------------- ##
 
 
-def criteo_bias_vary_workload_size(ray_session_dir):
+def criteo_bias_varying_num_queries(ray_session_dir):
     """
     Varying Workload methodology:
       1. Generate conversions for the largest 6 advertisers (advertisers with the most queries in their query pool)
-    * 2. Run the varying workload with initial budget set to 1 across workload sizes of 280.
+      2. Run the varying workload varying the number of requested queries: [20, 40, 60, 80, 100, 120, 140]
     """
 
     dataset = "criteo"
-    cohort = "large"
-    logs_dir = f"{dataset}/{cohort}/bias_varying_workload_size"
-    impressions_path = f"{dataset}/{dataset}_query_pool_{cohort}_impressions.csv"
-    conversions_path = f"{dataset}/{dataset}_query_pool_{cohort}_conversions.csv"
+    logs_dir = f"{dataset}/bias_varying_num_queries"
+    impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
 
     config = {
         "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
@@ -188,15 +187,110 @@ def criteo_bias_vary_workload_size(ray_session_dir):
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
         "num_days_per_epoch": [7],
-        "num_days_attribution_window": [7, 14, 30, 90],
-        "workload_size": [320],
+        "num_days_attribution_window": [30],
+        "workload_size": [20, 40, 60, 80, 100, 120, 140], # num queries
         "max_scheduling_batch_size_per_query": 450,
         "min_scheduling_batch_size_per_query": 300,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
-        "logging_keys": [QUERY_RESULTS],
+        "logging_keys": [QUERY_RESULTS, BUDGET],
+    }
+
+    grid_run(**config)
+
+
+def criteo_bias_varying_epoch_size(ray_session_dir):
+    """
+    Varying Epoch methodology:
+    1. Generate conversions for the largest 6 advertisers (advertisers with the most queries in their query pool)
+    2. Run the varying workload varying the epoch sizes: [1, 7]
+    """
+    
+    dataset = "criteo"
+    logs_dir = f"{dataset}/bias_varying_epoch_size"
+    impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
+
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [1, 7],
+        "num_days_attribution_window": [30],
+        "workload_size": [100],
+        "max_scheduling_batch_size_per_query": 450,
+        "min_scheduling_batch_size_per_query": 300,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [QUERY_RESULTS, BUDGET],
+    }
+
+    grid_run(**config)
+
+def criteo_bias_varying_attribution_window_size(ray_session_dir):
+    """
+    Varying Epoch methodology:
+    1. Generate conversions for the largest 6 advertisers (advertisers with the most queries in their query pool)
+    2. Run the varying workload varying the attribution window sizes: [7, 30, 60, 90]
+    """
+    
+    dataset = "criteo"
+    logs_dir = f"{dataset}/bias_varying_attribution_window_size"
+    impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
+
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [7],
+        "num_days_attribution_window": [7, 30, 60, 90],
+        "workload_size": [100],
+        "max_scheduling_batch_size_per_query": 450,
+        "min_scheduling_batch_size_per_query": 300,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [QUERY_RESULTS, BUDGET],
+    }
+
+    grid_run(**config)
+
+
+def criteo_bias_varying_epoch_and_attribution_window_size(ray_session_dir):
+    """
+    Varying Epoch methodology:
+    1. Generate conversions for the largest 6 advertisers (advertisers with the most queries in their query pool)
+    2. Run the varying workload varying the attribution window sizes: [7, 30, 60, 90] and epoch sizes: [1, 7]
+    """
+    
+    dataset = "criteo"
+    logs_dir = f"{dataset}/bias_varying_epoch_and_attribution_window_size"
+    impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
+
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [1, 7],
+        "num_days_attribution_window": [7, 30, 60, 90],
+        "workload_size": [100],
+        "max_scheduling_batch_size_per_query": 450,
+        "min_scheduling_batch_size_per_query": 300,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [QUERY_RESULTS, BUDGET],
     }
 
     grid_run(**config)
