@@ -539,26 +539,20 @@ def plot_null_reports_analysis(
         )
         return fig
 
-    p1 = fraction_queries_without_null_reports(df)
-    p2 = null_bias_average_relative_accuracy(df)
-    p3 = fraction_queries_reaching_realtive_accuracy(df)
-    p4 = e2e_bias_average_relative_accuracy(df)
-    p5 = e2e_rmsre_accuracy(df)
+    plots = [
+        (fraction_queries_without_null_reports, "fraction_queries_without_null_reports"),
+        (null_bias_average_relative_accuracy, "null_bias_average_relative_accuracy"),
+        (fraction_queries_reaching_realtive_accuracy, "fraction_queries_reaching_realtive_accuracy"),
+        (e2e_bias_average_relative_accuracy, "e2e_bias_average_relative_accuracy"),
+        (e2e_rmsre_accuracy, "e2e_rmsre_accuracy"),
+    ]
 
-    if save_dir:
-        advertiser = df["destination"].unique()[0]
-        p1.write_image(
-            f"{save_dir}/{advertiser}_null_report_bias_fraction_queries.png"
-        )
-        p2.write_image(
-            f"{save_dir}/{advertiser}_null_report_biase_average_relative_accuracy.png"
-        )
+    for plot, name in plots:
+        fig = plot(df)
+        if save_dir:
+            fig.write_image(f"{save_dir}/{name}.png")
+        iplot(fig)
 
-    iplot(p1)
-    iplot(p2)
-    iplot(p3)
-    iplot(p4)
-    iplot(p5)
 
 def plot_cdf_accuracy(
     df: pd.DataFrame,
