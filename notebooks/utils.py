@@ -9,14 +9,17 @@ from cookiemonster.utils import LOGS_PATH
 from multiprocessing import Manager, Process
 from experiments.ray.analysis import load_ray_experiment
 
+pd.set_option('future.no_silent_downcasting', True)
+
 CUSTOM_ORDER_BASELINES = ["ipa", "user_epoch_ara", "cookiemonster"]
 CUSTOM_ORDER_RATES = ["0.001", "0.01", "0.1", "1.0"]
 
 
 class Bias:
     def __init__(self) -> None:
-        self.relative_accuracies = []
+        self.values = []
         self.count = 0
+        self.undefined_errors_counter = 0
 
 
 def get_df(path):
@@ -120,7 +123,6 @@ def get_bias_logs(row, results, i, **kwargs):
     initial_budget = row["config"]["user"]["initial_budget"]
     num_days_attribution_window = row["config"]["dataset"]["num_days_attribution_window"]
     requested_workload_size = row["workload_size"]
-    attribution_window = row["config"]["dataset"]["num_days_attribution_window"]
 
     df = pd.DataFrame.from_records(
         logs,
@@ -155,32 +157,34 @@ def get_bias_logs(row, results, i, **kwargs):
 
             # NULL REPORT BIAS ANALYSIS
             if math.isnan(biased_sum):
-                null_report_bias.relative_accuracies.append(0)
+                null_report_bias.values.append(0)
             else:
                 null_report_bias_error = abs(true_sum - biased_sum)
                 relative_accuracy = 1 - (null_report_bias_error / true_sum)
 
                 null_report_bias.count += null_report_bias_error == 0
-                null_report_bias.relative_accuracies.append(relative_accuracy)
+                null_report_bias.values.append(relative_accuracy)
 
             # E2E ANALYSIS
             if math.isnan(sum_with_dp):
-                e2e_bias.relative_accuracies.append(0)
+                e2e_bias.values.append(0)
             else:
                 e2e_error = abs(true_sum - sum_with_dp)
                 relative_accuracy = 1 - (e2e_error / true_sum)
 
                 e2e_bias.count += relative_accuracy >= t
-                e2e_bias.relative_accuracies.append(relative_accuracy)
+                e2e_bias.values.append(relative_accuracy)
 
             # E2E RMSRE ANALYSIS
             if math.isnan(biased_sum):
-                e2e_rmsre.relative_accuracies.append(0)
+                e2e_rmsre.undefined_errors_counter += 1
             else:
                 x = abs(true_sum - biased_sum) ** 2 + 2 * (sensitivity ** 2) / (epsilon ** 2)
                 y = true_sum ** 2
-                e2e_rmsre.relative_accuracies.append(1 - math.sqrt(x / y))
-
+                e2e_rmsre.values.append(math.sqrt(x / y))
+            
+        e2e_rmsre.values += [np.nan] * e2e_rmsre.undefined_errors_counter
+        
         records.append(
             {
                 "destination": destination[0],
@@ -189,22 +193,21 @@ def get_bias_logs(row, results, i, **kwargs):
                 "fraction_queries_without_null_reports": null_report_bias.count
                 / workload_size,
                 "null_report_bias_average_relative_accuracy": sum(
-                    null_report_bias.relative_accuracies
+                    null_report_bias.values
                 )
-                / len(null_report_bias.relative_accuracies),
+                / len(null_report_bias.values),
                 "fraction_queries_relatively_accurate_e2e": e2e_bias.count
                 / workload_size,
-                "e2e_bias_average_relative_accuracy": sum(e2e_bias.relative_accuracies)
-                / len(e2e_bias.relative_accuracies),
-                "e2e_rmsre_accuracy": sum(e2e_rmsre.relative_accuracies) / len(e2e_rmsre.relative_accuracies),
+                "e2e_bias_average_relative_accuracy": sum(e2e_bias.values)
+                / len(e2e_bias.values),
+                # "e2e_rmsre_accuracy": sum(e2e_rmsre.values) / len(e2e_rmsre.values),
                 "baseline": baseline,
                 "num_days_per_epoch": num_days_per_epoch,
                 "initial_budget": float(initial_budget),
-                "e2e_bias_relative_accuracies": e2e_bias.relative_accuracies,
-                "null_report_bias_relative_accuracies": null_report_bias.relative_accuracies,
-                "rmsre_accuracies": e2e_rmsre.relative_accuracies,
-                "num_days_attribution_window": num_days_attribution_window,
-                "attribution_window": attribution_window
+                "e2e_bias_relative_accuracies": e2e_bias.values,
+                "null_report_bias_relative_accuracies": null_report_bias.values,
+                "rmsre_values": e2e_rmsre.values,
+                "attribution_window": num_days_attribution_window,
             }
         )
     results[i] = pd.DataFrame.from_records(records)
@@ -552,7 +555,7 @@ def plot_null_reports_analysis(
         iplot(fig)
 
 
-def plot_cdf_accuracy(
+def plot_cdf_bias(
     df: pd.DataFrame,
     workload_size: int = 0,
     epoch_size: int = 0,
@@ -565,9 +568,9 @@ def plot_cdf_accuracy(
         focus = f"workload size {workload_size}" if workload_size else f"epoch size {epoch_size}"
         fig = px.ecdf(
             df,
-            y="rmsre_accuracies",
+            y="rmsre_values",
             color="baseline",
-            title=f"CDF for E2E RMSRE Relative Accuracy ({focus})",
+            title=f"CDF for E2E RMSRE({focus})",
             width=1100,
             height=600,
             orientation='h',
@@ -579,16 +582,19 @@ def plot_cdf_accuracy(
             },
         )
         fig.update_layout(
-            yaxis_title="rmsre relative accuracy",
+            yaxis_title="rmsre",
         )
         return fig
     if workload_size:
         dff = df.query("requested_workload_size == @workload_size")
     if epoch_size:
         dff = df.query("num_days_per_epoch == @epoch_size")
-    dff = dff[["destination", "baseline", "rmsre_accuracies"]]
-    dff = dff.explode("rmsre_accuracies")
-    dff = dff.sort_values(["rmsre_accuracies"])
+    dff = dff[["destination", "baseline", "rmsre_values"]]
+
+    dff = dff.explode("rmsre_values")
+    max_ = dff["rmsre_values"].max() * 2
+    dff.fillna({"rmsre_values": max_}, inplace=True)
+    dff = dff.sort_values(["rmsre_values"])
     p1 = e2e_rmsre_accuracy_ecdf(dff)
     iplot(p1)
     return p1
