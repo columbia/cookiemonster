@@ -5,7 +5,9 @@ from uuid import uuid4
 
 
 from data.criteo.creators.base_creator import BaseCreator, pd
-from cookiemonster.epsilon_calculator import get_epsilon_for_high_probability_relative_error_wrt_avg_prior
+from cookiemonster.epsilon_calculator import (
+    get_epsilon_for_high_probability_relative_error_wrt_avg_prior,
+)
 
 
 class QueryPoolDatasetCreator(BaseCreator):
@@ -168,7 +170,10 @@ class QueryPoolDatasetCreator(BaseCreator):
         return impressions
 
     def _create_queries(
-        self, conversions: pd.DataFrame, max_purchase_counts: int, expected_average_purchase_counts: int
+        self,
+        conversions: pd.DataFrame,
+        max_purchase_counts: int,
+        expected_average_purchase_counts: int,
     ) -> pd.DataFrame:
 
         seen_users = set()
@@ -323,7 +328,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
         )
         conversions = conversions.drop(columns=self.conversion_columns_to_drop)
-        conversions = self._create_queries(conversions, max_purchase_counts, expected_average_purchase_counts)
+        conversions = self._create_queries(
+            conversions, max_purchase_counts, expected_average_purchase_counts
+        )
 
         self.log_query_epsilons(conversions)
 

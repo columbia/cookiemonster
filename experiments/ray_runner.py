@@ -46,12 +46,13 @@ def grid_run(
             "impressions_path": get_data_path(impressions_path),
             "conversions_path": get_data_path(conversions_path),
             "num_days_per_epoch": tune.grid_search(num_days_per_epoch),
-            "num_days_attribution_window": tune.grid_search(num_days_attribution_window),
+            "num_days_attribution_window": tune.grid_search(
+                num_days_attribution_window
+            ),
             "workload_size": tune.grid_search(workload_size),
         },
         "logs": {
-            "verbose": False,
-            "save": True,
+            "save": False,
             "save_dir": "",
             "logging_keys": logging_keys,
             "loguru_level": loguru_level,

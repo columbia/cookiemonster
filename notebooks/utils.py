@@ -2,14 +2,13 @@ import re
 import math
 import numpy as np
 import pandas as pd
-import plotly.io as pio
 import plotly.express as px
 from plotly.offline import iplot
 from cookiemonster.utils import LOGS_PATH
 from multiprocessing import Manager, Process
 from experiments.ray.analysis import load_ray_experiment
 
-pd.set_option('future.no_silent_downcasting', True)
+pd.set_option("future.no_silent_downcasting", True)
 
 CUSTOM_ORDER_BASELINES = ["ipa", "user_epoch_ara", "cookiemonster"]
 CUSTOM_ORDER_RATES = ["0.001", "0.01", "0.1", "1.0"]
@@ -28,196 +27,7 @@ def get_df(path):
     return df
 
 
-def get_budget_logs(row, results, i, **kwargs):
-    scheduling_timestamps = [
-        timestamp for [timestamp] in row["logs"]["scheduling_timestamps"]
-    ]
-
-    # Obtain conversions and impressions rate from dataset paths
-    pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
-    match = re.search(pattern, row["config"]["dataset"]["impressions_path"])
-    if match:
-        knob1 = match.group(1)
-        knob2 = match.group(2)
-    else:
-        knob1 = ""
-        knob2 = ""
-
-    # Find the epochs "touched" in this experiment
-    per_destination_touched_epochs = {}
-    for [destination, epoch_min, epoch_max] in row["logs"]["epoch_range"]:
-        if destination not in per_destination_touched_epochs:
-            per_destination_touched_epochs[destination] = (math.inf, 0)
-
-        epoch_range = per_destination_touched_epochs[destination]
-        per_destination_touched_epochs[destination] = (
-            min(epoch_range[0], epoch_min),
-            max(epoch_range[1], epoch_max),
-        )
-
-    logs = row["logs"]["budget"]
-    df = pd.DataFrame.from_records(
-        logs,
-        columns=[
-            "timestamp",
-            "destination",
-            "user",
-            "budget_consumed",
-            "status",
-        ],
-    )
-
-    records = []
-    for destination, destination_df in df.groupby(["destination"]):
-
-        # Find the users "touched" in this experiment
-        num_touched_users = destination_df["user"].nunique()
-        epoch_range = per_destination_touched_epochs[destination[0]]
-        num_touched_epochs = epoch_range[1] - epoch_range[0] + 1
-        max_epoch_index = epoch_range[1] + 1
-        users_epochs_dict = {}
-
-        for _, log in destination_df.iterrows():
-            user = log["user"]
-            status = log["status"]
-            budget_per_epoch = log["budget_consumed"]
-            if status == "OK":
-                for epoch, budget_consumed in budget_per_epoch.items():
-                    if user not in users_epochs_dict:
-                        users_epochs_dict[user] = np.zeros(max_epoch_index)
-                    users_epochs_dict[user][int(epoch)] += budget_consumed
-
-            if log["timestamp"] in scheduling_timestamps:
-
-                # Convert to a |users| x |epochs| array
-                user_epochs_np = np.array(
-                    [users_epochs_dict[key] for key in sorted(users_epochs_dict.keys())]
-                )
-                sum_across_epochs = np.sum(user_epochs_np, axis=1)
-
-                records.append(
-                    {
-                        "destination": destination[0],
-                        "num_reports": log["timestamp"],
-                        "max_max_budget": np.max(user_epochs_np),
-                        "max_avg_budget": np.max(
-                            sum_across_epochs / num_touched_epochs
-                        ),
-                        "avg_max_budget": np.sum(np.max(user_epochs_np, axis=0))
-                        / num_touched_epochs,
-                        "avg_avg_budget": np.sum(sum_across_epochs)
-                        / (num_touched_epochs * num_touched_users),
-                        "status": log["status"],
-                        "baseline": row["baseline"],
-                        "num_days_per_epoch": row["num_days_per_epoch"],
-                        "knob1": knob1,
-                        "knob2": knob2,
-                    }
-                )
-    rdf = pd.DataFrame.from_records(records).reset_index(names="queries_ran")
-    rdf["queries_ran"] += 1
-    results[i] = rdf
-
-
-def get_bias_logs(row, results, i, **kwargs):
-    logs = row["logs"]["query_results"]
-    baseline = row["baseline"]
-    num_days_per_epoch = row["num_days_per_epoch"]
-    initial_budget = row["config"]["user"]["initial_budget"]
-    num_days_attribution_window = row["config"]["dataset"]["num_days_attribution_window"]
-    requested_workload_size = row["workload_size"]
-
-    df = pd.DataFrame.from_records(
-        logs,
-        columns=[
-            "timestamp",
-            "destination",
-            "query_id",
-            "true_output",
-            "aggregation_output",
-            "aggregation_noisy_output",
-            "epsilon",
-            "sensitivity"
-        ],
-    )
-
-    records = []
-    t = kwargs.get("t", 0.95)
-    for destination, destination_df in df.groupby(["destination"]):
-
-        workload_size = len(destination_df)
-
-        null_report_bias = Bias()
-        e2e_bias = Bias()
-        e2e_rmsre = Bias()
-
-        for _, log in destination_df.iterrows():
-            true_sum = log["true_output"]
-            biased_sum = log["aggregation_output"]
-            sum_with_dp = log["aggregation_noisy_output"]
-            sensitivity = log["sensitivity"]
-            epsilon = log["epsilon"]
-
-            # NULL REPORT BIAS ANALYSIS
-            if math.isnan(biased_sum):
-                null_report_bias.values.append(0)
-            else:
-                null_report_bias_error = abs(true_sum - biased_sum)
-                relative_accuracy = 1 - (null_report_bias_error / true_sum)
-
-                null_report_bias.count += null_report_bias_error == 0
-                null_report_bias.values.append(relative_accuracy)
-
-            # E2E ANALYSIS
-            if math.isnan(sum_with_dp):
-                e2e_bias.values.append(0)
-            else:
-                e2e_error = abs(true_sum - sum_with_dp)
-                relative_accuracy = 1 - (e2e_error / true_sum)
-
-                e2e_bias.count += relative_accuracy >= t
-                e2e_bias.values.append(relative_accuracy)
-
-            # E2E RMSRE ANALYSIS
-            if math.isnan(biased_sum):
-                e2e_rmsre.undefined_errors_counter += 1
-            else:
-                x = abs(true_sum - biased_sum) ** 2 + 2 * (sensitivity ** 2) / (epsilon ** 2)
-                y = true_sum ** 2
-                e2e_rmsre.values.append(math.sqrt(x / y))
-            
-        e2e_rmsre.values += [np.nan] * e2e_rmsre.undefined_errors_counter
-        
-        records.append(
-            {
-                "destination": destination[0],
-                "workload_size": workload_size,
-                "requested_workload_size": requested_workload_size,
-                "fraction_queries_without_null_reports": null_report_bias.count
-                / workload_size,
-                "null_report_bias_average_relative_accuracy": sum(
-                    null_report_bias.values
-                )
-                / len(null_report_bias.values),
-                "fraction_queries_relatively_accurate_e2e": e2e_bias.count
-                / workload_size,
-                "e2e_bias_average_relative_accuracy": sum(e2e_bias.values)
-                / len(e2e_bias.values),
-                # "e2e_rmsre_accuracy": sum(e2e_rmsre.values) / len(e2e_rmsre.values),
-                "baseline": baseline,
-                "num_days_per_epoch": num_days_per_epoch,
-                "initial_budget": float(initial_budget),
-                "e2e_bias_relative_accuracies": e2e_bias.values,
-                "null_report_bias_relative_accuracies": null_report_bias.values,
-                "rmsre_values": e2e_rmsre.values,
-                "attribution_window": num_days_attribution_window,
-            }
-        )
-    results[i] = pd.DataFrame.from_records(records)
-
-
-def analyze_results(path, type="budget", parallelize=True, **kwargs):
-    dfs = []
+def analyze_results(path, type="budget"):
     df = get_df(path)
 
     match type:
@@ -225,39 +35,122 @@ def analyze_results(path, type="budget", parallelize=True, **kwargs):
             get_logs = get_budget_logs
         case "bias":
             get_logs = get_bias_logs
-        # case "microbenchmark_budget":
-        #     get_logs = get_microbenchmark_budget_logs
         case _:
             raise ValueError(f"Unsupported type: {type}")
 
-    if parallelize:
-        processes = []
-        results = Manager().dict()
-        for i, row in df.iterrows():
-            processes.append(
-                Process(target=get_logs, args=(row, results, i), kwargs=kwargs)
-            )
-            processes[i].start()
+    dfs = []
+    for _, row in df.iterrows():
+        df = get_logs(row)
+        config = row["config"]
+        df["baseline"] = config["user"]["baseline"]
+        df["initial_budget"] = config["user"]["initial_budget"]
+        df["workload_size"] = config["dataset"]["workload_size"]
+        df["num_days_per_epoch"] = config["dataset"]["num_days_per_epoch"]
+        df["num_days_attribution_window"] = config["dataset"][
+            "num_days_attribution_window"
+        ]
+        dfs.append(df)
+    return pd.concat(dfs)
 
-        for process in processes:
-            process.join()
-    else:
-        results = {}
-        for i, row in df.iterrows():
-            get_logs(row, results, i, **kwargs)
 
-    for result in results.values():
-        dfs.append(result)
+def get_budget_logs(row):
+    config = row["config"]
+    global_statistics = row["global_statistics"]
 
-    dfs = pd.concat(dfs)
-    return dfs
+    # Obtain conversions and impressions rate from dataset paths
+    pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
+    match = re.search(pattern, config["dataset"]["impressions_path"])
+    (knob1, knob2) = (match.group(1), match.group(2)) if match else ("", "")
+
+    budget_events = row["event_logs"]["budget"]
+    df = pd.DataFrame.from_records(
+        budget_events,
+        columns=[
+            "destination",
+            "timestamp",
+            "budget_metrics",
+        ],
+    )
+
+    # Explode metric dict keys to columns
+    budget_metrics_keys = set().union(*df["budget_metrics"])
+    for key in budget_metrics_keys:
+        df[key] = df["budget_metrics"].apply(lambda x: x.get(key))
+    df.drop("budget_metrics", axis=1, inplace=True)
+
+    # Finalize metrics by dividing them with the right denominators
+    def finalize_metrics(row):
+        destination = row["destination"]
+        stats = global_statistics[destination]
+        num_devices = stats["num_unique_device_filters_touched"]
+        num_epochs = stats["num_epochs_touched"]
+        row["sum_max"] /= num_devices
+        row["max_sum"] /= num_epochs
+        row["sum_sum"] /= num_devices * num_epochs
+        return row
+
+    df = df.astype({"destination": "str", "timestamp": "int"})
+    df = df.apply(finalize_metrics, axis=1)
+
+    df = df.rename(
+        columns={"sum_max": "avg_of_max", "max_sum": "max_of_avg", "sum_sum": "avg"}
+    )
+    df["knob1"] = knob1
+    df["knob2"] = knob2
+    return df
+
+
+def get_bias_logs(row):
+    bias_events = row["event_logs"]["bias"]
+    df = pd.DataFrame.from_records(
+        bias_events,
+        columns=[
+            "timestamp",
+            "destination",
+            "query_id",
+            "epsilon",
+            "sensitivity",
+            "bias_data",
+        ],
+    )
+    # Explode bias data dict keys to columns
+    bias_data_keys = set().union(*df["bias_data"])
+    for key in bias_data_keys:
+        df[key] = df["bias_data"].apply(lambda x: x.get(key))
+    df.drop("bias_data", axis=1, inplace=True)
+
+    # Compute RMSRE for the queries of each destination
+    def compute_bias_stats(group):
+        queries_rmsre = Bias()
+
+        for _, row in group.iterrows():
+            if math.isnan(row.aggregation_output):
+                queries_rmsre.undefined_errors_counter += 1
+            else:
+                x = abs(row.true_output - row.aggregation_output) ** 2 + 2 * (
+                    row.sensitivity**2
+                ) / (row.epsilon**2)
+                y = row.true_output**2
+                queries_rmsre.values.append(math.sqrt(x / y))
+
+        queries_rmsre.values += [np.nan] * queries_rmsre.undefined_errors_counter
+        return pd.DataFrame(
+            {
+                "destination": group.name,
+                "queries_rmsres": queries_rmsre.values,
+            }
+        )
+
+    result_df = (
+        df.groupby("destination").apply(compute_bias_stats).reset_index(drop=True)
+    )
+    return result_df
 
 
 def plot_budget_consumption_lines(df, facet_row=None):
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
     }
-
     match facet_row:
         case None:
             facet_row = None
@@ -266,98 +159,33 @@ def plot_budget_consumption_lines(df, facet_row=None):
         case "knob2":
             category_orders.update({"knob2": CUSTOM_ORDER_RATES})
 
-    def max_max_budget(df):
-        fig = px.line(
-            df,
-            # x="num_reports",
-            x="queries_ran",
-            y="max_max_budget",
-            color="baseline",
-            title=f"Cumulative Budget Consumption",
-            width=1100,
-            height=1200,
-            markers=True,
-            # log_y=True,
-            facet_col="destination",
-            facet_row=facet_row,
-            category_orders=category_orders,
-        )
-        return fig
+    kwargs = {
+        "data_frame": df,
+        "x": df.index,
+        "title": f"Cumulative Budget Consumption",
+        "color": "baseline",
+        "width": 1100,
+        "height": 600,
+        "markers": True,
+        "log_y": True,
+        "facet_col": "destination",
+        "facet_row": facet_row,
+        "category_orders": category_orders,
+    }
 
-    def max_avg_budget(df):
-        fig = px.line(
-            df,
-            # x="num_reports",
-            x="queries_ran",
-            y="max_avg_budget",
-            color="baseline",
-            title=f"Cumulative Budget Consumption",
-            width=1100,
-            height=1200,
-            markers=True,
-            # log_y=True,
-            facet_col="destination",
-            facet_row=facet_row,
-            category_orders=category_orders,
-        )
-        return fig
-
-    def avg_max_budget(df):
-        fig = px.line(
-            df,
-            # x="num_reports",
-            x="queries_ran",
-            y="avg_max_budget",
-            color="baseline",
-            title=f"Cumulative Budget Consumption",
-            width=1100,
-            height=1200,
-            markers=True,
-            # log_y=True,
-            facet_col="destination",
-            facet_row=facet_row,
-            category_orders=category_orders,
-        )
-        return fig
-
-    def avg_avg_budget(df):
-        fig = px.line(
-            df,
-            # x="num_reports",
-            x="queries_ran",
-            y="avg_avg_budget",
-            color="baseline",
-            title=f"Cumulative Budget Consumption",
-            width=1100,
-            height=1200,
-            markers=True,
-            # log_y=True,
-            facet_col="destination",
-            facet_row=facet_row,
-            category_orders=category_orders,
-        )
-        return fig
-
-    # pio.show(max_max_budget(df), renderer="png", include_plotlyjs=False)
-    # pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
-    # pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
-    # pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
-
-    iplot(max_max_budget(df))
-    # iplot(max_avg_budget(df))
-    # iplot(avg_max_budget(df))
-    iplot(avg_avg_budget(df))
+    iplot(px.line(y="max_max", **kwargs))
+    iplot(px.line(y="max_of_avg", **kwargs))
+    iplot(px.line(y="avg_of_max", **kwargs))
+    iplot(px.line(y="avg", **kwargs))
 
 
 def plot_budget_consumption_bars(df, x_axis="knob1"):
     # df["key"] = (
     #     df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
     # )
-
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
     }
-
     match x_axis:
         case None:
             x_axis = None
@@ -366,217 +194,51 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
         case "knob2":
             category_orders.update({"knob2": CUSTOM_ORDER_RATES})
 
-    last_query_ran = df["queries_ran"].max()
-    dff = df.query("queries_ran == @last_query_ran")
+    kwargs = {
+        "data_frame": df.query("index == @df.index.max()"),
+        "x": x_axis,
+        "title": f"Cumulative Budget Consumption",
+        "color": "baseline",
+        "width": 1100,
+        "height": 400,
+        "log_y": True,
+        "barmode": "group",
+        "facet_col": "destination",
+        # "facet_row": facet_row,
+        "category_orders": category_orders,
+    }
 
-    def max_max_budget(df):
-        fig = px.bar(
-            dff,
-            x=x_axis,
-            y="max_max_budget",
-            color="baseline",
-            title=f"Cumulative Budget Consumption",
-            width=1100,
-            height=400,
-            log_y=True,
-            barmode="group",
-            facet_col="destination",
-            # facet_row=facet_row,
-            category_orders=category_orders,
-        )
-        return fig
-
-    def max_avg_budget(df):
-        fig = px.bar(
-            dff,
-            x=x_axis,
-            y="max_avg_budget",
-            color="baseline",
-            title=f"Cumulative Budget Consumption",
-            width=1100,
-            height=400,
-            log_y=True,
-            barmode="group",
-            facet_col="destination",
-            # facet_row=facet_row,
-            category_orders=category_orders,
-        )
-        return fig
-
-    def avg_max_budget(df):
-        fig = px.bar(
-            dff,
-            x=x_axis,
-            y="avg_max_budget",
-            color="baseline",
-            title=f"Cumulative Budget Consumption",
-            width=1100,
-            height=400,
-            log_y=True,
-            barmode="group",
-            facet_col="destination",
-            # facet_row=facet_row,
-            category_orders=category_orders,
-        )
-        return fig
-
-    def avg_avg_budget(df):
-        fig = px.bar(
-            dff,
-            x=x_axis,
-            y="avg_avg_budget",
-            color="baseline",
-            title=f"Cumulative Budget Consumption",
-            width=1100,
-            height=400,
-            log_y=True,
-            barmode="group",
-            facet_col="destination",
-            category_orders=category_orders,
-        )
-        return fig
-
-    # pio.show(max_max_budget(df), renderer="png", include_plotlyjs=False)
-    # pio.show(max_avg_budget(df), renderer="png", include_plotlyjs=False)
-    # pio.show(avg_max_budget(df), renderer="png", include_plotlyjs=False)
-    # pio.show(avg_avg_budget(df), renderer="png", include_plotlyjs=False)
-
-    iplot(max_max_budget(df))
-    # iplot(max_avg_budget(df))
-    # iplot(avg_max_budget(df))
-    iplot(avg_avg_budget(df))
+    iplot(px.bar(y="max_max", **kwargs))
+    iplot(px.bar(y="max_of_avg", **kwargs))
+    iplot(px.bar(y="avg_of_max", **kwargs))
+    iplot(px.bar(y="avg", **kwargs))
 
 
-def plot_null_reports_analysis(
-    df: pd.DataFrame, x_axis: str = "workload_size", save_dir: str | None = None
+def plot_bias_avg_rmsre(
+    df, x_axis="num_days_per_epoch", by_destination=True, log_y=True, category_orders={}
 ):
+    # Set values for the potentially undefined errors of baselines
+    df = df.explode("queries_rmsres")
+    max_ = df["queries_rmsres"].max() * 2
+    df.fillna({"queries_rmsres": max_}, inplace=True)
 
-    df = df.sort_values([x_axis, "initial_budget"])
+    # Compute the average RMSRE per grouping key
+    group_key = [x_axis, "baseline"]
+    group_key += ["destination"] if by_destination else []
 
-    def fraction_queries_without_null_reports(df):
-        fig = px.line(
+    df = df.groupby(group_key)["queries_rmsres"].mean().reset_index(name="avg_rmsre")
+    print(df)
+
+    def avg_rmsre(df):
+        fig = px.bar(
             df,
             x=x_axis,
-            y="fraction_queries_without_null_reports",
+            y="avg_rmsre",
             color="baseline",
-            title=f"fraction_queries_without_null_reports",
+            title=f"CDF for E2E RMSRE()",
             width=1100,
             height=600,
-            markers=True,
-            # range_y=[0, 1.2],
-            facet_col="destination",
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-            },
-        )
-        return fig
-
-    def fraction_queries_reaching_realtive_accuracy(df):
-        fig = px.line(
-            df,
-            x=x_axis,
-            y="fraction_queries_relatively_accurate_e2e",
-            color="baseline",
-            title=f"fraction_queries_relatively_accurate_e2e",
-            width=1100,
-            height=600,
-            markers=True,
-            # range_y=[0, 1.2],
-            facet_col="destination",
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-            },
-        )
-        return fig
-
-    def null_bias_average_relative_accuracy(df):
-        fig = px.line(
-            df,
-            x=x_axis,
-            y="null_report_bias_average_relative_accuracy",
-            color="baseline",
-            title=f"null_report_bias_average_relative_accuracy",
-            width=1100,
-            height=600,
-            markers=True,
-            # range_y=[0, 1.2],
-            facet_col="destination",
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-            },
-        )
-        return fig
-
-    def e2e_bias_average_relative_accuracy(df):
-        fig = px.line(
-            df,
-            x=x_axis,
-            y="e2e_bias_average_relative_accuracy",
-            color="baseline",
-            title=f"e2e_bias_average_relative_accuracy",
-            width=1100,
-            height=600,
-            markers=True,
-            # range_y=[0, 1.2],
-            facet_col="destination",
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-            },
-        )
-        return fig
-
-    def e2e_rmsre_accuracy(df):
-        fig = px.line(
-            df,
-            x=x_axis,
-            y="e2e_rmsre_accuracy",
-            color="baseline",
-            title=f"e2e_rmsre_accuracy",
-            width=1100,
-            height=600,
-            markers=True,
-            # range_y=[0, 1.2],
-            facet_col="destination",
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-            },
-        )
-        return fig
-
-    plots = [
-        (fraction_queries_without_null_reports, "fraction_queries_without_null_reports"),
-        (null_bias_average_relative_accuracy, "null_bias_average_relative_accuracy"),
-        (fraction_queries_reaching_realtive_accuracy, "fraction_queries_reaching_realtive_accuracy"),
-        (e2e_bias_average_relative_accuracy, "e2e_bias_average_relative_accuracy"),
-        (e2e_rmsre_accuracy, "e2e_rmsre_accuracy"),
-    ]
-
-    for plot, name in plots:
-        fig = plot(df)
-        if save_dir:
-            fig.write_image(f"{save_dir}/{name}.png")
-        iplot(fig)
-
-
-def plot_cdf_bias(
-    df: pd.DataFrame,
-    workload_size: int = 0,
-    epoch_size: int = 0,
-    by_destination = True,
-    log_y: bool = True,
-    category_orders: dict = {},
-):
-
-    def e2e_rmsre_accuracy_ecdf(df):
-        focus = f"workload size {workload_size}" if workload_size else f"epoch size {epoch_size}"
-        fig = px.ecdf(
-            df,
-            y="rmsre_values",
-            color="baseline",
-            title=f"CDF for E2E RMSRE({focus})",
-            width=1100,
-            height=600,
-            orientation='h',
+            orientation="h",
             log_y=log_y,
             facet_col="destination" if by_destination else None,
             category_orders={
@@ -584,26 +246,54 @@ def plot_cdf_bias(
                 **category_orders,
             },
         )
-        fig.update_layout(
-            yaxis_title="rmsre",
+        return fig
+
+    iplot(avg_rmsre(df))
+
+
+def plot_bias_rmsre_cdf(
+    df,
+    workload_size=0,
+    epoch_size=0,
+    by_destination=True,
+    log_y=True,
+    category_orders={},
+):
+
+    # Pick a subset of the experiments
+    focus = ""
+    if workload_size:
+        focus = f"workload size {workload_size}"
+        df = df.query("requested_workload_size == @workload_size")
+    if epoch_size:
+        focus = f"epoch size {epoch_size}"
+        df = df.query("num_days_per_epoch == @epoch_size")
+
+    df = df.explode("queries_rmsres")
+    max_ = df["queries_rmsres"].max() * 2
+    df.fillna({"queries_rmsres": max_}, inplace=True)
+
+    def ecdf(df):
+        fig = px.ecdf(
+            df,
+            y="queries_rmsres",
+            color="baseline",
+            title=f"CDF for E2E RMSRE({focus})",
+            width=1100,
+            height=600,
+            orientation="h",
+            log_y=log_y,
+            facet_col="destination" if by_destination else None,
+            category_orders={
+                "baseline": CUSTOM_ORDER_BASELINES,
+                **category_orders,
+            },
         )
         return fig
-    if workload_size:
-        dff = df.query("requested_workload_size == @workload_size")
-    if epoch_size:
-        dff = df.query("num_days_per_epoch == @epoch_size")
-    dff = dff[["destination", "baseline", "rmsre_values"]]
 
-    dff = dff.explode("rmsre_values")
-    max_ = dff["rmsre_values"].max() * 2
-    dff.fillna({"rmsre_values": max_}, inplace=True)
-    dff = dff.sort_values(["rmsre_values"])
-    p1 = e2e_rmsre_accuracy_ecdf(dff)
-    iplot(p1)
-    return p1
-
+    iplot(ecdf(df))
 
 
 if __name__ == "__main__":
-    path = "ray/synthetic/budget_consumption_varying_conversions_rate"
-    df = analyze_results(path, type="budget", parallelize=False)
+    path = "ray/microbenchmark/varying_knob1"
+    df = analyze_results(path, type="budget")

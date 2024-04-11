@@ -39,9 +39,9 @@ tar -xzf criteo-research-search-conversion.tar.gz
 python3 create_dataset.py
 ```
 
-Synthetic:
+Microbenchmark:
 ```bash
-cd cookiemonster/data/synthetic
+cd cookiemonster/data/microbenchmark
 
 python3 create_dataset.py --user-participation-rate-per-query 0.001 --per-day-user-impressions-rate 0.1 &&
 python3 create_dataset.py --user-participation-rate-per-query 0.01 --per-day-user-impressions-rate 0.1 &&
@@ -50,6 +50,12 @@ python3 create_dataset.py --user-participation-rate-per-query 1.0 --per-day-user
 python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.001 &&
 python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.01 &&
 python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 1.0
+```
+
+PATCG Synthetic Dataset:
+cd cookiemonster/data/microbenchmark
+```bash
+# todo(automate generating them)
 ```
 
 ## Run experiments

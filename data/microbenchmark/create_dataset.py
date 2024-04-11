@@ -8,6 +8,8 @@ from omegaconf import OmegaConf
 
 app = typer.Typer()
 
+np.random.seed(seed=62)
+
 
 def generate_random_dates(start_date, num_days, num_samples):
     # start_seconds = 0
@@ -158,7 +160,7 @@ def create_microbenchmark(config: OmegaConf):
     # Set epsilons
     def _set_epsilon():
         [a, b] = config.accuracy
-        expected_result = config.scheduled_batch_size * 5 # 500 * 5
+        expected_result = config.scheduled_batch_size * 5  # 500 * 5
         epsilon = config.cap_value * math.log(1 / b) / (a * expected_result)
         return epsilon
 

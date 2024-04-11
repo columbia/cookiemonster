@@ -88,7 +88,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 print(unique_query_key)
                 query_result.loc[i:, "query_key"] = str(unique_query_key)
                 query_result.loc[i:, "epsilon"] = self._set_epsilon()
-            
+
             queries.append(query_result)
 
         conversions = pd.concat(queries, ignore_index=True)
@@ -102,7 +102,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
     def _set_epsilon(self) -> pd.DataFrame:
         [a, b] = self.config.accuracy
-        expected_result = 1500 #1000 * 5
+        expected_result = 1500  # 1000 * 5
         epsilon = self.config.cap_value * math.log(1 / b) / (a * expected_result)
         return epsilon
 

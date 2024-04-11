@@ -19,7 +19,7 @@
         "mlflow": true,
         "mlflow_experiment_id": "",
         "loguru_level": "INFO",
-        "logging_keys": ["query_results"]
+        "logging_keys": ["bias"]
     },
     "aggregation_service": "local_laplacian",
     "aggregation_policy": {

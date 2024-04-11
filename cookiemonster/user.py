@@ -1,20 +1,13 @@
 from omegaconf import OmegaConf
 from typing import Dict, List, Any, Union
 
-from cookiemonster.budget import BasicBudget
-from cookiemonster.event_logger import EventLogger
 from cookiemonster.report import Partition, Report
 from cookiemonster.events import Impression, Conversion
 from cookiemonster.budget_accountant import BudgetAccountant
 
 from cookiemonster.utils import maybe_initialize_filters, compute_global_sensitivity
 
-from cookiemonster.utils import (
-    IPA,
-    USER_EPOCH_ARA,
-    COOKIEMONSTER,
-    BUDGET,
-)
+from cookiemonster.utils import IPA, USER_EPOCH_ARA, COOKIEMONSTER
 
 
 class ConversionResult:
@@ -24,7 +17,6 @@ class ConversionResult:
 
 
 class User:
-    logger = EventLogger()
 
     def __init__(self, id: Any, config: OmegaConf) -> None:
         self.id = id
@@ -95,7 +87,7 @@ class User:
                     self.filters_per_origin,
                     conversion.destination,
                     partition.epochs_window,
-                    self.initial_budget
+                    self.initial_budget,
                 )
 
                 # Compute the required budget and the epochs to pay depending on the baseline
@@ -123,9 +115,7 @@ class User:
                         epochs_to_pay = []
                         (x, y) = partition.epochs_window
                         for epoch in range(x, y + 1):
-                            if not origin_filters.can_run(
-                                epoch, budget_required
-                            ):
+                            if not origin_filters.can_run(epoch, budget_required):
                                 # Delete epoch from partition so that it will be ignored upon report creation, won't be added to epochs_to_pay either
                                 if epoch in partition.impressions_per_epoch:
                                     del partition.impressions_per_epoch[epoch]
@@ -147,16 +137,6 @@ class User:
                 if not filter_result.succeeded():
                     # If epochs couldn't pay the required budget, erase the partition's impressions_per_epoch so that an empty report will be created
                     partition.impressions_per_epoch.clear()
-
-                if BUDGET in self.logging_keys:
-                    User.logger.log(
-                        BUDGET,
-                        conversion.id,
-                        conversion.destination,
-                        self.id,
-                        filter_result.budget_consumed,
-                        filter_result.status,
-                    )
 
         # Create the possibly biased report per partition
         for partition in partitions:
@@ -200,7 +180,3 @@ class User:
                 raise ValueError(
                     f"Unsupported partitioning logic: {conversion.partitioning_logic}"
                 )
-
-
-def get_log_events_across_users() -> Dict[str, Dict[str, Any]]:
-    return User.logger
