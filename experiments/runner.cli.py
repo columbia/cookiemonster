@@ -336,7 +336,7 @@ def patcg_bias_vary_epoch_granularity(ray_session_dir):
 
 def patcg_vary_epoch_granularity(ray_session_dir):
     dataset = "patcg"
-    logs_dir = f"{dataset}/varying_epoch_granularity"
+    logs_dir = f"{dataset}/varying_epoch_granularity_aw_14"
 
     impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
@@ -347,7 +347,7 @@ def patcg_vary_epoch_granularity(ray_session_dir):
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
         "num_days_per_epoch": [21, 28, 35, 60],
-        "num_days_attribution_window": [7],
+        "num_days_attribution_window": [14],
         "workload_size": [80],
         "max_scheduling_batch_size_per_query": 303009,
         "min_scheduling_batch_size_per_query": 280000,

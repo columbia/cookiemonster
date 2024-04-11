@@ -49,6 +49,7 @@ def analyze_results(path, type="budget"):
         df["num_days_attribution_window"] = config["dataset"][
             "num_days_attribution_window"
         ]
+        df = df.sort_values(["num_days_per_epoch", "num_days_attribution_window", "initial_budget"])
         dfs.append(df)
     return pd.concat(dfs)
 
@@ -147,7 +148,7 @@ def get_bias_logs(row):
     return result_df
 
 
-def plot_budget_consumption_lines(df, facet_row=None):
+def plot_budget_consumption_lines(df, facet_row=None, height=600, log_y=False):
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
     }
@@ -159,15 +160,17 @@ def plot_budget_consumption_lines(df, facet_row=None):
         case "knob2":
             category_orders.update({"knob2": CUSTOM_ORDER_RATES})
 
+
     kwargs = {
         "data_frame": df,
         "x": df.index,
         "title": f"Cumulative Budget Consumption",
         "color": "baseline",
         "width": 1100,
-        "height": 600,
+        "height": height,
         "markers": True,
-        "log_y": True,
+        "log_y": log_y,
+        "range_y": [0, 1],
         "facet_col": "destination",
         "facet_row": facet_row,
         "category_orders": category_orders,
@@ -194,6 +197,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
         case "knob2":
             category_orders.update({"knob2": CUSTOM_ORDER_RATES})
 
+
     kwargs = {
         "data_frame": df.query("index == @df.index.max()"),
         "x": x_axis,
@@ -214,7 +218,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
     iplot(px.bar(y="avg", **kwargs))
 
 
-def plot_bias_avg_rmsre(
+def plot_bias_rmsre(
     df, x_axis="num_days_per_epoch", by_destination=True, log_y=True, category_orders={}
 ):
     # Set values for the potentially undefined errors of baselines
@@ -226,19 +230,20 @@ def plot_bias_avg_rmsre(
     group_key = [x_axis, "baseline"]
     group_key += ["destination"] if by_destination else []
 
-    df = df.groupby(group_key)["queries_rmsres"].mean().reset_index(name="avg_rmsre")
-    print(df)
-
-    def avg_rmsre(df):
-        fig = px.bar(
+    # df = df.groupby(group_key)['queries_rmsres'].agg(['mean', 'std']).reset_index()
+    # df = df.rename(columns={"mean": "avg_rmsre"})
+    def rmsre(df):
+        fig = px.box(
             df,
             x=x_axis,
-            y="avg_rmsre",
+            # error_y="std",
+            # y="avg_rmsre",
+            y="queries_rmsres",
             color="baseline",
-            title=f"CDF for E2E RMSRE()",
+            title=f"RMSRE",
             width=1100,
             height=600,
-            orientation="h",
+            # barmode="group",
             log_y=log_y,
             facet_col="destination" if by_destination else None,
             category_orders={
@@ -248,7 +253,7 @@ def plot_bias_avg_rmsre(
         )
         return fig
 
-    iplot(avg_rmsre(df))
+    iplot(rmsre(df))
 
 
 def plot_bias_rmsre_cdf(
@@ -256,7 +261,7 @@ def plot_bias_rmsre_cdf(
     workload_size=0,
     epoch_size=0,
     by_destination=True,
-    log_y=True,
+    log_y=False,
     category_orders={},
 ):
 
