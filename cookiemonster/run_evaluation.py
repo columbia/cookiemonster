@@ -15,8 +15,8 @@ from cookiemonster.user import User, ConversionResult
 from cookiemonster.utils import (
     GlobalStatistics,
     IPA,
-    BUDGET,
     BIAS,
+    BUDGET,
     save_logs,
     maybe_initialize_filters,
     compute_global_sensitivity,

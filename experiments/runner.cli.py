@@ -135,36 +135,6 @@ def microbenchmark_vary_epoch_granularity(ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-def microbenchmark_vary_workload_size(ray_session_dir):
-    dataset = "microbenchmark"
-    logs_dir = f"{dataset}/varying_workload_size2"
-
-    impressions_path_base = f"{dataset}/impressions"
-    conversions_path_base = f"{dataset}/conversions"
-
-    knob1 = 0.1
-    knob2 = 0.1
-
-    config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "dataset_name": f"{dataset}",
-        "impressions_path": get_path(impressions_path_base, knob1, knob2),
-        "conversions_path": get_path(conversions_path_base, knob1, knob2),
-        "num_days_per_epoch": [7],
-        "num_days_attribution_window": [30],
-        "workload_size": [5],
-        "min_scheduling_batch_size_per_query": 10000,
-        "max_scheduling_batch_size_per_query": 10000,
-        "initial_budget": [1],
-        "logs_dir": logs_dir,
-        "loguru_level": "INFO",
-        "ray_session_dir": ray_session_dir,
-        "logging_keys": [BUDGET, BIAS],
-    }
-
-    grid_run(**config)
-    # analyze(f"ray/{logs_dir}")
-
 
 ## ----------------- CRITEO ----------------- ##
 
@@ -279,64 +249,9 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
 ## ----------------- PATCG ----------------- ##
 
 
-def patcg_bias_vary_workload_size(ray_session_dir):
-    dataset = "patcg"
-    logs_dir = f"{dataset}/bias_varying_workload_size"
-
-    impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
-    conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
-
-    config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "dataset_name": f"{dataset}",
-        "impressions_path": impressions_path,
-        "conversions_path": conversions_path,
-        "num_days_per_epoch": [7],
-        "num_days_attribution_window": [7],
-        "workload_size": [80],
-        "max_scheduling_batch_size_per_query": 303009,
-        "min_scheduling_batch_size_per_query": 280000,
-        "initial_budget": [1],
-        "logs_dir": logs_dir,
-        "loguru_level": "INFO",
-        "ray_session_dir": ray_session_dir,
-        "logging_keys": [BUDGET, BIAS],
-    }
-
-    grid_run(**config)
-    # analyze(f"ray/{logs_dir}")
-
-
-def patcg_bias_vary_epoch_granularity(ray_session_dir):
-    dataset = "patcg"
-    logs_dir = f"{dataset}/bias_varying_epoch_granularity_gcp"
-
-    impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
-    conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
-
-    config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
-        "dataset_name": f"{dataset}",
-        "impressions_path": impressions_path,
-        "conversions_path": conversions_path,
-        "num_days_per_epoch": [60],  # [1, 10, 20, 30],
-        "num_days_attribution_window": [30],
-        "workload_size": [80],
-        "max_scheduling_batch_size_per_query": 303009,
-        "min_scheduling_batch_size_per_query": 280000,
-        "initial_budget": [1],
-        "logs_dir": logs_dir,
-        "loguru_level": "INFO",
-        "ray_session_dir": ray_session_dir,
-        "logging_keys": [BUDGET, BIAS],
-    }
-
-    grid_run(**config)
-
-
 def patcg_vary_epoch_granularity(ray_session_dir):
     dataset = "patcg"
-    logs_dir = f"{dataset}/varying_epoch_granularity_aw_14"
+    logs_dir = f"{dataset}/varying_epoch_granularity_aw_30"
 
     impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"

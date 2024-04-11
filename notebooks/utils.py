@@ -5,14 +5,12 @@ import pandas as pd
 import plotly.express as px
 from plotly.offline import iplot
 from cookiemonster.utils import LOGS_PATH
-from multiprocessing import Manager, Process
 from experiments.ray.analysis import load_ray_experiment
 
 pd.set_option("future.no_silent_downcasting", True)
 
 CUSTOM_ORDER_BASELINES = ["ipa", "user_epoch_ara", "cookiemonster"]
 CUSTOM_ORDER_RATES = ["0.001", "0.01", "0.1", "1.0"]
-
 
 class Bias:
     def __init__(self) -> None:
@@ -148,7 +146,7 @@ def get_bias_logs(row):
     return result_df
 
 
-def plot_budget_consumption_lines(df, facet_row=None, height=600, log_y=False):
+def plot_budget_consumption_lines(df, facet_row=None, height=600):
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
     }
@@ -169,7 +167,7 @@ def plot_budget_consumption_lines(df, facet_row=None, height=600, log_y=False):
         "width": 1100,
         "height": height,
         "markers": True,
-        "log_y": log_y,
+        "log_y": False,
         "range_y": [0, 1],
         "facet_col": "destination",
         "facet_row": facet_row,
@@ -177,15 +175,12 @@ def plot_budget_consumption_lines(df, facet_row=None, height=600, log_y=False):
     }
 
     iplot(px.line(y="max_max", **kwargs))
-    iplot(px.line(y="max_of_avg", **kwargs))
-    iplot(px.line(y="avg_of_max", **kwargs))
+    # iplot(px.line(y="max_of_avg", **kwargs))
+    # iplot(px.line(y="avg_of_max", **kwargs))
     iplot(px.line(y="avg", **kwargs))
 
 
-def plot_budget_consumption_bars(df, x_axis="knob1"):
-    # df["key"] = (
-    #     df["baseline"] + "-days_per_epoch=" + df["num_days_per_epoch"].astype(str)
-    # )
+def plot_budget_consumption_bars(df, x_axis="knob1", log_y=False, height=400):
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
     }
@@ -204,8 +199,8 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
         "title": f"Cumulative Budget Consumption",
         "color": "baseline",
         "width": 1100,
-        "height": 400,
-        "log_y": True,
+        "height": height,
+        "log_y": log_y,
         "barmode": "group",
         "facet_col": "destination",
         # "facet_row": facet_row,
@@ -213,8 +208,8 @@ def plot_budget_consumption_bars(df, x_axis="knob1"):
     }
 
     iplot(px.bar(y="max_max", **kwargs))
-    iplot(px.bar(y="max_of_avg", **kwargs))
-    iplot(px.bar(y="avg_of_max", **kwargs))
+    # iplot(px.bar(y="max_of_avg", **kwargs))
+    # iplot(px.bar(y="avg_of_max", **kwargs))
     iplot(px.bar(y="avg", **kwargs))
 
 
@@ -227,11 +222,11 @@ def plot_bias_rmsre(
     df.fillna({"queries_rmsres": max_}, inplace=True)
 
     # Compute the average RMSRE per grouping key
-    group_key = [x_axis, "baseline"]
-    group_key += ["destination"] if by_destination else []
-
+    # group_key = [x_axis, "baseline"]
+    # group_key += ["destination"] if by_destination else []
     # df = df.groupby(group_key)['queries_rmsres'].agg(['mean', 'std']).reset_index()
     # df = df.rename(columns={"mean": "avg_rmsre"})
+
     def rmsre(df):
         fig = px.box(
             df,
