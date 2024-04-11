@@ -15,8 +15,8 @@ class QueryPoolDatasetCreator(BaseCreator):
     def __init__(self, config: DictConfig) -> None:
         super().__init__(
             config,
-            "criteo_query_pool_top_multiconverters_impressions.csv",
-            "criteo_query_pool_top_multiconverters_conversions.csv",
+            "criteo_query_pool_all_impressions.csv",
+            "criteo_query_pool_all_conversions.csv",
         )
         self.used_dimension_names = set()
 
@@ -67,6 +67,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             config.get("augment_dataset", "false").lower() == "true"
         )
         self.advertiser_filter = config.get("advertiser_filter", [])
+        self.advertiser_exclusions = config.get("advertiser_exclusions", [])
 
     # TODO: [PM] Bring up with the group. Perhaps we will want to bring back the other
     # grouping methods (from previous commits)
@@ -156,6 +157,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         if self.advertiser_filter:
             df = df[df[self.advertiser_column_name].isin(self.advertiser_filter)]
+
+        if self.advertiser_exclusions:
+            df = df[~df[self.advertiser_column_name].isin(self.advertiser_exclusions)]
 
         if self.augment_dataset:
             df = self._augment_df_with_advertiser_bin_cover(df)

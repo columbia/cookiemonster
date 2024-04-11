@@ -211,6 +211,39 @@ def criteo_bias_varying_num_queries(ray_session_dir):
     grid_run(**config)
 
 
+def criteo_all(ray_session_dir):
+    """
+    All Workload methodology:
+    1. pick a workload that the majority of advertisers can run
+    2. filter the dataset to include those advertisers, and run this
+    """
+
+    dataset = "criteo"
+    logs_dir = f"{dataset}/all_50"
+    impressions_path = f"{dataset}/{dataset}_query_pool_all_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_all_conversions.csv"
+
+    config = {
+        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [7],
+        "num_days_attribution_window": [30],
+        "workload_size": [50],
+        "max_scheduling_batch_size_per_query": 450,
+        "min_scheduling_batch_size_per_query": 300,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [QUERY_RESULTS, BUDGET],
+    }
+
+    grid_run(**config)
+
+
+
 def criteo_bias_varying_epoch_size(ray_session_dir):
     """
     Varying Epoch methodology:
