@@ -9,7 +9,7 @@ from experiments.ray.analysis import load_ray_experiment
 
 pd.set_option("future.no_silent_downcasting", True)
 
-CUSTOM_ORDER_BASELINES = ["ipa", "user_epoch_ara", "cookiemonster"]
+CUSTOM_ORDER_BASELINES = ["ipa", "cookiemonster_base", "cookiemonster"]
 CUSTOM_ORDER_RATES = ["0.001", "0.01", "0.1", "1.0"]
 
 class Bias:
@@ -24,6 +24,10 @@ def get_df(path):
     df = load_ray_experiment(logs)
     return df
 
+def save_df(df, path, filename):
+    save_dir = LOGS_PATH.joinpath(path, filename)
+    df.index.name = "index"
+    df.to_csv(save_dir, header=True)
 
 def analyze_results(path, type="budget"):
     df = get_df(path)
@@ -146,7 +150,7 @@ def get_bias_logs(row):
     return result_df
 
 
-def plot_budget_consumption_lines(df, facet_row=None, height=600):
+def plot_budget_consumption_lines(path, facet_row=None, height=600):
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
     }
@@ -158,6 +162,7 @@ def plot_budget_consumption_lines(df, facet_row=None, height=600):
         case "knob2":
             category_orders.update({"knob2": CUSTOM_ORDER_RATES})
 
+    df = analyze_results(path, "budget")
 
     kwargs = {
         "data_frame": df,
@@ -174,13 +179,14 @@ def plot_budget_consumption_lines(df, facet_row=None, height=600):
         "category_orders": category_orders,
     }
 
+    save_df(df, path, "budget_lines.csv")
     iplot(px.line(y="max_max", **kwargs))
     # iplot(px.line(y="max_of_avg", **kwargs))
     # iplot(px.line(y="avg_of_max", **kwargs))
     iplot(px.line(y="avg", **kwargs))
 
 
-def plot_budget_consumption_bars(df, x_axis="knob1", log_y=False, height=400):
+def plot_budget_consumption_bars(path, x_axis="knob1", log_y=False, height=400):
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
     }
@@ -192,6 +198,7 @@ def plot_budget_consumption_bars(df, x_axis="knob1", log_y=False, height=400):
         case "knob2":
             category_orders.update({"knob2": CUSTOM_ORDER_RATES})
 
+    df = analyze_results(path, "budget")
 
     kwargs = {
         "data_frame": df.query("index == @df.index.max()"),
@@ -203,10 +210,10 @@ def plot_budget_consumption_bars(df, x_axis="knob1", log_y=False, height=400):
         "log_y": log_y,
         "barmode": "group",
         "facet_col": "destination",
-        # "facet_row": facet_row,
         "category_orders": category_orders,
     }
 
+    save_df(df, path, "budget_bars.csv")
     iplot(px.bar(y="max_max", **kwargs))
     # iplot(px.bar(y="max_of_avg", **kwargs))
     # iplot(px.bar(y="avg_of_max", **kwargs))
@@ -214,19 +221,8 @@ def plot_budget_consumption_bars(df, x_axis="knob1", log_y=False, height=400):
 
 
 def plot_bias_rmsre(
-    df, x_axis="num_days_per_epoch", by_destination=True, log_y=True, category_orders={}
+    path, x_axis="num_days_per_epoch", by_destination=True, log_y=True, category_orders={}
 ):
-    # Set values for the potentially undefined errors of baselines
-    df = df.explode("queries_rmsres")
-    max_ = df["queries_rmsres"].max() * 2
-    df.fillna({"queries_rmsres": max_}, inplace=True)
-
-    # Compute the average RMSRE per grouping key
-    # group_key = [x_axis, "baseline"]
-    # group_key += ["destination"] if by_destination else []
-    # df = df.groupby(group_key)['queries_rmsres'].agg(['mean', 'std']).reset_index()
-    # df = df.rename(columns={"mean": "avg_rmsre"})
-
     def rmsre(df):
         fig = px.box(
             df,
@@ -248,31 +244,29 @@ def plot_bias_rmsre(
         )
         return fig
 
+    df = analyze_results(path, "bias")
+    # Set values for the potentially undefined errors of baselines
+    df = df.explode("queries_rmsres")
+    max_ = df["queries_rmsres"].max() * 2
+    df.fillna({"queries_rmsres": max_}, inplace=True)
+
+    # Compute the average RMSRE per grouping key
+    # group_key = [x_axis, "baseline"]
+    # group_key += ["destination"] if by_destination else []
+    # df = df.groupby(group_key)['queries_rmsres'].agg(['mean', 'std']).reset_index()
+    # df = df.rename(columns={"mean": "avg_rmsre"})
+    save_df(df, path, "queries_rmsres.csv")
     iplot(rmsre(df))
 
 
 def plot_bias_rmsre_cdf(
-    df,
+    path,
     workload_size=0,
     epoch_size=0,
     by_destination=True,
     log_y=False,
     category_orders={},
 ):
-
-    # Pick a subset of the experiments
-    focus = ""
-    if workload_size:
-        focus = f"workload size {workload_size}"
-        df = df.query("requested_workload_size == @workload_size")
-    if epoch_size:
-        focus = f"epoch size {epoch_size}"
-        df = df.query("num_days_per_epoch == @epoch_size")
-
-    df = df.explode("queries_rmsres")
-    max_ = df["queries_rmsres"].max() * 2
-    df.fillna({"queries_rmsres": max_}, inplace=True)
-
     def ecdf(df):
         fig = px.ecdf(
             df,
@@ -291,6 +285,22 @@ def plot_bias_rmsre_cdf(
         )
         return fig
 
+    df = analyze_results(path, "bias")
+
+    # Pick a subset of the experiments
+    focus = ""
+    if workload_size:
+        focus = f"workload size {workload_size}"
+        df = df.query("requested_workload_size == @workload_size")
+    if epoch_size:
+        focus = f"epoch size {epoch_size}"
+        df = df.query("num_days_per_epoch == @epoch_size")
+
+    df = df.explode("queries_rmsres")
+    max_ = df["queries_rmsres"].max() * 2
+    df.fillna({"queries_rmsres": max_}, inplace=True)
+    
+    save_df(df, path, "rmsre_cdf.csv")
     iplot(ecdf(df))
 
 

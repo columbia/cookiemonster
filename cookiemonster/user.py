@@ -7,7 +7,7 @@ from cookiemonster.budget_accountant import BudgetAccountant
 
 from cookiemonster.utils import maybe_initialize_filters, compute_global_sensitivity
 
-from cookiemonster.utils import IPA, USER_EPOCH_ARA, COOKIEMONSTER
+from cookiemonster.utils import IPA, COOKIEMONSTER_BASE, COOKIEMONSTER
 
 
 class ConversionResult:
@@ -91,7 +91,7 @@ class User:
                 )
 
                 # Compute the required budget and the epochs to pay depending on the baseline
-                if self.config.baseline == USER_EPOCH_ARA:
+                if self.config.baseline == COOKIEMONSTER_BASE:
                     # Epochs in this partition pay worst case budget
                     epochs_to_pay = partition.epochs_window
                     budget_required = conversion.epsilon

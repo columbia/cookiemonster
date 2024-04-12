@@ -37,7 +37,7 @@ def microbenchmark_vary_knob1(ray_session_dir):
     knob2 = 0.1
 
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
@@ -77,7 +77,7 @@ def microbenchmark_vary_knob2(ray_session_dir):
     knob2s = [0.001, 0.01, 0.1, 1.0]
 
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
@@ -115,7 +115,7 @@ def microbenchmark_vary_epoch_granularity(ray_session_dir):
     knob2 = 0.1
 
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": get_path(impressions_path_base, knob1, knob2),
         "conversions_path": get_path(conversions_path_base, knob1, knob2),
@@ -156,7 +156,7 @@ def criteo_bias_varying_num_queries(ray_session_dir):
     )
 
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
@@ -194,7 +194,7 @@ def criteo_all(ray_session_dir):
     conversions_path = f"{dataset}/{dataset}_query_pool_all_conversions.csv"
 
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
@@ -227,7 +227,7 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
     conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
 
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
@@ -257,12 +257,12 @@ def patcg_vary_epoch_granularity(ray_session_dir):
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
 
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
         "num_days_per_epoch": [21, 28, 35, 60],
-        "num_days_attribution_window": [14],
+        "num_days_attribution_window": [30],
         "workload_size": [80],
         "max_scheduling_batch_size_per_query": 303009,
         "min_scheduling_batch_size_per_query": 280000,
@@ -286,7 +286,7 @@ def patcg_bias_vary_attribution_window(ray_session_dir):
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
 
     config = {
-        "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,

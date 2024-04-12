@@ -15,7 +15,7 @@ RAY_LOGS = LOGS_PATH.joinpath("ray")
 
 IPA = "ipa"
 COOKIEMONSTER = "cookiemonster"
-USER_EPOCH_ARA = "user_epoch_ara"
+COOKIEMONSTER_BASE = "cookiemonster_base"
 
 BIAS = "bias"
 BUDGET = "budget"
