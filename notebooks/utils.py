@@ -199,9 +199,9 @@ def plot_budget_consumption_bars(path, x_axis="knob1", log_y=False, height=400):
             category_orders.update({"knob2": CUSTOM_ORDER_RATES})
 
     df = analyze_results(path, "budget")
-
+    df = df.query("index == @df.index.max()")
     kwargs = {
-        "data_frame": df.query("index == @df.index.max()"),
+        "data_frame": df,
         "x": x_axis,
         "title": f"Cumulative Budget Consumption",
         "color": "baseline",
