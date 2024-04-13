@@ -206,7 +206,7 @@ def criteo_all(ray_session_dir):
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
-        "logging_keys": [QUERY_RESULTS, BUDGET],
+        "logging_keys": [BIAS, BUDGET],
     }
 
     grid_run(**config)
