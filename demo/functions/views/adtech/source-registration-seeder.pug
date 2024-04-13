@@ -13,8 +13,8 @@ body
                 triggerEligible: false,
             };
 
-            for (let i = 0; i < 10; i++) {
-                await fetch(`#{adtechUrl}/seed-source-registration`, {
+            for (let i = #{epoch_start}; i <= #{epoch_end}; i++) {
+                await fetch(`#{adtechUrl}/seed-source-registration?epoch=` + i, {
                     keepalive: true,
                     attributionReporting,
                     mode: "no-cors",

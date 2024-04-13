@@ -1,7 +1,7 @@
 {
     "enforce_one_user_contribution_per_query": true,
-    "max_conversions_required_for_dp": 450,
-    "min_conversions_required_for_dp": 300,
+    "max_batch_size": 450,
+    "min_batch_size": 300,
     "advertiser_filter": [
     ],
     "advertiser_exclusions": [

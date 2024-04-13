@@ -55,8 +55,8 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.enforce_one_user_contribution_per_query = (
             config.enforce_one_user_contribution_per_query
         )
-        self.max_conversions_required_for_dp = config.max_conversions_required_for_dp
-        self.min_conversions_required_for_dp = config.min_conversions_required_for_dp
+        self.max_batch_size = config.max_batch_size
+        self.min_batch_size = config.min_batch_size
         self.augment_dataset: bool = (
             config.get("augment_dataset", "false").lower() == "true"
         )
@@ -103,7 +103,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         def __mark_include(row: pd.Series):
             nonlocal seen_users
             nonlocal row_count
-            if row_count == self.max_conversions_required_for_dp:
+            if row_count == self.max_batch_size:
                 row_count = 0
                 seen_users = set()
 
@@ -132,7 +132,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     # we have our total query. now we need to break it up into batches
 
                     # no point in continuing if the total query isn't even a mini batch.
-                    if query_result.shape[0] < self.min_conversions_required_for_dp:
+                    if query_result.shape[0] < self.min_batch_size:
                         continue
 
                     if self.enforce_one_user_contribution_per_query:
@@ -157,30 +157,30 @@ class QueryPoolDatasetCreator(BaseCreator):
                     query_result = query_result.reset_index(drop=True)
                     query_result_length = query_result.shape[0]
                     num_big_reports = (
-                        query_result_length // self.max_conversions_required_for_dp
+                        query_result_length // self.max_batch_size
                     )
                     i = 0
                     while i < num_big_reports:
-                        start = i * self.max_conversions_required_for_dp
-                        end = (i + 1) * self.max_conversions_required_for_dp
+                        start = i * self.max_batch_size
+                        end = (i + 1) * self.max_batch_size
                         batch = query_result.iloc[start:end]
-                        assert batch.shape[0] >= self.min_conversions_required_for_dp
-                        assert batch.shape[0] <= self.max_conversions_required_for_dp
+                        assert batch.shape[0] >= self.min_batch_size
+                        assert batch.shape[0] <= self.max_batch_size
                         if advertiser not in query_batches:
                             query_batches[advertiser] = []
                         query_batches[advertiser].append(batch)
                         self.used_dimension_names.add(dimension_name)
                         i += 1
 
-                    i = i * self.max_conversions_required_for_dp
+                    i = i * self.max_batch_size
                     if (
                         i < query_result_length
                         and query_result_length - i
-                        >= self.min_conversions_required_for_dp
+                        >= self.min_batch_size
                     ):
                         batch = query_result.iloc[i:]
-                        assert batch.shape[0] >= self.min_conversions_required_for_dp
-                        assert batch.shape[0] <= self.max_conversions_required_for_dp
+                        assert batch.shape[0] >= self.min_batch_size
+                        assert batch.shape[0] <= self.max_batch_size
                         if advertiser not in query_batches:
                             query_batches[advertiser] = []
                         query_batches[advertiser].append(batch)
