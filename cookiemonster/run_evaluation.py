@@ -1,22 +1,23 @@
 import os
 import typer
 from loguru import logger
-from typing import Dict, Any
 from termcolor import colored
 from omegaconf import OmegaConf
+from typing import Dict, Any, List
 
 from cookiemonster.dataset import Dataset
 from cookiemonster.query_batch import QueryBatch
 from cookiemonster.event_logger import EventLogger
+from cookiemonster.user import User, ConversionResult
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
-from cookiemonster.user import User, ConversionResult
 from cookiemonster.utils import (
     GlobalStatistics,
     IPA,
     BIAS,
     BUDGET,
+    FILTERS_STATE,
     save_logs,
     maybe_initialize_filters,
     compute_global_sensitivity,
@@ -50,9 +51,6 @@ class Evaluation:
     def run(self):
         """Reads events from a dataset and asks users to process them"""
         for i, res in enumerate(self.dataset.event_reader()):
-            if not res:
-                break
-
             (user_id, event) = res
 
             if i % 100000 == 0:
@@ -135,6 +133,8 @@ class Evaluation:
                         batch=batch,
                         destination=destination,
                     )
+
+        self._log_all_filters_state()
 
         logs = {}
         logs["global_statistics"] = self.global_statistics.dump()
@@ -225,6 +225,29 @@ class Evaluation:
                     "aggregation_noisy_output": aggregation_noisy_output,
                 },
             )
+
+    def _log_all_filters_state(self):
+        if BUDGET in self.config.logs.logging_keys:
+            per_destination_device_epoch_filters: Dict[str, List[float]] = {}
+
+            def get_filters_state(filters_per_origin):
+                # Log filters state for each destination
+                for destination, budget_accountant in filters_per_origin.items():
+                    if destination not in per_destination_device_epoch_filters:
+                        per_destination_device_epoch_filters[destination] = []
+
+                    consumed_budgets = budget_accountant.get_consumption_per_block()
+                    per_destination_device_epoch_filters[
+                        destination
+                    ] += consumed_budgets
+
+            if self.global_filters_per_origin:
+                get_filters_state(self.global_filters_per_origin)
+            else:
+                for user in self.users.values():
+                    get_filters_state(user.filters_per_origin)
+
+            self.logger.log(FILTERS_STATE, per_destination_device_epoch_filters)
 
 
 @app.command()

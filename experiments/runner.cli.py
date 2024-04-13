@@ -24,7 +24,7 @@ def get_path(path_base, knob1, knob2):
     return f"{path_base}_knob1_{knob1}_knob2_{knob2}.csv"
 
 
-def microbenchmark_vary_knob1(ray_session_dir):
+def microbenchmark_varying_knob1(ray_session_dir):
     dataset = "microbenchmark"
     logs_dir = f"{dataset}/varying_knob1"
 
@@ -64,7 +64,7 @@ def microbenchmark_vary_knob1(ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-def microbenchmark_vary_knob2(ray_session_dir):
+def microbenchmark_varying_knob2(ray_session_dir):
     dataset = "microbenchmark"
     logs_dir = f"{dataset}/varying_knob2"
 
@@ -104,7 +104,7 @@ def microbenchmark_vary_knob2(ray_session_dir):
     # analyze(f"ray/{logs_dir}")
 
 
-def microbenchmark_vary_epoch_granularity(ray_session_dir):
+def microbenchmark_varying_epoch_granularity(ray_session_dir):
     dataset = "microbenchmark"
     logs_dir = f"{dataset}/varying_epoch_granularity"
 
@@ -133,7 +133,6 @@ def microbenchmark_vary_epoch_granularity(ray_session_dir):
 
     grid_run(**config)
     # analyze(f"ray/{logs_dir}")
-
 
 
 ## ----------------- CRITEO ----------------- ##
@@ -213,7 +212,6 @@ def criteo_all(ray_session_dir):
     grid_run(**config)
 
 
-
 def criteo_bias_varying_epoch_size(ray_session_dir):
     """
     Varying Epoch methodology:
@@ -249,9 +247,9 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
 ## ----------------- PATCG ----------------- ##
 
 
-def patcg_vary_epoch_granularity(ray_session_dir):
+def patcg_varying_epoch_granularity(ray_session_dir):
     dataset = "patcg"
-    logs_dir = f"{dataset}/varying_epoch_granularity_aw_30"
+    logs_dir = f"{dataset}/varying_epoch_granularity_aw_7"
 
     impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
@@ -261,8 +259,8 @@ def patcg_vary_epoch_granularity(ray_session_dir):
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
-        "num_days_per_epoch": [21, 28, 35, 60],
-        "num_days_attribution_window": [30],
+        "num_days_per_epoch": [1, 7, 14, 21, 28, 30, 60],
+        "num_days_attribution_window": [7],
         "workload_size": [80],
         "max_scheduling_batch_size_per_query": 303009,
         "min_scheduling_batch_size_per_query": 280000,
@@ -274,11 +272,11 @@ def patcg_vary_epoch_granularity(ray_session_dir):
     }
 
     grid_run(**config)
-    config["num_days_per_epoch"] = [1, 7, 14]
-    grid_run(**config)
+    # config["num_days_per_epoch"] = [1, 7]
+    # grid_run(**config)
 
 
-def patcg_bias_vary_attribution_window(ray_session_dir):
+def patcg_bias_varying_attribution_window(ray_session_dir):
     dataset = "patcg"
     logs_dir = f"{dataset}/bias_varying_attribution_window"
 

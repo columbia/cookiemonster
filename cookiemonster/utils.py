@@ -19,6 +19,7 @@ COOKIEMONSTER_BASE = "cookiemonster_base"
 
 BIAS = "bias"
 BUDGET = "budget"
+FILTERS_STATE = "filters_state"
 
 
 class EpochsWindow:

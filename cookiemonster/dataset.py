@@ -80,8 +80,6 @@ class Dataset(ABC):
                 yield (conversion_user_id, conversion)
                 conversion = None
 
-        yield None
-
 
 class Microbenchmark(Dataset):
     def __init__(self, config: OmegaConf) -> None:

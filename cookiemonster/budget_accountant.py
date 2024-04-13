@@ -65,6 +65,14 @@ class BudgetAccountant:
         sum_initial_budgets = len(remaining_budgets) * self.initial_budget
         return sum_initial_budgets - sum(remaining_budgets)
 
+    def get_consumption_per_block(self):
+        remaining_budgets = self.filter.values()
+        consumption_per_block = [
+            self.initial_budget - remaining_budget
+            for remaining_budget in remaining_budgets
+        ]
+        return consumption_per_block
+
 
 def block_window_range(blocks: Tuple[int, int]):
     return range(blocks[0], blocks[1] + 1)

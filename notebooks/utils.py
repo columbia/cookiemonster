@@ -12,6 +12,7 @@ pd.set_option("future.no_silent_downcasting", True)
 CUSTOM_ORDER_BASELINES = ["ipa", "cookiemonster_base", "cookiemonster"]
 CUSTOM_ORDER_RATES = ["0.001", "0.01", "0.1", "1.0"]
 
+
 class Bias:
     def __init__(self) -> None:
         self.values = []
@@ -24,10 +25,11 @@ def get_df(path):
     df = load_ray_experiment(logs)
     return df
 
+
 def save_df(df, path, filename):
     save_dir = LOGS_PATH.joinpath(path, filename)
-    df.index.name = "index"
-    df.to_csv(save_dir, header=True)
+    df.to_csv(save_dir, header=True, index=False)
+
 
 def analyze_results(path, type="budget"):
     df = get_df(path)
@@ -37,6 +39,8 @@ def analyze_results(path, type="budget"):
             get_logs = get_budget_logs
         case "bias":
             get_logs = get_bias_logs
+        case "filters_state":
+            get_logs = get_filters_state_logs
         case _:
             raise ValueError(f"Unsupported type: {type}")
 
@@ -51,7 +55,9 @@ def analyze_results(path, type="budget"):
         df["num_days_attribution_window"] = config["dataset"][
             "num_days_attribution_window"
         ]
-        df = df.sort_values(["num_days_per_epoch", "num_days_attribution_window", "initial_budget"])
+        df = df.sort_values(
+            ["num_days_per_epoch", "num_days_attribution_window", "initial_budget"]
+        )
         dfs.append(df)
     return pd.concat(dfs)
 
@@ -150,6 +156,73 @@ def get_bias_logs(row):
     return result_df
 
 
+def get_filters_state_logs(row):
+    filters_state = row["event_logs"]["filters_state"]
+
+    df = pd.DataFrame.from_records(
+        filters_state,
+        columns=["filters_state"],
+    )
+
+    filters_state_keys = set().union(*df["filters_state"])
+    for key in filters_state_keys:
+        df[key] = df["filters_state"].apply(lambda x: x.get(key))
+
+    df = df.drop(columns=["filters_state"], axis=1).reset_index()
+    df = pd.melt(
+        df, id_vars=["index"], var_name="destination", value_name="budget_consumption"
+    ).reset_index(drop=True)
+    df = df.drop(columns=["index"], axis=1)
+    df = df.astype({"destination": "str"})
+    return df
+
+
+def plot_budget_consumption_cdf(
+    path,
+    workload_size=0,
+    epoch_size=0,
+    by_destination=False,
+    category_orders={},
+):
+
+    category_orders = {
+        "baseline": CUSTOM_ORDER_BASELINES,
+    }
+
+    def ecdf(df):
+        fig = px.ecdf(
+            df,
+            y="budget_consumption",
+            color="baseline",
+            title=f"CDF for epoch-devices budget consumption {focus})",
+            width=1100,
+            height=600,
+            orientation="h",
+            facet_col="destination" if by_destination else None,
+            category_orders={
+                "baseline": CUSTOM_ORDER_BASELINES,
+                **category_orders,
+            },
+        )
+        return fig
+
+    df = analyze_results(path, "filters_state")
+
+    # Pick a subset of the experiments
+    focus = ""
+    if workload_size:
+        focus = f"workload size {workload_size}"
+        df = df.query("requested_workload_size == @workload_size")
+    if epoch_size:
+        focus = f"epoch size {epoch_size}"
+        df = df.query("num_days_per_epoch == @epoch_size")
+
+    df = df.explode("budget_consumption")
+
+    save_df(df, path, "budget_consumption_cdf.csv")
+    iplot(ecdf(df))
+
+
 def plot_budget_consumption_lines(path, facet_row=None, height=600):
     category_orders = {
         "baseline": CUSTOM_ORDER_BASELINES,
@@ -221,20 +294,21 @@ def plot_budget_consumption_bars(path, x_axis="knob1", log_y=False, height=400):
 
 
 def plot_bias_rmsre(
-    path, x_axis="num_days_per_epoch", by_destination=True, log_y=True, category_orders={}
+    path,
+    x_axis="num_days_per_epoch",
+    by_destination=True,
+    log_y=True,
+    category_orders={},
 ):
     def rmsre(df):
         fig = px.box(
             df,
             x=x_axis,
-            # error_y="std",
-            # y="avg_rmsre",
             y="queries_rmsres",
             color="baseline",
             title=f"RMSRE",
             width=1100,
             height=600,
-            # barmode="group",
             log_y=log_y,
             facet_col="destination" if by_destination else None,
             category_orders={
@@ -245,16 +319,10 @@ def plot_bias_rmsre(
         return fig
 
     df = analyze_results(path, "bias")
-    # Set values for the potentially undefined errors of baselines
     df = df.explode("queries_rmsres")
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)
 
-    # Compute the average RMSRE per grouping key
-    # group_key = [x_axis, "baseline"]
-    # group_key += ["destination"] if by_destination else []
-    # df = df.groupby(group_key)['queries_rmsres'].agg(['mean', 'std']).reset_index()
-    # df = df.rename(columns={"mean": "avg_rmsre"})
     save_df(df, path, "queries_rmsres.csv")
     iplot(rmsre(df))
 
@@ -299,7 +367,7 @@ def plot_bias_rmsre_cdf(
     df = df.explode("queries_rmsres")
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)
-    
+
     save_df(df, path, "rmsre_cdf.csv")
     iplot(ecdf(df))
 
