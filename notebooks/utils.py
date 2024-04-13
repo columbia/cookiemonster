@@ -189,8 +189,11 @@ def get_filters_state_logs(row):
     )
 
     filters_state_keys = set().union(*df["filters_state"])
+    filters_state_values = {}
     for key in filters_state_keys:
-        df[key] = df["filters_state"].apply(lambda x: x.get(key))
+        filters_state_values[key] = df["filters_state"].apply(lambda x: x.get(key))
+
+    df = pd.concat([df, pd.DataFrame(filters_state_values)], axis=1)
 
     df = df.drop(columns=["filters_state"], axis=1).reset_index()
     df = pd.melt(
@@ -299,6 +302,7 @@ def plot_budget_consumption_boxes(
 
     df = analyze_results(path, "filters_state")
     df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
+    df[x_axis] = df[x_axis].astype(str)
     # df = df.explode("budget_consumption")
 
     fig = px.box(

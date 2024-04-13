@@ -165,6 +165,7 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
 
     grid_run(**config)
     config["num_days_per_epoch"] = [30, 60, 90]
+    config["ray_init"] = False
     grid_run(**config)
 
 
