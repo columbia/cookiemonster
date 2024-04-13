@@ -236,10 +236,8 @@ class Evaluation:
                     if destination not in per_destination_device_epoch_filters:
                         per_destination_device_epoch_filters[destination] = []
 
-                    consumed_budgets = budget_accountant.get_consumption_per_block()
-                    per_destination_device_epoch_filters[
-                        destination
-                    ] += consumed_budgets
+                    avg_consumed_budget = budget_accountant.get_avg_consumption_across_blocks()
+                    per_destination_device_epoch_filters[destination].append(avg_consumed_budget)
 
             if self.global_filters_per_origin:
                 get_filters_state(self.global_filters_per_origin)

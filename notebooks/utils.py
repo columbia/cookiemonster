@@ -7,6 +7,9 @@ from plotly.offline import iplot
 from cookiemonster.utils import LOGS_PATH
 from experiments.ray.analysis import load_ray_experiment
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
+
 pd.set_option("future.no_silent_downcasting", True)
 
 CUSTOM_ORDER_BASELINES = ["ipa", "cookiemonster_base", "cookiemonster"]
@@ -26,9 +29,9 @@ def get_df(path):
     return df
 
 
-def save_df(df, path, filename):
+def save_df(df, path, filename, include_index=False):
     save_dir = LOGS_PATH.joinpath(path, filename)
-    df.to_csv(save_dir, header=True, index=False)
+    df.to_csv(save_dir, header=True, index=include_index)
 
 
 def analyze_results(path, type="budget"):
@@ -55,9 +58,9 @@ def analyze_results(path, type="budget"):
         df["num_days_attribution_window"] = config["dataset"][
             "num_days_attribution_window"
         ]
-        df = df.sort_values(
-            ["num_days_per_epoch", "num_days_attribution_window", "initial_budget"]
-        )
+        # df = df.sort_values(
+        #     ["num_days_per_epoch", "num_days_attribution_window", "initial_budget"]
+        # )
         dfs.append(df)
     return pd.concat(dfs)
 
@@ -104,12 +107,24 @@ def get_budget_logs(row):
     df = df.rename(
         columns={"sum_max": "avg_of_max", "max_sum": "max_of_avg", "sum_sum": "avg"}
     )
-    df["knob1"] = knob1
-    df["knob2"] = knob2
+    df.index.name = 'index'
+
+    if knob1:
+        df["knob1"] = float(knob1)
+        df["knob2"] = float(knob2)
+        df.sort_values(["knob1", "knob2"], inplace=True)
+        df = df.astype({"knob1": str, "knob2": str})
     return df
 
 
 def get_bias_logs(row):
+    config = row["config"]
+
+    # Obtain conversions and impressions rate from dataset paths
+    pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
+    match = re.search(pattern, config["dataset"]["impressions_path"])
+    (knob1, knob2) = (match.group(1), match.group(2)) if match else ("", "")
+
     bias_events = row["event_logs"]["bias"]
     df = pd.DataFrame.from_records(
         bias_events,
@@ -150,14 +165,23 @@ def get_bias_logs(row):
             }
         )
 
-    result_df = (
-        df.groupby("destination").apply(compute_bias_stats).reset_index(drop=True)
-    )
-    return result_df
+    df = df.groupby("destination").apply(compute_bias_stats).reset_index(drop=True)
+    df = df.explode("queries_rmsres")
+    if knob1:
+        df["knob1"] = float(knob1)
+        df["knob2"] = float(knob2)
+        df.sort_values(["knob1", "knob2"], inplace=True)
+        df = df.astype({"knob1": str, "knob2": str})
+    return df
 
 
 def get_filters_state_logs(row):
+    config = row["config"]
     filters_state = row["event_logs"]["filters_state"]
+    # Obtain conversions and impressions rate from dataset paths
+    pattern = r"_knob1_([0-9.]+)_knob2_([0-9.]+)\.csv"
+    match = re.search(pattern, config["dataset"]["impressions_path"])
+    (knob1, knob2) = (match.group(1), match.group(2)) if match else ("", "")
 
     df = pd.DataFrame.from_records(
         filters_state,
@@ -174,39 +198,36 @@ def get_filters_state_logs(row):
     ).reset_index(drop=True)
     df = df.drop(columns=["index"], axis=1)
     df = df.astype({"destination": "str"})
+    df = df.explode("budget_consumption")
+
+    if knob1:
+        df["knob1"] = float(knob1)
+        df["knob2"] = float(knob2)
+        df.sort_values(["knob1", "knob2"], inplace=True)
+        df = df.astype({"knob1": str, "knob2": str})
     return df
 
-def plot_budget_consumption_cdf(
-    path,
-    workload_size=0,
-    epoch_size=0,
-    by_destination=False,
-    category_orders={},
-):
 
-    category_orders = {
-        "baseline": CUSTOM_ORDER_BASELINES,
-    }
+def save_data(path):
 
-    def ecdf(df):
-        fig = px.ecdf(
-            df,
-            y="budget_consumption",
-            color="baseline",
-            title=f"CDF for epoch-devices budget consumption {focus})",
-            width=1100,
-            height=600,
-            orientation="h",
-            facet_col="destination" if by_destination else None,
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-                **category_orders,
-            },
-        )
-        return fig
-
+    # Filters state
     df = analyze_results(path, "filters_state")
+    df = df.drop(columns=["initial_budget", "workload_size", "num_days_attribution_window"], axis=1)
+    df = df.explode("budget_consumption")
+    save_df(df, path, "filters_state.csv")
 
+    # Budget Consumption
+    df = analyze_results(path, "budget")
+    save_df(df, path, "budgets.csv", include_index=True)
+
+    # Bias
+    df = analyze_results(path, "bias")
+    max_ = df["queries_rmsres"].max() * 2
+    df.fillna({"queries_rmsres": max_}, inplace=True)
+    save_df(df, path, "rmsres.csv")
+
+
+def focus(df, workload_size, epoch_size, knob1, knob2, attribution_window):
     # Pick a subset of the experiments
     focus = ""
     if workload_size:
@@ -215,114 +236,165 @@ def plot_budget_consumption_cdf(
     if epoch_size:
         focus = f"epoch size {epoch_size}"
         df = df.query("num_days_per_epoch == @epoch_size")
+    if knob1:
+        focus = f"knob1 {knob1}"
+        df = df.query("knob1 == @knob1")
+    if knob2:
+        focus = f"knob2 {knob2}"
+        df = df.query("knob2 == @knob2")
+    if attribution_window:
+        focus = f"attribution_window {attribution_window}"
+        df = df.query("num_days_attribution_window == @attribution_window")
+    return df, focus
 
-    df = df.explode("budget_consumption")
 
-    save_df(df, path, "budget_consumption_cdf.csv")
-    iplot(ecdf(df))
+def plot_budget_consumption_cdf(
+    path,
+    knob1=0,
+    knob2=0,
+    epoch_size=0,
+    workload_size=0,
+    attribution_window=0,
+    by_destination=False,
+    facet_row=None,
+    category_orders={},
+    log_y=False,
+):
+    df = analyze_results(path, "filters_state")
+    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
+    # df = df.explode("budget_consumption")
+
+    fig = px.ecdf(
+        df,
+        y="budget_consumption",
+        color="baseline",
+        title=f"CDF for epoch-devices budget consumption {focus_})",
+        width=1100,
+        height=600,
+        orientation="h",
+        log_y=log_y,
+        facet_row=facet_row,
+        facet_col="destination" if by_destination else None,
+        category_orders={
+            "baseline": CUSTOM_ORDER_BASELINES,
+            **category_orders,
+        },
+    )
+    iplot(fig)
+
 
 def plot_budget_consumption_boxes(
     path,
     x_axis="num_days_per_epoch",
-    by_destination=True,
-    log_y=True,
+    knob1=0,
+    knob2=0,
+    epoch_size=0,
+    workload_size=0,
+    attribution_window=0,
+    by_destination=False,
+    facet_row=None,
     category_orders={},
+    log_y=False,
 ):
 
-    category_orders = {
-        "baseline": CUSTOM_ORDER_BASELINES,
-    }
-
-    def budget_consumption(df):
-        fig = px.box(
-            df,
-            x=x_axis,
-            y="budget_consumption",
-            color="baseline",
-            title=f"Budget Consumption",
-            width=1100,
-            height=600,
-            log_y=log_y,
-            facet_col="destination" if by_destination else None,
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-                **category_orders,
-            },
-        )
-        return fig
-
     df = analyze_results(path, "filters_state")
+    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
+    # df = df.explode("budget_consumption")
 
-    df = df.explode("budget_consumption")
+    fig = px.box(
+        df,
+        x=x_axis,
+        y="budget_consumption",
+        color="baseline",
+        title=f"Budget Consumption {focus_}",
+        width=1100,
+        height=600,
+        log_y=log_y,
+        facet_row=facet_row,
+        facet_col="destination" if by_destination else None,
+        category_orders={
+            "baseline": CUSTOM_ORDER_BASELINES,
+            **category_orders,
+        },
+    )
 
-    save_df(df, path, "budget_consumption_boxes.csv")
-    iplot(budget_consumption(df))
+    iplot(fig)
 
 
-def plot_budget_consumption_lines(path, facet_row=None, height=600):
-    category_orders = {
-        "baseline": CUSTOM_ORDER_BASELINES,
-    }
-    match facet_row:
-        case None:
-            facet_row = None
-        case "knob1":
-            category_orders.update({"knob1": CUSTOM_ORDER_RATES})
-        case "knob2":
-            category_orders.update({"knob2": CUSTOM_ORDER_RATES})
+def plot_budget_consumption_lines(
+    path,
+    knob1=0,
+    knob2=0,
+    epoch_size=0,
+    workload_size=0,
+    attribution_window=0,
+    by_destination=False,
+    facet_row=None,
+    category_orders={},
+    log_y=False,
+):
 
     df = analyze_results(path, "budget")
+    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
 
     kwargs = {
         "data_frame": df,
         "x": df.index,
-        "title": f"Cumulative Budget Consumption",
+        "title": f"Cumulative Budget Consumption {focus_}",
         "color": "baseline",
         "width": 1100,
-        "height": height,
+        "height": 1000,
         "markers": True,
-        "log_y": False,
         "range_y": [0, 1],
-        "facet_col": "destination",
+        "log_y": log_y,
         "facet_row": facet_row,
-        "category_orders": category_orders,
+        "facet_col": "destination" if by_destination else None,
+        "category_orders": {
+            "baseline": CUSTOM_ORDER_BASELINES,
+            **category_orders,
+        },
     }
 
-    save_df(df, path, "budget_lines.csv")
     iplot(px.line(y="max_max", **kwargs))
     # iplot(px.line(y="max_of_avg", **kwargs))
     # iplot(px.line(y="avg_of_max", **kwargs))
     iplot(px.line(y="avg", **kwargs))
 
 
-def plot_budget_consumption_bars(path, x_axis="knob1", log_y=False, height=400):
-    category_orders = {
-        "baseline": CUSTOM_ORDER_BASELINES,
-    }
-    match x_axis:
-        case None:
-            x_axis = None
-        case "knob1":
-            category_orders.update({"knob1": CUSTOM_ORDER_RATES})
-        case "knob2":
-            category_orders.update({"knob2": CUSTOM_ORDER_RATES})
+def plot_budget_consumption_bars(
+    path,
+    x_axis="knob1",
+    knob1=0,
+    knob2=0,
+    epoch_size=0,
+    workload_size=0,
+    attribution_window=0,
+    by_destination=False,
+    facet_row=None,
+    category_orders={},
+    log_y=False,
+):
 
     df = analyze_results(path, "budget")
+    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
     df = df.query("index == @df.index.max()")
     kwargs = {
         "data_frame": df,
         "x": x_axis,
-        "title": f"Cumulative Budget Consumption",
+        "title": f"Cumulative Budget Consumption {focus_}",
         "color": "baseline",
         "width": 1100,
-        "height": height,
-        "log_y": log_y,
+        "height": 400,
         "barmode": "group",
-        "facet_col": "destination",
-        "category_orders": category_orders,
+        "log_y": log_y,
+        "facet_row": facet_row,
+        "facet_col": "destination" if by_destination else None,
+        "category_orders": {
+            "baseline": CUSTOM_ORDER_BASELINES,
+            **category_orders,
+        },
     }
 
-    save_df(df, path, "budget_bars.csv")
     iplot(px.bar(y="max_max", **kwargs))
     # iplot(px.bar(y="max_of_avg", **kwargs))
     # iplot(px.bar(y="avg_of_max", **kwargs))
@@ -332,82 +404,84 @@ def plot_budget_consumption_bars(path, x_axis="knob1", log_y=False, height=400):
 def plot_rmsre_boxes(
     path,
     x_axis="num_days_per_epoch",
-    by_destination=True,
-    log_y=True,
-    category_orders={},
-):
-    def rmsre(df):
-        fig = px.box(
-            df,
-            x=x_axis,
-            y="queries_rmsres",
-            color="baseline",
-            title=f"RMSRE",
-            width=1100,
-            height=600,
-            log_y=log_y,
-            facet_col="destination" if by_destination else None,
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-                **category_orders,
-            },
-        )
-        return fig
-
-    df = analyze_results(path, "bias")
-    df = df.explode("queries_rmsres")
-    max_ = df["queries_rmsres"].max() * 2
-    df.fillna({"queries_rmsres": max_}, inplace=True)
-
-    save_df(df, path, "rmsre_boxes.csv")
-    iplot(rmsre(df))
-
-
-def plot_bias_rmsre_cdf(
-    path,
-    workload_size=0,
+    knob1=0,
+    knob2=0,
     epoch_size=0,
-    by_destination=True,
-    log_y=False,
+    workload_size=0,
+    attribution_window=0,
+    by_destination=False,
+    facet_row=None,
     category_orders={},
+    log_y=False,
 ):
-    def ecdf(df):
-        fig = px.ecdf(
-            df,
-            y="queries_rmsres",
-            color="baseline",
-            title=f"CDF for E2E RMSRE({focus})",
-            width=1100,
-            height=600,
-            orientation="h",
-            log_y=log_y,
-            facet_col="destination" if by_destination else None,
-            category_orders={
-                "baseline": CUSTOM_ORDER_BASELINES,
-                **category_orders,
-            },
-        )
-        return fig
 
     df = analyze_results(path, "bias")
-
-    # Pick a subset of the experiments
-    focus = ""
-    if workload_size:
-        focus = f"workload size {workload_size}"
-        df = df.query("requested_workload_size == @workload_size")
-    if epoch_size:
-        focus = f"epoch size {epoch_size}"
-        df = df.query("num_days_per_epoch == @epoch_size")
-
-    df = df.explode("queries_rmsres")
+    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
+    # df = df.explode("queries_rmsres")
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)
 
-    save_df(df, path, "rmsre_cdf.csv")
-    iplot(ecdf(df))
+    fig = px.box(
+        df,
+        x=x_axis,
+        y="queries_rmsres",
+        color="baseline",
+        title=f"RMSRE {focus_}",
+        width=1100,
+        height=600,
+        log_y=log_y,
+        facet_row=facet_row,
+        facet_col="destination" if by_destination else None,
+        category_orders={
+            "baseline": CUSTOM_ORDER_BASELINES,
+            **category_orders,
+        },
+    )
+
+    iplot(fig)
+
+
+def plot_rmsre_cdf(
+    path,
+    knob1=0,
+    knob2=0,
+    epoch_size=0,
+    workload_size=0,
+    attribution_window=0,
+    by_destination=False,
+    facet_row=None,
+    category_orders={},
+    log_y=False,
+):
+
+    df = analyze_results(path, "bias")
+    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
+    # df = df.explode("queries_rmsres")
+    max_ = df["queries_rmsres"].max() * 2
+    df.fillna({"queries_rmsres": max_}, inplace=True)
+
+    fig = px.ecdf(
+        df,
+        y="queries_rmsres",
+        color="baseline",
+        title=f"CDF for E2E RMSRE({focus_})",
+        width=1100,
+        height=600,
+        orientation="h",
+        log_y=log_y,
+        facet_row=facet_row,
+        facet_col="destination" if by_destination else None,
+        category_orders={
+            "baseline": CUSTOM_ORDER_BASELINES,
+            **category_orders,
+        },
+    )
+
+    iplot(fig)
 
 
 if __name__ == "__main__":
-    path = "ray/microbenchmark/varying_knob1"
-    df = analyze_results(path, type="budget")
+    # save_data("ray/microbenchmark/varying_knob1")
+    # save_data("ray/microbenchmark/varying_knob2")
+    # save_data("ray/patcg/varying_epoch_granularity_aw_7")
+    save_data("ray/patcg/varying_epoch_granularity_aw_7_avgepochs")
