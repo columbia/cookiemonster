@@ -9,11 +9,24 @@ from cookiemonster.epsilon_calculator import (
 
 class QueryPoolDatasetCreator(BaseCreator):
 
-    def __init__(self, config: DictConfig) -> None:
+    def __init__(
+        self,
+        config: DictConfig,
+        impressions_filename: str | None = None,
+        conversions_filename: str | None = None,
+    ) -> None:
         super().__init__(
             config,
-            "criteo_query_pool_impressions.csv",
-            "criteo_query_pool_conversions.csv",
+            (
+                impressions_filename
+                if impressions_filename
+                else "criteo_query_pool_impressions.csv"
+            ),
+            (
+                conversions_filename
+                if conversions_filename
+                else "criteo_query_pool_conversions.csv"
+            ),
         )
         self.used_dimension_names = set()
 
@@ -22,20 +35,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.user_column_name = "user_id"
 
         self.dimension_names = [
-            # "product_category1",
-            # "product_category2",
             "product_category3",
-            # "product_category4",
-            # "product_category5",
-            # "product_category6",
-            # "product_category7",
-            # "product_age_group",
-            # "device_type",
-            # "audience_id",
-            # "product_gender",
-            # "product_brand",
-            # "product_country",
-            # self.product_column_name,
         ]
 
         self.conversion_columns_to_drop = [
@@ -62,7 +62,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.advertiser_filter = config.get("advertiser_filter", [])
         self.advertiser_exclusions = config.get("advertiser_exclusions", [])
-
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(
@@ -156,9 +155,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     # now split the query_result into its batches
                     query_result = query_result.reset_index(drop=True)
                     query_result_length = query_result.shape[0]
-                    num_big_reports = (
-                        query_result_length // self.max_batch_size
-                    )
+                    num_big_reports = query_result_length // self.max_batch_size
                     i = 0
                     while i < num_big_reports:
                         start = i * self.max_batch_size
@@ -175,8 +172,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     i = i * self.max_batch_size
                     if (
                         i < query_result_length
-                        and query_result_length - i
-                        >= self.min_batch_size
+                        and query_result_length - i >= self.min_batch_size
                     ):
                         batch = query_result.iloc[i:]
                         assert batch.shape[0] >= self.min_batch_size

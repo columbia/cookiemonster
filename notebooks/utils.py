@@ -1,5 +1,6 @@
 import re
 import math
+from typing import Callable
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -8,7 +9,8 @@ from cookiemonster.utils import LOGS_PATH
 from experiments.ray.analysis import load_ray_experiment
 
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning) 
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 pd.set_option("future.no_silent_downcasting", True)
 
@@ -107,7 +109,7 @@ def get_budget_logs(row):
     df = df.rename(
         columns={"sum_max": "avg_of_max", "max_sum": "max_of_avg", "sum_sum": "avg"}
     )
-    df.index.name = 'index'
+    df.index.name = "index"
 
     if knob1:
         df["knob1"] = float(knob1)
@@ -215,7 +217,10 @@ def save_data(path):
 
     # Filters state
     df = analyze_results(path, "filters_state")
-    df = df.drop(columns=["initial_budget", "workload_size", "num_days_attribution_window"], axis=1)
+    df = df.drop(
+        columns=["initial_budget", "workload_size", "num_days_attribution_window"],
+        axis=1,
+    )
     df = df.explode("budget_consumption")
     save_df(df, path, "filters_state.csv")
 
@@ -336,10 +341,13 @@ def plot_budget_consumption_lines(
     facet_row=None,
     category_orders={},
     log_y=False,
+    extra_df_prep: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
 ):
 
     df = analyze_results(path, "budget")
     df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
+    if extra_df_prep:
+        df = extra_df_prep(df)
 
     kwargs = {
         "data_frame": df,
@@ -424,6 +432,7 @@ def plot_rmsre_boxes(
     # df = df.explode("queries_rmsres")
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)
+    df[x_axis] = df[x_axis].astype(str)
 
     fig = px.box(
         df,

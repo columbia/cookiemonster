@@ -138,11 +138,10 @@ def microbenchmark_varying_epoch_granularity(ray_session_dir):
 
 ## ----------------- CRITEO ----------------- ##
 
-def criteo_bias_varying_epoch_size(ray_session_dir):
+
+def _criteo_run(ray_session_dir, impressions_path, conversions_path):
     dataset = "criteo"
     logs_dir = f"{dataset}/bias_varying_epoch_size"
-    impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
-    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
 
     workload_generation = OmegaConf.load("data/criteo/config.json")
 
@@ -153,7 +152,7 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
         "conversions_path": conversions_path,
         "num_days_per_epoch": [1, 7, 14, 21],
         "num_days_attribution_window": [30],
-        "workload_size": [1_000], # force a high number so that we run on all queries
+        "workload_size": [1_000],  # force a high number so that we run on all queries
         "max_scheduling_batch_size_per_query": workload_generation.max_batch_size,
         "min_scheduling_batch_size_per_query": workload_generation.min_batch_size,
         "initial_budget": [1],
@@ -167,6 +166,20 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
     config["num_days_per_epoch"] = [30, 60, 90]
     config["ray_init"] = False
     grid_run(**config)
+
+
+def criteo_varying_epoch_size(ray_session_dir):
+    dataset = "criteo"
+    impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
+    _criteo_run(ray_session_dir, impressions_path, conversions_path)
+
+
+def criteo_augmented_varying_epoch_size(ray_session_dir):
+    dataset = "criteo"
+    impressions_path = f"{dataset}/{dataset}_augmented_query_pool_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_augmented_query_pool_conversions.csv"
+    _criteo_run(ray_session_dir, impressions_path, conversions_path)
 
 
 ## ----------------- PATCG ----------------- ##
@@ -200,6 +213,7 @@ def patcg_varying_epoch_granularity(ray_session_dir):
     config["num_days_per_epoch"] = [1, 7, 14]
     grid_run(**config)
 
+
 def patcg_varying_initial_budget(ray_session_dir):
     dataset = "patcg"
     logs_dir = f"{dataset}/varying_initial_budget"
@@ -225,7 +239,6 @@ def patcg_varying_initial_budget(ray_session_dir):
     }
 
     grid_run(**config)
-
 
 
 def patcg_bias_varying_attribution_window(ray_session_dir):
