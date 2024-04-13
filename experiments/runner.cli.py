@@ -1,5 +1,6 @@
 import os
 import time
+from omegaconf import OmegaConf
 import typer
 import multiprocessing
 from copy import deepcopy
@@ -143,16 +144,18 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
     impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
     conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
 
+    workload_generation = OmegaConf.load("data/criteo/config.json")
+
     config = {
         "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
-        "num_days_per_epoch": [1, 7, 14, 21, 28, 30, 60, 90],
+        "num_days_per_epoch": [1, 7, 14, 21],
         "num_days_attribution_window": [30],
-        "workload_size": [970],
-        "max_scheduling_batch_size_per_query": 450,
-        "min_scheduling_batch_size_per_query": 300,
+        "workload_size": [1_000], # force a high number so that we run on all queries
+        "max_scheduling_batch_size_per_query": workload_generation.max_batch_size,
+        "min_scheduling_batch_size_per_query": workload_generation.min_batch_size,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
@@ -160,6 +163,8 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
         "logging_keys": [BIAS, BUDGET],
     }
 
+    grid_run(**config)
+    config["num_days_per_epoch"] = [30, 60, 90]
     grid_run(**config)
 
 
