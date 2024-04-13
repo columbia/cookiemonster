@@ -1,8 +1,9 @@
 import json
 import uuid
+import math
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple, Any
+from typing import Dict, Tuple, Any
 
 from cookiemonster.budget_accountant import BudgetAccountant
 
@@ -12,14 +13,62 @@ LOGS_PATH = REPO_ROOT.joinpath("logs")
 RAY_LOGS = LOGS_PATH.joinpath("ray")
 
 
-kNulledReport = "Null"
-
 IPA = "ipa"
-USER_EPOCH_ARA = "user_epoch_ara"
 COOKIEMONSTER = "cookiemonster"
+COOKIEMONSTER_BASE = "cookiemonster_base"
 
+BIAS = "bias"
 BUDGET = "budget"
-QUERY_RESULTS = "query_results"
+FILTERS_STATE = "filters_state"
+
+
+class EpochsWindow:
+    def __init__(self) -> None:
+        self.epochs = (math.inf, 0)
+
+    def update(self, epochs_window):
+        (a, b) = epochs_window
+        self.epochs = (
+            min(a, self.epochs[0]),
+            max(b, self.epochs[1]),
+        )
+
+    def get_epochs(self):
+        return self.epochs
+
+    def len(self):
+        return self.epochs[1] - self.epochs[0] + 1
+
+
+class GlobalStatistics:
+    def __init__(self, baseline) -> None:
+        self.baseline = baseline
+        self.per_destination_global_stats: Dict[str, Any] = {}
+
+    def update(self, conversion):
+        destination = str(conversion.destination)
+        epochs_window = conversion.epochs_window
+        device_filter = 0 if self.baseline == IPA else conversion.user_id
+
+        if destination not in self.per_destination_global_stats:
+            self.per_destination_global_stats[destination] = {
+                "epochs_window": EpochsWindow(),
+                "unique_device_filters": set(),
+            }
+
+        global_stats = self.per_destination_global_stats[destination]
+        global_stats["epochs_window"].update(epochs_window)
+        global_stats["unique_device_filters"].add(device_filter)
+
+    def dump(self):
+        output = {}
+        for destination, stats in self.per_destination_global_stats.items():
+            output[destination] = {}
+            output[destination]["num_unique_device_filters_touched"] = len(
+                stats["unique_device_filters"]
+            )
+            output[destination]["num_epochs_touched"] = stats["epochs_window"].len()
+        return output
 
 
 def maybe_initialize_filters(
@@ -29,10 +78,10 @@ def maybe_initialize_filters(
     initial_budget: float,
 ):
     if destination not in filters_per_origin:
-        filters_per_origin[destination] = BudgetAccountant()
+        filters_per_origin[destination] = BudgetAccountant(initial_budget)
     destination_filter = filters_per_origin[destination]
 
-    destination_filter.maybe_initialize_filter(attribution_epochs, initial_budget)
+    destination_filter.maybe_initialize_filter(attribution_epochs)
     return destination_filter
 
 
@@ -57,21 +106,6 @@ def load_logs(log_path: str, relative_path=True) -> dict:
     with open(full_path, "r") as f:
         logs = json.load(f)
     return logs
-
-
-def process_logs(logs: Dict[str, List[Dict[str, Any]]], config: Dict[str, Any]) -> dict:
-
-    proceessed_logs = {
-        "logs": logs,
-        "baseline": config["user"]["baseline"],
-        "dataset": config["dataset"]["name"],
-        "workload_size": config["dataset"]["workload_size"],
-        "num_days_per_epoch": config["dataset"]["num_days_per_epoch"],
-        "initial_budget": config["user"]["initial_budget"],
-        "num_days_attribution_window": config["dataset"]["num_days_attribution_window"],
-        "config": config,
-    }
-    return proceessed_logs
 
 
 def save_logs(log_dict, save_dir):

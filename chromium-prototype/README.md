@@ -73,6 +73,6 @@ export DISPLAY=:99
 
 #### Run Chromium:
 ``` bash
-out/Default/chrome --disable-gpu --user-data-dir=/mydata/chromium-data --remote-debugging-port=8888 --flag-switches-begin --disable-field-trial-config  --start-maximized --enable-privacy-sandbox-ads-apis --privacy-sandbox-enrollment-overrides=http://arapi-adtech.localhost:8085 --show-overdraw-feedback --flag-switches-end --restore-last-session  http://arapi-publisher.localhost:8087/
+out/Default/chrome --disable-gpu --user-data-dir=/mydata/chromium-data --remote-debugging-port=8888 --flag-switches-begin --disable-field-trial-config  --start-maximized --enable-privacy-sandbox-ads-apis --privacy-sandbox-enrollment-overrides=http://adtech.localhost:8085 --show-overdraw-feedback --flag-switches-end --restore-last-session  http://publisher.localhost:8087/
 ```
 

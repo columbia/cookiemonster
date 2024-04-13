@@ -1,11 +1,10 @@
-import itertools
 from omegaconf import DictConfig
-import prtpy
-from uuid import uuid4
 
 
 from data.criteo.creators.base_creator import BaseCreator, pd
-from data.criteo.creators.epsilon_calculator import get_epsilon_from_accuracy_for_counts
+from cookiemonster.epsilon_calculator import (
+    get_epsilon_for_high_probability_relative_error_wrt_avg_prior,
+)
 
 
 class QueryPoolDatasetCreator(BaseCreator):
@@ -13,8 +12,8 @@ class QueryPoolDatasetCreator(BaseCreator):
     def __init__(self, config: DictConfig) -> None:
         super().__init__(
             config,
-            "criteo_query_pool_large_impressions.csv",
-            "criteo_query_pool_large_conversions.csv",
+            "criteo_query_pool_impressions.csv",
+            "criteo_query_pool_conversions.csv",
         )
         self.used_dimension_names = set()
 
@@ -23,19 +22,20 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.user_column_name = "user_id"
 
         self.dimension_names = [
-            "product_category1",
-            "product_category2",
+            # "product_category1",
+            # "product_category2",
             "product_category3",
-            "product_category4",
-            "product_category5",
-            "product_category6",
-            "product_category7",
-            "product_age_group",
-            "device_type",
-            "audience_id",
-            "product_gender",
-            "product_brand",
-            "product_country",
+            # "product_category4",
+            # "product_category5",
+            # "product_category6",
+            # "product_category7",
+            # "product_age_group",
+            # "device_type",
+            # "audience_id",
+            # "product_gender",
+            # "product_brand",
+            # "product_country",
+            # self.product_column_name,
         ]
 
         self.conversion_columns_to_drop = [
@@ -55,94 +55,14 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.enforce_one_user_contribution_per_query = (
             config.enforce_one_user_contribution_per_query
         )
-        self.max_conversions_required_for_dp = config.max_conversions_required_for_dp
-        self.min_conversions_required_for_dp = config.min_conversions_required_for_dp
-        self.estimated_conversion_rate = config.estimated_conversion_rate
-        self.plot_query_pool: bool = (
-            config.get("plot_query_pool", "false").lower() == "true"
-        )
+        self.max_batch_size = config.max_batch_size
+        self.min_batch_size = config.min_batch_size
         self.augment_dataset: bool = (
             config.get("augment_dataset", "false").lower() == "true"
         )
         self.advertiser_filter = config.get("advertiser_filter", [])
+        self.advertiser_exclusions = config.get("advertiser_exclusions", [])
 
-    # TODO: [PM] Bring up with the group. Perhaps we will want to bring back the other
-    # grouping methods (from previous commits)
-    def _augment_df_with_advertiser_bin_cover(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        We upsample the dataset to increase the number of queries to run. To accomplish this,
-        for each advertiser, we create synthetic groupings of products that could represent
-        another way of categorizing those products together.
-
-        A query is accepted into an advertiser's query pool as long as the number of conversions
-        driving that query is >= self.min_conversions_required_for_dp. Given a rough estimate of
-        a typical conversion rate across products, self.estimated_conversion_rate, we back into
-        a minimum number of impressions required for dp queries, min_impressions_required_for_dp.
-
-        Using this, our upsampling problem can be phrased as: for each advertiser, group their
-        products in such a way that maximizes the number of additional queries asked. In other words,
-        group products into bins such that the sum of the impression counts of products within a bin
-        is at least min_impressions_required_for_dp, and such that the number of bins is maximal.
-
-        This is an example of the bin-covering problem where the bin size is min_impressions_required_for_dp.
-        We use the prtpy implementation of Csirik-Frenk-Labbe-Zhang's 3/4 approximation.
-        https://en.wikipedia.org/wiki/Bin_covering_problem#Three-classes_bin-filling_algorithm.
-        """
-        min_impressions_required_for_dp = (
-            self.min_conversions_required_for_dp // self.estimated_conversion_rate
-        )
-
-        bin_assignments = {}
-        for advertiser in df[self.advertiser_column_name].unique():
-            advertiser_chunk = df.loc[df[self.advertiser_column_name] == advertiser]
-            product_impression_counts = advertiser_chunk.groupby(
-                [self.product_column_name]
-            ).size()
-
-            count_map = {}
-            for product_impression_count in product_impression_counts.items():
-                products = count_map.get(product_impression_count[1])
-                if products:
-                    products.append(product_impression_count[0])
-                else:
-                    count_map[product_impression_count[1]] = [
-                        product_impression_count[0]
-                    ]
-
-            bins = prtpy.pack(
-                algorithm=prtpy.covering.threequarters,
-                binsize=min_impressions_required_for_dp,
-                items=product_impression_counts,
-            )
-            if len(bins) >= 2:
-                bin_names = []
-                for bin in bins:
-                    bin_name = str(uuid4()).upper().replace("-", "")
-                    bin_names.append(bin_name)
-                    for count in bin:
-                        product = count_map[count].pop()
-                        bin_assignments[(advertiser, product)] = bin_name
-
-                # we've maxed out the number of bins we can create, so just
-                # stick the unbinned products in the bins in a round robin
-                # fashion.
-                unbinned_products = itertools.chain(*count_map.values())
-
-                num_bins = len(bin_names)
-                for i, unbinned in enumerate(unbinned_products):
-                    bin_assignments[(advertiser, unbinned)] = bin_names[i % num_bins]
-
-        df = df.assign(
-            synthetic_category=df.apply(
-                lambda row: bin_assignments.get(
-                    (row[self.advertiser_column_name], row[self.product_column_name]),
-                    pd.NA,
-                ),
-                axis=1,
-            )
-        )
-        self.dimension_names.append("synthetic_category")
-        return df
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(
@@ -154,6 +74,9 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         if self.advertiser_filter:
             df = df[df[self.advertiser_column_name].isin(self.advertiser_filter)]
+
+        if self.advertiser_exclusions:
+            df = df[~df[self.advertiser_column_name].isin(self.advertiser_exclusions)]
 
         if self.augment_dataset:
             df = self._augment_df_with_advertiser_bin_cover(df)
@@ -168,7 +91,10 @@ class QueryPoolDatasetCreator(BaseCreator):
         return impressions
 
     def _create_queries(
-        self, conversions: pd.DataFrame, max_purchase_counts: int
+        self,
+        conversions: pd.DataFrame,
+        max_purchase_counts: int,
+        expected_average_purchase_counts: int,
     ) -> pd.DataFrame:
 
         seen_users = set()
@@ -177,7 +103,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         def __mark_include(row: pd.Series):
             nonlocal seen_users
             nonlocal row_count
-            if row_count == self.max_conversions_required_for_dp:
+            if row_count == self.max_batch_size:
                 row_count = 0
                 seen_users = set()
 
@@ -206,7 +132,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     # we have our total query. now we need to break it up into batches
 
                     # no point in continuing if the total query isn't even a mini batch.
-                    if query_result.shape[0] < self.min_conversions_required_for_dp:
+                    if query_result.shape[0] < self.min_batch_size:
                         continue
 
                     if self.enforce_one_user_contribution_per_query:
@@ -231,30 +157,30 @@ class QueryPoolDatasetCreator(BaseCreator):
                     query_result = query_result.reset_index(drop=True)
                     query_result_length = query_result.shape[0]
                     num_big_reports = (
-                        query_result_length // self.max_conversions_required_for_dp
+                        query_result_length // self.max_batch_size
                     )
                     i = 0
                     while i < num_big_reports:
-                        start = i * self.max_conversions_required_for_dp
-                        end = (i + 1) * self.max_conversions_required_for_dp
+                        start = i * self.max_batch_size
+                        end = (i + 1) * self.max_batch_size
                         batch = query_result.iloc[start:end]
-                        assert batch.shape[0] >= self.min_conversions_required_for_dp
-                        assert batch.shape[0] <= self.max_conversions_required_for_dp
+                        assert batch.shape[0] >= self.min_batch_size
+                        assert batch.shape[0] <= self.max_batch_size
                         if advertiser not in query_batches:
                             query_batches[advertiser] = []
                         query_batches[advertiser].append(batch)
                         self.used_dimension_names.add(dimension_name)
                         i += 1
 
-                    i = i * self.max_conversions_required_for_dp
+                    i = i * self.max_batch_size
                     if (
                         i < query_result_length
                         and query_result_length - i
-                        >= self.min_conversions_required_for_dp
+                        >= self.min_batch_size
                     ):
                         batch = query_result.iloc[i:]
-                        assert batch.shape[0] >= self.min_conversions_required_for_dp
-                        assert batch.shape[0] <= self.max_conversions_required_for_dp
+                        assert batch.shape[0] >= self.min_batch_size
+                        assert batch.shape[0] <= self.max_batch_size
                         if advertiser not in query_batches:
                             query_batches[advertiser] = []
                         query_batches[advertiser].append(batch)
@@ -264,8 +190,12 @@ class QueryPoolDatasetCreator(BaseCreator):
         for batches in query_batches.values():
             for i, batch in enumerate(batches):
                 final_batch = batch.assign(
-                    epsilon=get_epsilon_from_accuracy_for_counts(
-                        batch.shape[0], max_purchase_counts
+                    epsilon=get_epsilon_for_high_probability_relative_error_wrt_avg_prior(
+                        sensitivity=max_purchase_counts,
+                        batch_size=batch.shape[0],
+                        expected_average_result=expected_average_purchase_counts,
+                        relative_error=0.05,
+                        failure_probability=0.01,
                     ),
                     aggregatable_cap_value=max_purchase_counts,
                     key=i,
@@ -280,29 +210,16 @@ class QueryPoolDatasetCreator(BaseCreator):
             sell_price = conversion["SalesAmountInEuro"]
             offer_price = conversion["product_price"]
             if sell_price and offer_price:
-                return min(cap, sell_price // offer_price)
-            elif offer_price:
-                return 0
+                return min(cap, max(1, sell_price // offer_price))
             else:
                 return 1
 
         conversions = df.loc[df.Sale == 1]
 
-        """
-        purchase count description across all conversion events:
-        count    1.279493e+06
-        mean     4.705447e+00
-        std      1.581949e+02
-        min      0.000000e+00
-        25%      1.000000e+00
-        50%      1.000000e+00
-        75%      2.000000e+00
-        max      8.661200e+04
-        skew     352.22094940782813
-
-        So, 5 seems like a reasonable cap value.
-        """
+        # See notebooks/criteo_dataset_analysis.ipynb
+        # 4) for an explanation for these numbers
         max_purchase_counts = 5
+        expected_average_purchase_counts = 1.4
 
         conversions = conversions.assign(
             count=conversions.apply(
@@ -318,7 +235,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
         )
         conversions = conversions.drop(columns=self.conversion_columns_to_drop)
-        conversions = self._create_queries(conversions, max_purchase_counts)
+        conversions = self._create_queries(
+            conversions, max_purchase_counts, expected_average_purchase_counts
+        )
 
         self.log_query_epsilons(conversions)
 
@@ -373,27 +292,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             advertiser_grouping.epsilon.sum().items(),
             columns=["advertiser", "epsilon_sum"],
         ).sort_values(by=["epsilon_sum"], ascending=False)
-
-        if self.plot_query_pool:
-            import matplotlib.pyplot as plt
-
-            ax = advertiser_query_count.plot(
-                # x="advertiser", # the advertiser long names make it impossible to read
-                y=["query_count"],
-                kind="bar",
-            )
-            plt.tight_layout()
-            fig = ax.get_figure()
-            fig.savefig("./criteo_advertiser_query_count.png")
-
-            ax = advertiser_epsilon_sum.plot(
-                # x="advertiser", # the advertiser long names make it impossible to read
-                y=["epsilon_sum"],
-                kind="bar",
-            )
-            plt.tight_layout()
-            fig = ax.get_figure()
-            fig.savefig("./criteo_advertiser_epsilon_sum.png")
 
         pd.set_option("display.max_rows", None)
         self.logger.info(f"Query count per advertiser:\n{advertiser_query_count}")

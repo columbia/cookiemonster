@@ -3,7 +3,6 @@ from typing import Dict, Any
 
 class EventLogger:
     def __init__(self):
-        # TODO: Possibly add support for mlflow logging
         self.logs: Dict[str, Any] = {}
 
     def log(self, key, *data):

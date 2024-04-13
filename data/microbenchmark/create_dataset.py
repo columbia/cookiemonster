@@ -1,4 +1,3 @@
-import uuid
 import math
 import typer
 
@@ -8,6 +7,8 @@ import pandas as pd
 from omegaconf import OmegaConf
 
 app = typer.Typer()
+
+np.random.seed(seed=62)
 
 
 def generate_random_dates(start_date, num_days, num_samples):
@@ -48,7 +49,7 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
     start_date = datetime.datetime(2024, 1, 31)
     num_days = config.num_days - 31
 
-    publisher_user_profile["means"] = 1
+    publisher_user_profile["means"] = 5
     num_converted_users = int(
         config.user_participation_rate_per_query * config.num_users
     )
@@ -82,7 +83,7 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
             np.round(
                 np.random.lognormal(
                     mean=distinct_devices_mean_values,
-                    sigma=0.2,
+                    sigma=0.1,
                     size=batch_size,
                 ),
                 1,
@@ -111,7 +112,7 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
     return conversions
 
 
-def create_synthetic_dataset(config: OmegaConf):
+def create_microbenchmark(config: OmegaConf):
     advertiser_id = 1
 
     # <user_contributions_per_query> conversions allowed per user for each batch
@@ -146,7 +147,7 @@ def create_synthetic_dataset(config: OmegaConf):
 
     # Set Conversions
     conversions = []
-    for product_id in range(config.num_disjoint_queries):
+    for product_id in range(config.num_query_types):
         print("Processing distinct query: ", product_id)
         conversions.append(
             generate_conversions(
@@ -157,14 +158,13 @@ def create_synthetic_dataset(config: OmegaConf):
     conversions = conversions.sort_values(["timestamp"])
 
     # Set epsilons
-    [a, b] = config.accuracy
-    s = config.cap_value
-    n = config.scheduled_batch_size
+    def _set_epsilon():
+        [a, b] = config.accuracy
+        expected_result = config.scheduled_batch_size * 5  # 500 * 5
+        epsilon = config.cap_value * math.log(1 / b) / (a * expected_result)
+        return epsilon
 
-    def set_epsilon_given_accuracy(a, b, s, n):
-        return s * math.log(1 / b) / (n * a)
-
-    conversions["epsilon"] = set_epsilon_given_accuracy(a, b, s, n)
+    conversions["epsilon"] = _set_epsilon()
 
     # Set cap value
     conversions["aggregatable_cap_value"] = config.cap_value
@@ -189,7 +189,7 @@ def create_dataset(
         config.per_day_user_impressions_rate = per_day_user_impressions_rate
 
     print(config)
-    return create_synthetic_dataset(config)
+    return create_microbenchmark(config)
 
 
 if __name__ == "__main__":

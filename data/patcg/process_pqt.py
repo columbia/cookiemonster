@@ -11,7 +11,7 @@ def convert_impressions_to_csv():
     for i, file in enumerate(os.listdir(parquet_dir)):
         if file.endswith(".pqt"):
             df = pd.read_parquet(os.path.join(parquet_dir, file))
-            df = df[["exp_timestamp", "device_id", "exp_attribute_2"]]
+            df = df[["exp_timestamp", "device_id"]]
             dfs.append(df)
         print(i, file)
     return pd.concat(dfs)
@@ -23,7 +23,7 @@ def convert_conversions_to_csv():
     for i, file in enumerate(os.listdir(parquet_dir)):
         if file.endswith(".pqt"):
             df = pd.read_parquet(os.path.join(parquet_dir, file))
-            df = df[["conv_timestamp", "device_id", "conv_amount"]]
+            df = df[["conv_timestamp", "device_id", "conv_attribute_2", "conv_amount"]]
             dfs.append(df)
         print(i, file)
     return pd.concat(dfs)
@@ -86,27 +86,10 @@ def filter_converters():
     )
 
 
-def tmp():
-    filtered_impressions = pd.read_csv(
-        os.path.join(publishers, "renamed_filtered_impressions.csv")
-    )
-    filtered_impressions = filtered_impressions.drop(columns=["index"])
-    filtered_impressions.to_csv(
-        os.path.join(publishers, "renamed_filtered_impressions.csv"), index=False
-    )
-
-    conversions = pd.read_csv(os.path.join(advertisers, "renamed_conversions.csv"))
-    conversions = conversions.drop(columns=["index"])
-    conversions.to_csv(
-        os.path.join(advertisers, "renamed_conversions.csv"), index=False
-    )
-
-
 def main():
 
-    # convert_to_csv()
-    # filter_converters()
-    tmp()
+    convert_to_csv()
+    filter_converters()
 
 
 if __name__ == "__main__":

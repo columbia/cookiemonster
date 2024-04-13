@@ -143,13 +143,13 @@ adtech.get('/register-source-href', (req, res) => {
     debug_key: legacyMeasurementCookie,
     epoch: epoch,
     filter_data: {
-      campaignId: ['123']
+      campaignId: ['444']
     },
     aggregation_keys: {
       // these source key pieces get binary OR'd with the trigger key piece
       // to create the full histogram bin key
-      purchaseCount: generateSourceKeyPiece('COUNT, CampaignID=123'),
-      purchaseValue: generateSourceKeyPiece('VALUE, CampaignID=123')
+      purchaseCount: generateSourceKeyPiece('COUNT, CampaignID=444'),
+      purchaseValue: generateSourceKeyPiece('VALUE, CampaignID=444')
     },
     // optional, but leaving as a comment for future use
     // aggregatable_report_window: "86400" // optional duration in seconds after the source registration during which aggregatable reports can be created for this source.
@@ -225,7 +225,7 @@ adtech.get('/conversion', (req, res) => {
 
   const filters = {
     // Because conversion_product_type has been set to category_1 in the header Attribution-Reporting-Register-Source, any incoming conversion whose productCategory does not match category_1 will be filtered out i.e. will not generate a report.
-    campaignId: ['123', '444', '555']
+    campaignId: ['444']
   }
 
   const aggregatableTriggerData = [

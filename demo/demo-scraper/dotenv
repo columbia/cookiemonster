@@ -1,7 +1,7 @@
 USER_PROFILE=<path to the user profile directory with the pre-configured chrome settings>
-HOME_URL="https://arapi-home.web.app"
-PUBLISHER_URL="https://arapi-publisher.web.app"
-ADTECH_URL="https://arapi-adtech.web.app"
+HOME_URL="https://home.web.app"
+PUBLISHER_URL="https://publisher.web.app"
+ADTECH_URL="https://adtech.web.app"
 IMPLICIT_WAIT="10"
 DRIVER_TIMEOUT="10"
 SLEEP_WHILE_OBSERVING_ATTRIBUTION_INTERNALS=60

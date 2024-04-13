@@ -75,4 +75,4 @@ class Conversion(Event):
         self.epsilon = epsilon
 
     def __str__(self):
-        return f"|Conversion| Attribution-Window in Timestamps: {self.attribution_window}, Epochs window: {self.epochs_window}, User: {self.user_id}, Filter: {self.filter}, Value: {self.aggregatable_value}"
+        return f"|Conversion| {self.id}, Attribution-Window in Timestamps: {self.attribution_window}, Epochs window: {self.epochs_window}, User: {self.user_id}, Filter: {self.filter}, Value: {self.aggregatable_value}"

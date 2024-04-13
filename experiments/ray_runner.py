@@ -21,7 +21,7 @@ def grid_run(
     impressions_path: str,
     conversions_path: str,
     num_days_per_epoch: List[int],
-    num_days_attribution_window: int,
+    num_days_attribution_window: List[int],
     workload_size: List[int],
     min_scheduling_batch_size_per_query: int,
     max_scheduling_batch_size_per_query: int,
@@ -46,12 +46,13 @@ def grid_run(
             "impressions_path": get_data_path(impressions_path),
             "conversions_path": get_data_path(conversions_path),
             "num_days_per_epoch": tune.grid_search(num_days_per_epoch),
-            "num_days_attribution_window": num_days_attribution_window,
+            "num_days_attribution_window": tune.grid_search(
+                num_days_attribution_window
+            ),
             "workload_size": tune.grid_search(workload_size),
         },
         "logs": {
-            "verbose": False,
-            "save": True,
+            "save": False,
             "save_dir": "",
             "logging_keys": logging_keys,
             "loguru_level": loguru_level,

@@ -1,27 +1,27 @@
 import os
 import typer
 from loguru import logger
-from typing import Dict, Any
 from termcolor import colored
 from omegaconf import OmegaConf
+from typing import Dict, Any, List
 
 from cookiemonster.dataset import Dataset
 from cookiemonster.query_batch import QueryBatch
 from cookiemonster.event_logger import EventLogger
+from cookiemonster.user import User, ConversionResult
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
-from cookiemonster.user import User, get_log_events_across_users, ConversionResult
 from cookiemonster.utils import (
-    process_logs,
-    save_logs,
+    GlobalStatistics,
     IPA,
+    BIAS,
+    BUDGET,
+    FILTERS_STATE,
+    save_logs,
     maybe_initialize_filters,
     compute_global_sensitivity,
-    BUDGET,
-    QUERY_RESULTS,
 )
-
 
 app = typer.Typer()
 
@@ -33,6 +33,7 @@ class Evaluation:
         self.users: Dict[str, User] = {}
 
         self.logger = EventLogger()
+        self.global_statistics = GlobalStatistics(self.config.user.baseline)
 
         # filters shared across users for IPA
         self.global_filters_per_origin: Dict[str, BudgetAccountant] = {}
@@ -49,11 +50,11 @@ class Evaluation:
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
-        event_reader = self.dataset.event_reader()
-        while res := next(event_reader):
+        for i, res in enumerate(self.dataset.event_reader()):
             (user_id, event) = res
 
-            logger.info(colored(str(event), "blue"))
+            if i % 100000 == 0:
+                logger.info(colored(str(event), "blue"))
 
             if user_id not in self.users:
                 self.users[user_id] = User(user_id, self.config)
@@ -61,6 +62,8 @@ class Evaluation:
             result = self.users[user_id].process_event(event)
 
             if isinstance(result, ConversionResult):
+                self.global_statistics.update(event)
+
                 # Add report to its corresponding batch
                 report = result.final_report
                 unbiased_report = result.unbiased_final_report
@@ -116,8 +119,7 @@ class Evaluation:
                         # Reset the batch
                         del per_query_batch[query_id]
 
-        # handle the tail for those queries that have enough events for DP, but are not
-        # the preferred batch size
+        # Handle the tail for those queries that have enough events for DP, but are not the preferred batch size
         for (
             destination,
             per_query_batch,
@@ -132,81 +134,118 @@ class Evaluation:
                         destination=destination,
                     )
 
-        merged_event_loggers = self.logger + get_log_events_across_users()
-        logs = process_logs(
-            merged_event_loggers.logs,
-            OmegaConf.to_object(self.config),
-        )
+        self._log_all_filters_state()
+
+        logs = {}
+        logs["global_statistics"] = self.global_statistics.dump()
+        logs["event_logs"] = self.logger.logs
+        logs["config"] = OmegaConf.to_object(self.config)
         if self.config.logs.save:
             save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
             save_logs(logs, save_dir)
 
         return logs
 
-    def _calculate_summary_reports(
-        self, *, query_id: str, batch: QueryBatch, destination: str
-    ) -> None:
-
-        self.logger.log("scheduling_timestamps", batch.biggest_id)
-        self.logger.log("epoch_range", destination, *batch.epochs_window)
-
-        # In case of IPA the advertiser consumes worst-case budget from all the
-        # requested epochs in their global filter (Central DP)
+    def _try_consume_budget_for_ipa(self, destination, batch):
+        # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)
         if self.config.user.baseline == IPA:
             origin_filters = maybe_initialize_filters(
                 self.global_filters_per_origin,
                 destination,
-                batch.epochs_window,
+                batch.epochs_window.get_epochs(),
                 float(self.config.user.initial_budget),
             )
             filter_result = origin_filters.pay_all_or_nothing(
-                batch.epochs_window, batch.global_epsilon
+                batch.epochs_window.get_epochs(), batch.global_epsilon
             )
-            if BUDGET in self.config.logs.logging_keys:
-                self.logger.log(
-                    BUDGET,
-                    batch.biggest_id,
-                    destination,
-                    0,
-                    filter_result.budget_consumed,
-                    filter_result.status,
-                )
-
             if not filter_result.succeeded():
-                # Not enough budget to run this query - don't schedule the batch
-                if QUERY_RESULTS in self.config.logs.logging_keys:
-                    self.logger.log(
-                        QUERY_RESULTS,
-                        batch.biggest_id,
-                        destination,
-                        query_id,
-                        None,
-                        None,
-                        None,
-                    )
                 logger.info(colored(f"IPA can't run query", "red"))
-                return
+                return False
+        return True
 
-        # Schedule the batch
-        aggregation_result = self.aggregation_service.create_summary_report(batch)
-        logger.info(colored(f"Scheduling query batch {query_id}", "green"))
-        logger.info(
-            colored(
-                f"true_output: {aggregation_result.true_output}, aggregation_output: {aggregation_result.aggregation_output}, aggregation_noisy_output: {aggregation_result.aggregation_noisy_output}",
-                "green",
+    def _calculate_summary_reports(
+        self, *, query_id: str, batch: QueryBatch, destination: str
+    ) -> None:
+
+        true_output = None
+        aggregation_output = None
+        aggregation_noisy_output = None
+
+        status = True
+        if self.config.user.baseline == IPA:
+            status = self._try_consume_budget_for_ipa(destination, batch)
+
+        if status:
+            # Schedule the batch
+            aggregation_result = self.aggregation_service.create_summary_report(batch)
+            true_output = aggregation_result.true_output
+            aggregation_output = aggregation_result.aggregation_output
+            aggregation_noisy_output = aggregation_result.aggregation_noisy_output
+            logger.info(
+                colored(
+                    f"Scheduling query batch {query_id}, true_output: {true_output}, aggregation_output: {aggregation_output}, noisy_output: {aggregation_noisy_output}",
+                    "green",
+                )
             )
-        )
 
-        if QUERY_RESULTS in self.config.logs.logging_keys:
+        # Log budgeting metrics and accuracy related data
+        if BUDGET in self.config.logs.logging_keys:
+            budget_metrics = {"max_max": 0, "sum_max": 0, "max_sum": 0, "sum_sum": 0}
+
+            def get_budget_metrics(filters_per_origin):
+                if destination in filters_per_origin:
+                    budget_accountant = filters_per_origin[destination]
+                    max_ = budget_accountant.get_max_consumption_across_blocks()
+                    sum_ = budget_accountant.get_sum_consumption_across_blocks()
+
+                    budget_metrics["max_max"] = max(budget_metrics["max_max"], max_)
+                    budget_metrics["max_sum"] = max(budget_metrics["max_sum"], sum_)
+                    budget_metrics["sum_max"] += max_
+                    budget_metrics["sum_sum"] += sum_
+
+            if self.global_filters_per_origin:
+                get_budget_metrics(self.global_filters_per_origin)
+            else:
+                for user in self.users.values():
+                    get_budget_metrics(user.filters_per_origin)
+
+            self.logger.log(BUDGET, destination, batch.biggest_id, budget_metrics)
+
+        if BIAS in self.config.logs.logging_keys:
             self.logger.log(
-                QUERY_RESULTS,
+                BIAS,
                 batch.biggest_id,
                 destination,
                 query_id,
-                aggregation_result.true_output,
-                aggregation_result.aggregation_output,
-                aggregation_result.aggregation_noisy_output,
+                batch.global_epsilon,
+                batch.global_sensitivity,
+                {
+                    "true_output": true_output,
+                    "aggregation_output": aggregation_output,
+                    "aggregation_noisy_output": aggregation_noisy_output,
+                },
             )
+
+    def _log_all_filters_state(self):
+        if BUDGET in self.config.logs.logging_keys:
+            per_destination_device_epoch_filters: Dict[str, List[float]] = {}
+
+            def get_filters_state(filters_per_origin):
+                # Log filters state for each destination
+                for destination, budget_accountant in filters_per_origin.items():
+                    if destination not in per_destination_device_epoch_filters:
+                        per_destination_device_epoch_filters[destination] = []
+
+                    avg_consumed_budget = budget_accountant.get_avg_consumption_across_blocks()
+                    per_destination_device_epoch_filters[destination].append(avg_consumed_budget)
+
+            if self.global_filters_per_origin:
+                get_filters_state(self.global_filters_per_origin)
+            else:
+                for user in self.users.values():
+                    get_filters_state(user.filters_per_origin)
+
+            self.logger.log(FILTERS_STATE, per_destination_device_epoch_filters)
 
 
 @app.command()
