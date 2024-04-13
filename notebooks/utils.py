@@ -481,7 +481,6 @@ def plot_rmsre_cdf(
 
 
 if __name__ == "__main__":
-    # save_data("ray/microbenchmark/varying_knob1")
-    # save_data("ray/microbenchmark/varying_knob2")
-    # save_data("ray/patcg/varying_epoch_granularity_aw_7")
-    save_data("ray/patcg/varying_epoch_granularity_aw_7_avgepochs")
+    save_data("ray/microbenchmark/varying_knob1")
+    save_data("ray/microbenchmark/varying_knob2")
+    save_data("ray/patcg/varying_epoch_granularity_aw_7")

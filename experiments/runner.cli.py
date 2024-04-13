@@ -168,7 +168,7 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
 
 def patcg_varying_epoch_granularity(ray_session_dir):
     dataset = "patcg"
-    logs_dir = f"{dataset}/varying_epoch_granularity_aw_7_avgepochs"
+    logs_dir = f"{dataset}/varying_epoch_granularity_aw_30"
 
     impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
@@ -179,7 +179,7 @@ def patcg_varying_epoch_granularity(ray_session_dir):
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
         "num_days_per_epoch": [21, 28, 30, 60],
-        "num_days_attribution_window": [7],
+        "num_days_attribution_window": [30],
         "workload_size": [80],
         "max_scheduling_batch_size_per_query": 303009,
         "min_scheduling_batch_size_per_query": 280000,
@@ -193,6 +193,33 @@ def patcg_varying_epoch_granularity(ray_session_dir):
     grid_run(**config)
     config["num_days_per_epoch"] = [1, 7, 14]
     grid_run(**config)
+
+def patcg_varying_initial_budget(ray_session_dir):
+    dataset = "patcg"
+    logs_dir = f"{dataset}/varying_initial_budget"
+
+    impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
+    conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
+
+    config = {
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [7],
+        "num_days_attribution_window": [7],
+        "workload_size": [80],
+        "max_scheduling_batch_size_per_query": 303009,
+        "min_scheduling_batch_size_per_query": 280000,
+        "initial_budget": [1, 2, 4, 6, 8, 10],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [BUDGET, BIAS],
+    }
+
+    grid_run(**config)
+
 
 
 def patcg_bias_varying_attribution_window(ray_session_dir):
