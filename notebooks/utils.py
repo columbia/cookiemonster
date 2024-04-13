@@ -176,7 +176,6 @@ def get_filters_state_logs(row):
     df = df.astype({"destination": "str"})
     return df
 
-
 def plot_budget_consumption_cdf(
     path,
     workload_size=0,
@@ -221,6 +220,43 @@ def plot_budget_consumption_cdf(
 
     save_df(df, path, "budget_consumption_cdf.csv")
     iplot(ecdf(df))
+
+def plot_budget_consumption_boxes(
+    path,
+    x_axis="num_days_per_epoch",
+    by_destination=True,
+    log_y=True,
+    category_orders={},
+):
+
+    category_orders = {
+        "baseline": CUSTOM_ORDER_BASELINES,
+    }
+
+    def budget_consumption(df):
+        fig = px.box(
+            df,
+            x=x_axis,
+            y="budget_consumption",
+            color="baseline",
+            title=f"Budget Consumption",
+            width=1100,
+            height=600,
+            log_y=log_y,
+            facet_col="destination" if by_destination else None,
+            category_orders={
+                "baseline": CUSTOM_ORDER_BASELINES,
+                **category_orders,
+            },
+        )
+        return fig
+
+    df = analyze_results(path, "filters_state")
+
+    df = df.explode("budget_consumption")
+
+    save_df(df, path, "budget_consumption_boxes.csv")
+    iplot(budget_consumption(df))
 
 
 def plot_budget_consumption_lines(path, facet_row=None, height=600):
@@ -293,7 +329,7 @@ def plot_budget_consumption_bars(path, x_axis="knob1", log_y=False, height=400):
     iplot(px.bar(y="avg", **kwargs))
 
 
-def plot_bias_rmsre(
+def plot_rmsre_boxes(
     path,
     x_axis="num_days_per_epoch",
     by_destination=True,
@@ -323,7 +359,7 @@ def plot_bias_rmsre(
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)
 
-    save_df(df, path, "queries_rmsres.csv")
+    save_df(df, path, "rmsre_boxes.csv")
     iplot(rmsre(df))
 
 
