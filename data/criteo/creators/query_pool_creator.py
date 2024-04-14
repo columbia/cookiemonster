@@ -266,7 +266,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
         pd.reset_option("display.max_rows")
 
-    def augument_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+    def augment_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
         augment_rate = self.config.augment_rate
         if not augment_rate:
             msg = "received request to augment dataset, but no augment rate. will not augment impressions"
