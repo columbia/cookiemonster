@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from omegaconf import DictConfig
 
@@ -275,7 +276,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         attribution_window = 30  # days
         attribution_window_seconds = attribution_window * 60 * 60 * 24
-        impressions_to_add = augment_rate * attribution_window
+        impressions_to_add = math.ceil(augment_rate * attribution_window)
 
         def get_click_timestamps(attribution_window_end: int) -> int:
             nonlocal impressions_to_add
@@ -295,6 +296,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         df = df.explode("click_timestamps")
         df.drop(columns=["click_timestamp"], inplace=True)
-        df.rename({"click_timestamps": "click_timestamp"}, inplace=True)
+        df.rename(columns={"click_timestamps": "click_timestamp"}, inplace=True)
+        df["key"] = ""
 
         return df

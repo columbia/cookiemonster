@@ -123,7 +123,6 @@ class BaseCreator(ABC):
             na_values=na_values,
             header=None,
             sep="\t",
-            # nrows=1_000_000,
         )
         return df
 
@@ -152,7 +151,7 @@ class BaseCreator(ABC):
 
         self.logger.info("creating the impressions...")
         idf = self.create_impressions(self.df)
-        impressions = idf[self.impression_columns_to_use]
+        impressions = idf[[*self.impression_columns_to_use, "key"]]
         impressions = impressions.sort_values(by=["click_timestamp"])
 
         self.logger.info("creating the conversions...")
@@ -176,7 +175,7 @@ class BaseCreator(ABC):
             self.logger.info("augmenting impressions...")
             aidf = self.augment_impressions(cdf)
             if not aidf.empty:
-                augmented_impressions = aidf[self.impression_columns_to_use]
+                augmented_impressions = aidf[[*self.impression_columns_to_use, "key"]]
                 augmented_impressions = pd.concat([impressions, augmented_impressions])
                 augmented_impressions = augmented_impressions.sort_values(
                     by=["click_timestamp"]
