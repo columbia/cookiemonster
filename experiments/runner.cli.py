@@ -139,9 +139,8 @@ def microbenchmark_varying_epoch_granularity(ray_session_dir):
 ## ----------------- CRITEO ----------------- ##
 
 
-def _criteo_run(ray_session_dir, impressions_path, conversions_path):
+def _criteo_run(ray_session_dir, impressions_path, conversions_path, logs_dir):
     dataset = "criteo"
-    logs_dir = f"{dataset}/bias_varying_epoch_size"
 
     workload_generation = OmegaConf.load("data/criteo/config.json")
 
@@ -172,14 +171,16 @@ def criteo_varying_epoch_size(ray_session_dir):
     dataset = "criteo"
     impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
     conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
-    _criteo_run(ray_session_dir, impressions_path, conversions_path)
+    logs_dir = f"{dataset}/bias_varying_epoch_size"
+    _criteo_run(ray_session_dir, impressions_path, conversions_path, logs_dir)
 
 
 def criteo_augmented_varying_epoch_size(ray_session_dir):
     dataset = "criteo"
-    impressions_path = f"{dataset}/{dataset}_augmented_query_pool_impressions.csv"
+    impressions_path = f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
     conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
-    _criteo_run(ray_session_dir, impressions_path, conversions_path)
+    logs_dir = f"{dataset}/augmented_bias_varying_epoch_size"
+    _criteo_run(ray_session_dir, impressions_path, conversions_path, logs_dir)
 
 
 ## ----------------- PATCG ----------------- ##
