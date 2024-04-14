@@ -178,7 +178,7 @@ def criteo_varying_epoch_size(ray_session_dir):
 def criteo_augmented_varying_epoch_size(ray_session_dir):
     dataset = "criteo"
     impressions_path = f"{dataset}/{dataset}_augmented_query_pool_impressions.csv"
-    conversions_path = f"{dataset}/{dataset}_augmented_query_pool_conversions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
     _criteo_run(ray_session_dir, impressions_path, conversions_path)
 
 

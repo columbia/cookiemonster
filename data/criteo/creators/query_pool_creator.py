@@ -1,3 +1,4 @@
+import numpy as np
 from omegaconf import DictConfig
 
 
@@ -12,46 +13,19 @@ class QueryPoolDatasetCreator(BaseCreator):
     def __init__(
         self,
         config: DictConfig,
-        impressions_filename: str | None = None,
-        conversions_filename: str | None = None,
     ) -> None:
         super().__init__(
             config,
-            (
-                impressions_filename
-                if impressions_filename
-                else "criteo_query_pool_impressions.csv"
-            ),
-            (
-                conversions_filename
-                if conversions_filename
-                else "criteo_query_pool_conversions.csv"
-            ),
+            "criteo_query_pool_impressions.csv",
+            "criteo_query_pool_conversions.csv",
+            "criteo_query_pool_augmented_impressions.csv"
         )
         self.used_dimension_names = set()
-
-        self.advertiser_column_name = "partner_id"
-        self.product_column_name = "product_id"
-        self.user_column_name = "user_id"
 
         self.dimension_names = [
             "product_category3",
         ]
-
-        self.conversion_columns_to_drop = [
-            "SalesAmountInEuro",
-            "product_price",
-            "nb_clicks_1week",
-            "Time_delay_for_conversion",
-            "Sale",
-            "click_timestamp",
-        ]
-        self.impression_columns_to_use = [
-            "click_timestamp",
-            "user_id",
-            "partner_id",
-            "filter",
-        ]
+        
         self.enforce_one_user_contribution_per_query = (
             config.enforce_one_user_contribution_per_query
         )
@@ -84,10 +58,8 @@ class QueryPoolDatasetCreator(BaseCreator):
         return df
 
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
-        impressions = df[self.impression_columns_to_use]
-        impressions = impressions.sort_values(by=["click_timestamp"])
-        impressions["key"] = ""
-        return impressions
+        df["key"] = ""
+        return df
 
     def _create_queries(
         self,
@@ -198,7 +170,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 )
                 final_batches.append(final_batch)
 
-        return pd.concat(final_batches).sort_values(by=["conversion_timestamp"])
+        return pd.concat(final_batches)
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
 
@@ -230,10 +202,10 @@ class QueryPoolDatasetCreator(BaseCreator):
                 axis=1,
             ),
         )
-        conversions = conversions.drop(columns=self.conversion_columns_to_drop)
         conversions = self._create_queries(
             conversions, max_purchase_counts, expected_average_purchase_counts
         )
+        conversions = conversions.sort_values(by=["conversion_timestamp"])
 
         self.log_query_epsilons(conversions)
 
@@ -293,3 +265,26 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.logger.info(f"Query count per advertiser:\n{advertiser_query_count}")
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
         pd.reset_option("display.max_rows")
+
+    def augument_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+        augment_rate = self.config.augment_rate
+        if not augment_rate:
+            msg = "received request to augment dataset, but no augment rate. will not augment impressions"
+            self.logger.warning(msg)
+            return pd.DataFrame()
+        
+        attribution_window = 30 # days
+        attribution_window_seconds = attribution_window * 60 * 60 * 24
+        impressions_to_add = augment_rate * attribution_window
+
+        impressions = []
+        for row in df.iterrows():
+            attribution_window_end = row["conversion_timestamp"]
+            attribution_window_start = attribution_window_end - attribution_window_seconds
+            for _ in range(impressions_to_add):
+                impression = row.copy(deep=True)
+                click_timestamp = np.random.randint(attribution_window_start, attribution_window_end)
+                impression["click_timestamp"] = click_timestamp
+                impressions.append(impression)
+
+        return pd.DataFrame(impressions)
