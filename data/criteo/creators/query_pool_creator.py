@@ -188,7 +188,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         # See notebooks/criteo_dataset_analysis.ipynb
         # 4) for an explanation for these numbers
         max_purchase_counts = 5
-        expected_average_purchase_counts = 1.4
+        expected_average_purchase_counts = 2
 
         conversions = conversions.assign(
             count=conversions.apply(
