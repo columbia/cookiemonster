@@ -20,7 +20,7 @@ class BaseCreator(ABC):
         config: DictConfig,
         impressions_filename: str,
         conversions_filename: str,
-        augmented_impressions_filename: str | None = None
+        augmented_impressions_filename: str | None = None,
     ):
         self.config = config
         self.df: pd.DataFrame | None = None
@@ -178,8 +178,10 @@ class BaseCreator(ABC):
             if not aidf.empty:
                 augmented_impressions = aidf[self.impression_columns_to_use]
                 augmented_impressions = pd.concat([impressions, augmented_impressions])
-                augmented_impressions = augmented_impressions.sort_values(by=["click_timestamp"])
-                
+                augmented_impressions = augmented_impressions.sort_values(
+                    by=["click_timestamp"]
+                )
+
                 fp = self.augmented_impressions_filename
                 if os.path.exists(fp):
                     os.remove(fp)

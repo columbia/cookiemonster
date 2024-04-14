@@ -18,14 +18,14 @@ class QueryPoolDatasetCreator(BaseCreator):
             config,
             "criteo_query_pool_impressions.csv",
             "criteo_query_pool_conversions.csv",
-            "criteo_query_pool_augmented_impressions.csv"
+            "criteo_query_pool_augmented_impressions.csv",
         )
         self.used_dimension_names = set()
 
         self.dimension_names = [
             "product_category3",
         ]
-        
+
         self.enforce_one_user_contribution_per_query = (
             config.enforce_one_user_contribution_per_query
         )
@@ -272,15 +272,17 @@ class QueryPoolDatasetCreator(BaseCreator):
             msg = "received request to augment dataset, but no augment rate. will not augment impressions"
             self.logger.warning(msg)
             return pd.DataFrame()
-        
-        attribution_window = 30 # days
+
+        attribution_window = 30  # days
         attribution_window_seconds = attribution_window * 60 * 60 * 24
         impressions_to_add = augment_rate * attribution_window
 
         def get_click_timestamps(attribution_window_end: int) -> int:
             nonlocal impressions_to_add
             nonlocal attribution_window_seconds
-            attribution_window_start = attribution_window_end - attribution_window_seconds
+            attribution_window_start = (
+                attribution_window_end - attribution_window_seconds
+            )
             return [
                 np.random.randint(attribution_window_start, attribution_window_end)
                 for _ in range(impressions_to_add)
