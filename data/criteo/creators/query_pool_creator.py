@@ -277,14 +277,22 @@ class QueryPoolDatasetCreator(BaseCreator):
         attribution_window_seconds = attribution_window * 60 * 60 * 24
         impressions_to_add = augment_rate * attribution_window
 
-        impressions = []
-        for row in df.iterrows():
-            attribution_window_end = row["conversion_timestamp"]
+        def get_click_timestamps(attribution_window_end: int) -> int:
+            nonlocal impressions_to_add
+            nonlocal attribution_window_seconds
             attribution_window_start = attribution_window_end - attribution_window_seconds
-            for _ in range(impressions_to_add):
-                impression = row.copy(deep=True)
-                click_timestamp = np.random.randint(attribution_window_start, attribution_window_end)
-                impression["click_timestamp"] = click_timestamp
-                impressions.append(impression)
+            return [
+                np.random.randint(attribution_window_start, attribution_window_end)
+                for _ in range(impressions_to_add)
+            ]
 
-        return pd.DataFrame(impressions)
+        df = df.assign(
+            click_timestamps=df["conversion_timestamp"].apply(
+                lambda ct: get_click_timestamps(ct)
+            )
+        )
+        df = df.explode("click_timestamps")
+        df.drop(columns=["click_timestamp"], inplace=True)
+        df.rename({"click_timestamps": "click_timestamp"}, inplace=True)
+
+        return df
