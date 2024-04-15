@@ -176,11 +176,11 @@ def criteo_run(ray_session_dir):
 
     if augment_rate:
         config["impressions_path"] = f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
-        config["num_days_per_epoch"] = epoch_first_batch
         config["logs_dir"] = f"{dataset}/augmented_bias_varying_epoch_size"
-        grid_run(**config)
-        config["num_days_per_epoch"] = epoch_second_batch
-        grid_run(**config)
+
+        for batch in [[1, 7], [14, 21], [30, 60], [90]]:
+            config["num_days_per_epoch"] = batch
+            grid_run(**config)
 
 
 ## ----------------- PATCG ----------------- ##
