@@ -1,3 +1,5 @@
+import math
+import numpy as np
 from omegaconf import DictConfig
 
 
@@ -9,49 +11,22 @@ from cookiemonster.epsilon_calculator import (
 
 class QueryPoolDatasetCreator(BaseCreator):
 
-    def __init__(self, config: DictConfig) -> None:
+    def __init__(
+        self,
+        config: DictConfig,
+    ) -> None:
         super().__init__(
             config,
             "criteo_query_pool_impressions.csv",
             "criteo_query_pool_conversions.csv",
+            "criteo_query_pool_augmented_impressions.csv",
         )
         self.used_dimension_names = set()
 
-        self.advertiser_column_name = "partner_id"
-        self.product_column_name = "product_id"
-        self.user_column_name = "user_id"
-
         self.dimension_names = [
-            # "product_category1",
-            # "product_category2",
             "product_category3",
-            # "product_category4",
-            # "product_category5",
-            # "product_category6",
-            # "product_category7",
-            # "product_age_group",
-            # "device_type",
-            # "audience_id",
-            # "product_gender",
-            # "product_brand",
-            # "product_country",
-            # self.product_column_name,
         ]
 
-        self.conversion_columns_to_drop = [
-            "SalesAmountInEuro",
-            "product_price",
-            "nb_clicks_1week",
-            "Time_delay_for_conversion",
-            "Sale",
-            "click_timestamp",
-        ]
-        self.impression_columns_to_use = [
-            "click_timestamp",
-            "user_id",
-            "partner_id",
-            "filter",
-        ]
         self.enforce_one_user_contribution_per_query = (
             config.enforce_one_user_contribution_per_query
         )
@@ -62,7 +37,6 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.advertiser_filter = config.get("advertiser_filter", [])
         self.advertiser_exclusions = config.get("advertiser_exclusions", [])
-
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(
@@ -85,10 +59,8 @@ class QueryPoolDatasetCreator(BaseCreator):
         return df
 
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
-        impressions = df[self.impression_columns_to_use]
-        impressions = impressions.sort_values(by=["click_timestamp"])
-        impressions["key"] = ""
-        return impressions
+        df["key"] = ""
+        return df
 
     def _create_queries(
         self,
@@ -156,9 +128,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     # now split the query_result into its batches
                     query_result = query_result.reset_index(drop=True)
                     query_result_length = query_result.shape[0]
-                    num_big_reports = (
-                        query_result_length // self.max_batch_size
-                    )
+                    num_big_reports = query_result_length // self.max_batch_size
                     i = 0
                     while i < num_big_reports:
                         start = i * self.max_batch_size
@@ -175,8 +145,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     i = i * self.max_batch_size
                     if (
                         i < query_result_length
-                        and query_result_length - i
-                        >= self.min_batch_size
+                        and query_result_length - i >= self.min_batch_size
                     ):
                         batch = query_result.iloc[i:]
                         assert batch.shape[0] >= self.min_batch_size
@@ -202,7 +171,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 )
                 final_batches.append(final_batch)
 
-        return pd.concat(final_batches).sort_values(by=["conversion_timestamp"])
+        return pd.concat(final_batches)
 
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
 
@@ -219,7 +188,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         # See notebooks/criteo_dataset_analysis.ipynb
         # 4) for an explanation for these numbers
         max_purchase_counts = 5
-        expected_average_purchase_counts = 1.4
+        expected_average_purchase_counts = 2
 
         conversions = conversions.assign(
             count=conversions.apply(
@@ -234,10 +203,10 @@ class QueryPoolDatasetCreator(BaseCreator):
                 axis=1,
             ),
         )
-        conversions = conversions.drop(columns=self.conversion_columns_to_drop)
         conversions = self._create_queries(
             conversions, max_purchase_counts, expected_average_purchase_counts
         )
+        conversions = conversions.sort_values(by=["conversion_timestamp"])
 
         self.log_query_epsilons(conversions)
 
@@ -297,3 +266,37 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.logger.info(f"Query count per advertiser:\n{advertiser_query_count}")
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
         pd.reset_option("display.max_rows")
+
+    def augment_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+        augment_rate = self.config.augment_rate
+        if not augment_rate:
+            msg = "received request to augment dataset, but no augment rate. will not augment impressions"
+            self.logger.warning(msg)
+            return pd.DataFrame()
+
+        attribution_window = 30  # days
+        attribution_window_seconds = attribution_window * 60 * 60 * 24
+        impressions_to_add = math.ceil(augment_rate * attribution_window)
+
+        def get_click_timestamps(attribution_window_end: int) -> int:
+            nonlocal impressions_to_add
+            nonlocal attribution_window_seconds
+            attribution_window_start = (
+                attribution_window_end - attribution_window_seconds
+            )
+            return [
+                np.random.randint(attribution_window_start, attribution_window_end)
+                for _ in range(impressions_to_add)
+            ]
+
+        df = df.assign(
+            click_timestamps=df["conversion_timestamp"].apply(
+                lambda ct: get_click_timestamps(ct)
+            )
+        )
+        df = df.explode("click_timestamps")
+        df.drop(columns=["click_timestamp"], inplace=True)
+        df.rename(columns={"click_timestamps": "click_timestamp"}, inplace=True)
+        df["key"] = ""
+
+        return df

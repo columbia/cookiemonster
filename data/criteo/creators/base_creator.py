@@ -16,7 +16,11 @@ class BaseCreator(ABC):
     )
 
     def __init__(
-        self, config: DictConfig, impressions_filename: str, conversions_filename: str
+        self,
+        config: DictConfig,
+        impressions_filename: str,
+        conversions_filename: str,
+        augmented_impressions_filename: str | None = None,
     ):
         self.config = config
         self.df: pd.DataFrame | None = None
@@ -26,6 +30,10 @@ class BaseCreator(ABC):
         self.conversions_filename = os.path.join(
             os.path.dirname(__file__), "..", conversions_filename
         )
+        if augmented_impressions_filename:
+            self.augmented_impressions_filename = os.path.join(
+                os.path.dirname(__file__), "..", augmented_impressions_filename
+            )
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
@@ -40,6 +48,24 @@ class BaseCreator(ABC):
 
         self.logger.addHandler(stream_handler)
         self.logger.addHandler(file_handler)
+
+        self.advertiser_column_name = "partner_id"
+        self.product_column_name = "product_id"
+        self.user_column_name = "user_id"
+        self.conversion_columns_to_drop = [
+            "SalesAmountInEuro",
+            "product_price",
+            "nb_clicks_1week",
+            "Time_delay_for_conversion",
+            "Sale",
+            "click_timestamp",
+        ]
+        self.impression_columns_to_use = [
+            "click_timestamp",
+            "user_id",
+            "partner_id",
+            "filter",
+        ]
 
     def _read_dataframe(self) -> pd.DataFrame:
         dtype = {
@@ -97,7 +123,6 @@ class BaseCreator(ABC):
             na_values=na_values,
             header=None,
             sep="\t",
-            # nrows=1_000_000,
         )
         return df
 
@@ -113,6 +138,10 @@ class BaseCreator(ABC):
     def create_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         pass
 
+    @abstractmethod
+    def augment_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+        pass
+
     def create_datasets(self) -> None:
         self.logger.info("reading in criteo dataset...")
         self.df = self._read_dataframe()
@@ -121,10 +150,13 @@ class BaseCreator(ABC):
         self.df = self.specialize_df(self.df)
 
         self.logger.info("creating the impressions...")
-        impressions = self.create_impressions(self.df)
+        idf = self.create_impressions(self.df)
+        impressions = idf[[*self.impression_columns_to_use, "key"]]
+        impressions = impressions.sort_values(by=["click_timestamp"])
 
         self.logger.info("creating the conversions...")
-        conversions = self.create_conversions(self.df)
+        cdf = self.create_conversions(self.df)
+        conversions = cdf.drop(columns=self.conversion_columns_to_drop)
 
         self.logger.info("writing the datasets out to the file paths specified")
         df_and_fp = [
@@ -132,9 +164,26 @@ class BaseCreator(ABC):
             (conversions, self.conversions_filename),
         ]
 
-        for df, filepath in df_and_fp:
+        for d, filepath in df_and_fp:
             if os.path.exists(filepath):
                 os.remove(filepath)
 
-            df.to_csv(filepath, header=True, index=False)
+            d.to_csv(filepath, header=True, index=False)
             self.logger.info(f"dataset written to {filepath}")
+
+        if self.augmented_impressions_filename:
+            self.logger.info("augmenting impressions...")
+            aidf = self.augment_impressions(cdf)
+            if not aidf.empty:
+                augmented_impressions = aidf[[*self.impression_columns_to_use, "key"]]
+                augmented_impressions = pd.concat([impressions, augmented_impressions])
+                augmented_impressions = augmented_impressions.sort_values(
+                    by=["click_timestamp"]
+                )
+
+                fp = self.augmented_impressions_filename
+                if os.path.exists(fp):
+                    os.remove(fp)
+
+                augmented_impressions.to_csv(fp, header=True, index=False)
+                self.logger.info(f"dataset written to {fp}")

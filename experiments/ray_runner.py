@@ -30,9 +30,10 @@ def grid_run(
     loguru_level: str,
     ray_session_dir: str,
     logging_keys: List[str],
+    ray_init: bool = True,
 ):
 
-    if ray_session_dir:
+    if ray_session_dir and ray_init:
         ray.init(_temp_dir=ray_session_dir, log_to_driver=False)
 
     config = {

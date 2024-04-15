@@ -137,22 +137,28 @@ def microbenchmark_varying_epoch_granularity(ray_session_dir):
 
 ## ----------------- CRITEO ----------------- ##
 
-def criteo_bias_varying_epoch_size(ray_session_dir):
+
+def criteo_run(ray_session_dir):
     dataset = "criteo"
-    logs_dir = f"{dataset}/bias_varying_epoch_size"
     impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
     conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
+    logs_dir = f"{dataset}/bias_varying_epoch_size"
 
     workload_generation = OmegaConf.load("data/criteo/config.json")
+
+    augment_rate = workload_generation.get("augment_rate")
+
+    epoch_first_batch = [1, 7, 14, 21]
+    epoch_second_batch = [30, 60, 90]
 
     config = {
         "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
-        "num_days_per_epoch": [1, 7, 14, 21],
+        "num_days_per_epoch": epoch_first_batch,
         "num_days_attribution_window": [30],
-        "workload_size": [1_000], # force a high number so that we run on all queries
+        "workload_size": [1_000],  # force a high number so that we run on all queries
         "max_scheduling_batch_size_per_query": workload_generation.max_batch_size,
         "min_scheduling_batch_size_per_query": workload_generation.min_batch_size,
         "initial_budget": [1],
@@ -163,8 +169,17 @@ def criteo_bias_varying_epoch_size(ray_session_dir):
     }
 
     grid_run(**config)
-    config["num_days_per_epoch"] = [30, 60, 90]
+    config["num_days_per_epoch"] = epoch_second_batch
+    config["ray_init"] = False
     grid_run(**config)
+
+    if augment_rate:
+        config["impressions_path"] = f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
+        config["logs_dir"] = f"{dataset}/augmented_bias_varying_epoch_size"
+
+        for batch in [[1, 7], [14, 21], [30, 60], [90]]:
+            config["num_days_per_epoch"] = batch
+            grid_run(**config)
 
 
 ## ----------------- PATCG ----------------- ##
@@ -197,6 +212,7 @@ def patcg_varying_epoch_granularity(ray_session_dir):
     grid_run(**config)
     config["num_days_per_epoch"] = [1, 7, 14]
     grid_run(**config)
+
 
 def patcg_varying_initial_budget(ray_session_dir):
     dataset = "patcg"
