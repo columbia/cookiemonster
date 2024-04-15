@@ -212,7 +212,7 @@ def save_data(path):
 
     # Filters state
     df = analyze_results(path, "filters_state")
-    df = df.drop(columns=["initial_budget", "workload_size", "num_days_attribution_window"], axis=1)
+    df = df.drop(columns=["workload_size", "num_days_attribution_window"], axis=1)
     df = df.explode("budget_consumption")
     save_df(df, path, "filters_state.csv")
 
@@ -227,7 +227,7 @@ def save_data(path):
     save_df(df, path, "rmsres.csv")
 
 
-def focus(df, workload_size, epoch_size, knob1, knob2, attribution_window):
+def focus(df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget=0):
     # Pick a subset of the experiments
     focus = ""
     if workload_size:
@@ -245,6 +245,9 @@ def focus(df, workload_size, epoch_size, knob1, knob2, attribution_window):
     if attribution_window:
         focus = f"attribution_window {attribution_window}"
         df = df.query("num_days_attribution_window == @attribution_window")
+    if initial_budget:
+        focus = f"initial_budget {initial_budget}"
+        df = df.query("initial_budget == @initial_budget")
     return df, focus
 
 
@@ -301,6 +304,7 @@ def plot_budget_consumption_boxes(
     df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
     # df = df.explode("budget_consumption")
 
+    df[x_axis] = df[x_axis].astype(str)
     fig = px.box(
         df,
         x=x_axis,
@@ -345,7 +349,7 @@ def plot_budget_consumption_lines(
         "width": 1100,
         "height": 1000,
         "markers": True,
-        "range_y": [0, 1],
+        # "range_y": [0, 1],
         "log_y": log_y,
         "facet_row": facet_row,
         "facet_col": "destination" if by_destination else None,
@@ -448,6 +452,7 @@ def plot_rmsre_cdf(
     epoch_size=0,
     workload_size=0,
     attribution_window=0,
+    initial_budget=0,
     by_destination=False,
     facet_row=None,
     category_orders={},
@@ -455,7 +460,7 @@ def plot_rmsre_cdf(
 ):
 
     df = analyze_results(path, "bias")
-    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
+    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget)
     # df = df.explode("queries_rmsres")
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)
@@ -483,4 +488,5 @@ def plot_rmsre_cdf(
 if __name__ == "__main__":
     save_data("ray/microbenchmark/varying_knob1")
     save_data("ray/microbenchmark/varying_knob2")
-    save_data("ray/patcg/varying_epoch_granularity_aw_7")
+    # save_data("ray/patcg/varying_epoch_granularity_aw_30")
+    # save_data("ray/patcg/varying_initial_budget")

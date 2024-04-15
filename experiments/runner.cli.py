@@ -42,9 +42,9 @@ def microbenchmark_varying_knob1(ray_session_dir):
         "dataset_name": f"{dataset}",
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
-        "workload_size": [5],
-        "min_scheduling_batch_size_per_query": 1000,
-        "max_scheduling_batch_size_per_query": 1000,
+        "workload_size": [10],
+        "min_scheduling_batch_size_per_query": 2000,
+        "max_scheduling_batch_size_per_query": 2000,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
@@ -82,9 +82,9 @@ def microbenchmark_varying_knob2(ray_session_dir):
         "dataset_name": f"{dataset}",
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
-        "workload_size": [5],
-        "min_scheduling_batch_size_per_query": 1000,
-        "max_scheduling_batch_size_per_query": 1000,
+        "workload_size": [10],
+        "min_scheduling_batch_size_per_query": 2000,
+        "max_scheduling_batch_size_per_query": 2000,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
@@ -133,7 +133,6 @@ def microbenchmark_varying_epoch_granularity(ray_session_dir):
     }
 
     grid_run(**config)
-    # analyze(f"ray/{logs_dir}")
 
 
 ## ----------------- CRITEO ----------------- ##
@@ -216,7 +215,7 @@ def patcg_varying_initial_budget(ray_session_dir):
         "workload_size": [80],
         "max_scheduling_batch_size_per_query": 303009,
         "min_scheduling_batch_size_per_query": 280000,
-        "initial_budget": [1, 2, 4, 6, 8, 10],
+        "initial_budget": [1, 2, 4],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
@@ -224,8 +223,8 @@ def patcg_varying_initial_budget(ray_session_dir):
     }
 
     grid_run(**config)
-
-
+    config["initial_budget"] = [6, 8, 10]
+    grid_run(**config)
 
 def patcg_bias_varying_attribution_window(ray_session_dir):
     dataset = "patcg"
