@@ -292,12 +292,13 @@ class Patcg(Dataset):
     def __init__(self, config: OmegaConf) -> None:
         super().__init__(config)
         self.impressions_data = pd.read_csv(self.impressions_path)
-        self.queries = list(range(self.workload_size))
+        # self.queries = list(range(self.workload_size))
 
     def iter_conversions_data(self):
-        for chunk in pd.read_csv(self.conversions_path, chunksize=200000):
-            chunk.query("query_key in @self.queries", inplace=True)
-            yield chunk
+        # for chunk in pd.read_csv(self.conversions_path, chunksize=None):
+            # chunk.query("key in @self.queries", inplace=True)
+        chunk = pd.read_csv(self.conversions_path)
+        yield chunk
 
     def event_reader(self) -> Generator[tuple[str, Event] | None, None, None]:
         assert self.impressions_data is not None

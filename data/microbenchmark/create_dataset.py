@@ -8,7 +8,8 @@ from omegaconf import OmegaConf
 
 app = typer.Typer()
 
-np.random.seed(seed=62)
+np.random.seed(seed=4)
+
 
 
 def generate_random_dates(start_date, num_days, num_samples):
@@ -131,6 +132,7 @@ def create_microbenchmark(config: OmegaConf):
     # Give impressions a head start of 1 month so that conversions always have an available attribution window of 30 days
     impressions_start_date = datetime.datetime(2024, 1, 1)
     num_days = config.num_days - 1
+    np.random.seed(seed=60)
     impressions = generate_impressions(
         impressions_start_date, num_days, config, publisher_user_profile
     )
@@ -147,6 +149,7 @@ def create_microbenchmark(config: OmegaConf):
 
     # Set Conversions
     conversions = []
+    np.random.seed(seed=100)
     for product_id in range(config.num_query_types):
         print("Processing distinct query: ", product_id)
         conversions.append(

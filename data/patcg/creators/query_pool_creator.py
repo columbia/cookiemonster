@@ -74,7 +74,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 start = i * batch_size
                 end = (i + 1) * batch_size
                 unique_query_key = dimension_value * total_batches + i
-                query_result.loc[start:end, "query_key"] = str(unique_query_key)
+                query_result.loc[start:end, "key"] = str(unique_query_key)
                 print(unique_query_key)
                 query_result.loc[start:end, "epsilon"] = self._set_epsilon()
                 i += 1
@@ -86,7 +86,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             ):
                 unique_query_key = dimension_value * total_batches + nbatches
                 print(unique_query_key)
-                query_result.loc[i:, "query_key"] = str(unique_query_key)
+                query_result.loc[i:, "key"] = str(unique_query_key)
                 query_result.loc[i:, "epsilon"] = self._set_epsilon()
 
             queries.append(query_result)
@@ -102,7 +102,7 @@ class QueryPoolDatasetCreator(BaseCreator):
 
     def _set_epsilon(self) -> pd.DataFrame:
         [a, b] = self.config.accuracy
-        expected_result = 1500  # 1000 * 5
+        expected_result = 2000  # ~375 * 5
         epsilon = self.config.cap_value * math.log(1 / b) / (a * expected_result)
         return epsilon
 

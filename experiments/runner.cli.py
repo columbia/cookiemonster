@@ -187,7 +187,7 @@ def criteo_run(ray_session_dir):
 
 def patcg_varying_epoch_granularity(ray_session_dir):
     dataset = "patcg"
-    logs_dir = f"{dataset}/varying_epoch_granularity_aw_30"
+    logs_dir = f"{dataset}/varying_epoch_granularity_aw_7"
 
     impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
@@ -197,8 +197,8 @@ def patcg_varying_epoch_granularity(ray_session_dir):
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
-        "num_days_per_epoch": [21, 28, 30, 60],
-        "num_days_attribution_window": [30],
+        "num_days_per_epoch": [21, 30, 60],
+        "num_days_attribution_window": [7],
         "workload_size": [80],
         "max_scheduling_batch_size_per_query": 303009,
         "min_scheduling_batch_size_per_query": 280000,
