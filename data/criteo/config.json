@@ -7,5 +7,7 @@
     "advertiser_exclusions": [
         "E3DDEB04F8AFF944B11943BB57D2F620"
     ],
-    "augment_rate": 0.3
+    "augment_rates": {
+        "conversions": 0.5
+    }
 }

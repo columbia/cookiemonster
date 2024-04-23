@@ -232,7 +232,9 @@ def save_data(path):
     save_df(df, path, "rmsres.csv")
 
 
-def focus(df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget=0):
+def focus(
+    df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget=0
+):
     # Pick a subset of the experiments
     focus = ""
     if workload_size:
@@ -470,7 +472,9 @@ def plot_rmsre_cdf(
 ):
 
     df = analyze_results(path, "bias")
-    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget)
+    df, focus_ = focus(
+        df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget
+    )
     # df = df.explode("queries_rmsres")
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)

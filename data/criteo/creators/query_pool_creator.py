@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from omegaconf import DictConfig
+from uuid import uuid4
 
 
 from data.criteo.creators.base_creator import BaseCreator, pd
@@ -17,9 +18,10 @@ class QueryPoolDatasetCreator(BaseCreator):
     ) -> None:
         super().__init__(
             config,
-            "criteo_query_pool_impressions.csv",
-            "criteo_query_pool_conversions.csv",
-            "criteo_query_pool_augmented_impressions.csv",
+            impressions_filename="criteo_query_pool_impressions.csv",
+            conversions_filename="criteo_query_pool_conversions.csv",
+            # augmented_impressions_filename="criteo_query_pool_augmented_impressions.csv",
+            augmented_conversions_filename="criteo_query_pool_augmented_conversions.csv",
         )
         self.used_dimension_names = set()
 
@@ -32,11 +34,13 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
         self.max_batch_size = config.max_batch_size
         self.min_batch_size = config.min_batch_size
-        self.augment_dataset: bool = (
-            config.get("augment_dataset", "false").lower() == "true"
-        )
         self.advertiser_filter = config.get("advertiser_filter", [])
         self.advertiser_exclusions = config.get("advertiser_exclusions", [])
+
+        # See notebooks/criteo_dataset_analysis.ipynb
+        # 4) for an explanation for these numbers
+        self.max_purchase_counts = 5
+        self.expected_average_purchase_counts = 2
 
     def specialize_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.dropna(
@@ -52,21 +56,16 @@ class QueryPoolDatasetCreator(BaseCreator):
         if self.advertiser_exclusions:
             df = df[~df[self.advertiser_column_name].isin(self.advertiser_exclusions)]
 
-        if self.augment_dataset:
-            df = self._augment_df_with_advertiser_bin_cover(df)
-
         df = df.assign(filter="")
         return df
 
     def create_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["key"] = ""
+        df = df.assign(key="")
         return df
 
     def _create_queries(
         self,
         conversions: pd.DataFrame,
-        max_purchase_counts: int,
-        expected_average_purchase_counts: int,
     ) -> pd.DataFrame:
 
         seen_users = set()
@@ -160,13 +159,13 @@ class QueryPoolDatasetCreator(BaseCreator):
             for i, batch in enumerate(batches):
                 final_batch = batch.assign(
                     epsilon=get_epsilon_for_high_probability_relative_error_wrt_avg_prior(
-                        sensitivity=max_purchase_counts,
+                        sensitivity=self.max_purchase_counts,
                         batch_size=batch.shape[0],
-                        expected_average_result=expected_average_purchase_counts,
+                        expected_average_result=self.expected_average_purchase_counts,
                         relative_error=0.05,
                         failure_probability=0.01,
                     ),
-                    aggregatable_cap_value=max_purchase_counts,
+                    aggregatable_cap_value=self.max_purchase_counts,
                     key=i,
                 )
                 final_batches.append(final_batch)
@@ -185,15 +184,10 @@ class QueryPoolDatasetCreator(BaseCreator):
 
         conversions = df.loc[df.Sale == 1]
 
-        # See notebooks/criteo_dataset_analysis.ipynb
-        # 4) for an explanation for these numbers
-        max_purchase_counts = 5
-        expected_average_purchase_counts = 2
-
         conversions = conversions.assign(
             count=conversions.apply(
                 lambda conversion: __compute_product_count(
-                    conversion, max_purchase_counts
+                    conversion, self.max_purchase_counts
                 ),
                 axis=1,
             ),
@@ -203,9 +197,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 axis=1,
             ),
         )
-        conversions = self._create_queries(
-            conversions, max_purchase_counts, expected_average_purchase_counts
-        )
+        conversions = self._create_queries(conversions)
         conversions = conversions.sort_values(by=["conversion_timestamp"])
 
         self.log_query_epsilons(conversions)
@@ -267,16 +259,22 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
         pd.reset_option("display.max_rows")
 
-    def augment_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
-        augment_rate = self.config.augment_rate
-        if not augment_rate:
-            msg = "received request to augment dataset, but no augment rate. will not augment impressions"
+    def augment_impressions_from_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
+        augment_rates = self.config.get("augment_rates")
+        if not augment_rates:
+            msg = "received request to augment dataset, but no augment rates. will not augment impressions"
+            self.logger.warning(msg)
+            return pd.DataFrame()
+
+        impressions_augment_rate = augment_rates.get("impressions")
+        if not impressions_augment_rate:
+            msg = "received request to augment impressions, but no augment rate was specified. will not augment impressions"
             self.logger.warning(msg)
             return pd.DataFrame()
 
         attribution_window = 30  # days
         attribution_window_seconds = attribution_window * 60 * 60 * 24
-        impressions_to_add = math.ceil(augment_rate * attribution_window)
+        impressions_to_add = math.ceil(impressions_augment_rate * attribution_window)
 
         def get_click_timestamps(attribution_window_end: int) -> int:
             nonlocal impressions_to_add
@@ -297,6 +295,84 @@ class QueryPoolDatasetCreator(BaseCreator):
         df = df.explode("click_timestamps")
         df.drop(columns=["click_timestamp"], inplace=True)
         df.rename(columns={"click_timestamps": "click_timestamp"}, inplace=True)
-        df["key"] = ""
+        df = df.assign(key="")
 
         return df
+
+    def _get_attribute_domains(self, df: pd.DataFrame) -> dict[str, list]:
+        attribute_domains = {}
+        for dimension_name in self.dimension_names:
+            attribute_domains[dimension_name] = list(df[dimension_name].unique())
+        return attribute_domains
+
+    def augment_conversions_from_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+        augment_rates = self.config.get("augment_rates")
+        if not augment_rates:
+            msg = "received request to augment dataset, but no augment rates. will not augment conversions"
+            self.logger.warning(msg)
+            return pd.DataFrame()
+
+        conversions_augment_rate = augment_rates.get("conversions")
+        if not conversions_augment_rate:
+            msg = "received request to augment conversions, but no augment rate was specified. will not augment conversions"
+            self.logger.warning(msg)
+            return pd.DataFrame()
+
+        dataset_window = 90  # days
+        min_conversion_timestamp = df.click_timestamp.min()
+        dataset_window_seconds = dataset_window * 60 * 60 * 24
+        max_conversion_timestamp = min_conversion_timestamp + dataset_window_seconds
+
+        # for each advertiser, add (conversions_augment_rate*100)% more conversions to bring their
+        # attribution rate down. these conversions will be unattributed and scattered throughout the dataset
+        chunks = []
+        for destination, dest_df in df.groupby([self.advertiser_column_name]):
+            attribute_domains = self._get_attribute_domains(dest_df)
+            num_conversions = dest_df.shape[0]
+            num_conversions_to_add = math.ceil(
+                num_conversions * conversions_augment_rate
+            )
+
+            records = []
+            for _ in num_conversions_to_add:
+                user_id = str(uuid4()).replace("-", "").upper()
+                conversion_timestamp = np.random.randint(
+                    min_conversion_timestamp, max_conversion_timestamp + 1
+                )
+                count = np.random.randint(1, self.max_purchase_counts + 1)
+                product_price = 1
+                sales_amount_in_euro = count * product_price
+                record = {
+                    self.advertiser_column_name: destination,
+                    self.user_column_name: user_id,
+                    "Sale": 1,
+                    "click_timestamp": 0,
+                    "Time_delay_for_conversion": conversion_timestamp,
+                    "SalesAmountInEuro": sales_amount_in_euro,
+                    "product_price": product_price,
+                }
+                for dimension_name in self.dimension_names:
+                    values = attribute_domains[dimension_name]
+                    i = np.random.randint(0, len(values))
+                    record[dimension_name] = values[i]
+                records.append(record)
+
+            chunks.append(pd.DataFrame.from_records(records))
+
+        augmented_conversions = pd.concat(chunks)
+        columns_to_use = [
+            self.advertiser_column_name,
+            self.user_column_name,
+            "Sale",
+            "click_timestamp",
+            "Time_delay_for_conversion",
+            "SalesAmountInEuro",
+            "product_price",
+            *self.dimension_names,
+        ]
+
+        augmented_conversions = pd.concat(
+            [self.df[columns_to_use], augmented_conversions]
+        )
+
+        return augmented_conversions

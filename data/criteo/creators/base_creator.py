@@ -21,6 +21,7 @@ class BaseCreator(ABC):
         impressions_filename: str,
         conversions_filename: str,
         augmented_impressions_filename: str | None = None,
+        augmented_conversions_filename: str | None = None,
     ):
         self.config = config
         self.df: pd.DataFrame | None = None
@@ -33,6 +34,10 @@ class BaseCreator(ABC):
         if augmented_impressions_filename:
             self.augmented_impressions_filename = os.path.join(
                 os.path.dirname(__file__), "..", augmented_impressions_filename
+            )
+        if augmented_conversions_filename:
+            self.augmented_conversions_filename = os.path.join(
+                os.path.dirname(__file__), "..", augmented_conversions_filename
             )
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
@@ -65,6 +70,7 @@ class BaseCreator(ABC):
             "user_id",
             "partner_id",
             "filter",
+            "key",
         ]
 
     def _read_dataframe(self) -> pd.DataFrame:
@@ -139,7 +145,11 @@ class BaseCreator(ABC):
         pass
 
     @abstractmethod
-    def augment_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+    def augment_impressions_from_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def augment_conversions_from_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
         pass
 
     def create_datasets(self) -> None:
@@ -151,7 +161,7 @@ class BaseCreator(ABC):
 
         self.logger.info("creating the impressions...")
         idf = self.create_impressions(self.df)
-        impressions = idf[[*self.impression_columns_to_use, "key"]]
+        impressions = idf[self.impression_columns_to_use]
         impressions = impressions.sort_values(by=["click_timestamp"])
 
         self.logger.info("creating the conversions...")
@@ -173,9 +183,9 @@ class BaseCreator(ABC):
 
         if self.augmented_impressions_filename:
             self.logger.info("augmenting impressions...")
-            aidf = self.augment_impressions(cdf)
+            aidf = self.augment_impressions_from_conversions(cdf)
             if not aidf.empty:
-                augmented_impressions = aidf[[*self.impression_columns_to_use, "key"]]
+                augmented_impressions = aidf[self.impression_columns_to_use]
                 augmented_impressions = pd.concat([impressions, augmented_impressions])
                 augmented_impressions = augmented_impressions.sort_values(
                     by=["click_timestamp"]
@@ -186,4 +196,23 @@ class BaseCreator(ABC):
                     os.remove(fp)
 
                 augmented_impressions.to_csv(fp, header=True, index=False)
+                self.logger.info(f"dataset written to {fp}")
+
+        if self.augmented_conversions_filename:
+            self.logger.info("augmenting conversions...")
+            acdf = self.augment_conversions_from_impressions(self.df)
+            if not acdf.empty:
+                augmented_conversions = self.create_conversions(acdf)
+                augmented_conversions = acdf.drop(
+                    columns=self.conversion_columns_to_drop
+                )
+                augmented_conversions = augmented_conversions.sort_values(
+                    by=["conversion_timestamp"]
+                )
+
+                fp = self.augmented_conversions_filename
+                if os.path.exists(fp):
+                    os.remove(fp)
+
+                augmented_conversions.to_csv(fp, header=True, index=False)
                 self.logger.info(f"dataset written to {fp}")

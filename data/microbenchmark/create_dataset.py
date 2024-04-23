@@ -11,7 +11,6 @@ app = typer.Typer()
 np.random.seed(seed=4)
 
 
-
 def generate_random_dates(start_date, num_days, num_samples):
     # start_seconds = 0
     start_seconds = int((start_date - datetime.datetime(1969, 12, 31)).total_seconds())
