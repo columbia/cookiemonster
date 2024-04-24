@@ -1,6 +1,7 @@
-import numpy as np
-from enum import Enum
 from abc import abstractmethod
+from enum import Enum
+
+import numpy as np
 
 from cookiemonster.query_batch import QueryBatch
 
@@ -41,11 +42,17 @@ class AggregationService:
 class LocalLaplacianAggregationService(AggregationService):
 
     def create_summary_report(self, query_batch: QueryBatch) -> AggregationResult:
+        """Isotropic Laplace noise, i.e. iid Laplace on each coordinate"""
         true_output = sum(query_batch.unbiased_values)
         aggregation_output = sum(query_batch.values)
 
         noise_scale = query_batch.global_sensitivity / query_batch.global_epsilon
-        noise = np.random.laplace(scale=noise_scale)
+        
+        if isinstance(aggregation_output, np.ndarray):
+            noise = np.random.laplace(scale=noise_scale, size=aggregation_output.shape)
+        else:
+            noise = np.random.laplace(scale=noise_scale)
+            
         aggregation_noisy_output = aggregation_output + noise
         return AggregationResult(
             true_output, aggregation_output, aggregation_noisy_output

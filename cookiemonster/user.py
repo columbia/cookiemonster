@@ -1,13 +1,14 @@
+import random
+from typing import Any, Dict, List, Union
+
 from omegaconf import OmegaConf
-from typing import Dict, List, Any, Union
 
-from cookiemonster.report import Partition, Report
-from cookiemonster.events import Impression, Conversion
 from cookiemonster.budget_accountant import BudgetAccountant
-
-from cookiemonster.utils import maybe_initialize_filters, compute_global_sensitivity
-
-from cookiemonster.utils import IPA, COOKIEMONSTER_BASE, COOKIEMONSTER
+from cookiemonster.events import Conversion, Impression
+from cookiemonster.report import Partition, Report
+from cookiemonster.utils import (COOKIEMONSTER, COOKIEMONSTER_BASE, IPA,
+                                 compute_global_sensitivity,
+                                 maybe_initialize_filters)
 
 
 class ConversionResult:
@@ -69,7 +70,7 @@ class User:
         # Create the unbiased report per partition
         for partition in partitions:
             partition.unbiased_report = partition.create_report(
-                conversion.filter, conversion.key
+                conversion.filter, conversion.key, bias_counting_strategy=self.config.bias_detection_knob
             )
         # IPA doesn't do on-device budget accounting
         if self.config.baseline != IPA:
@@ -137,18 +138,31 @@ class User:
                 if not filter_result.succeeded():
                     # If epochs couldn't pay the required budget, erase the partition's impressions_per_epoch so that an empty report will be created
                     partition.impressions_per_epoch.clear()
+                    
+                # # DEBUG
+                # kappa = 1
+                # if random.random() < 0.5:
+                #     partition.impressions_per_epoch.clear()
 
         # Create the possibly biased report per partition
-        for partition in partitions:
+        for partition in partitions:               
             partition.report = partition.create_report(
-                conversion.filter, conversion.key
+                conversion.filter, conversion.key, bias_counting_strategy=self.config.bias_detection_knob
             )
+            
+        # TODO(Pierre): count the number of reports with cleared impressions, use that as upper bound
+        # Does this really augment the individual sensitivity actually? Only for epochs with impressions. Or with relevant impressions?
+        # TODO: seems that we already have many legit empty epochs in the synthetic dataset.
+        
+        # Other ideas:
+        # Or cleared impressions that would have been relevant otherwise? No way to tell... Hence the prior.
+        # If we use budgets, then we can combine on attribution value and reduce the individual sensitivity?
 
         # Aggregate partition reports to create a final report
         final_report = Report()
         for partition in partitions:
             final_report += partition.report
-
+            
         # Keep an unbiased version of the final report for experiments
         unbiased_final_report = Report()
         for partition in partitions:

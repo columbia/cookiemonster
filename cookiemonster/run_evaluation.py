@@ -1,27 +1,21 @@
 import os
+from typing import Any, Dict, List
+
 import typer
 from loguru import logger
-from termcolor import colored
 from omegaconf import OmegaConf
-from typing import Dict, Any, List
+from termcolor import colored
 
-from cookiemonster.dataset import Dataset
-from cookiemonster.query_batch import QueryBatch
-from cookiemonster.event_logger import EventLogger
-from cookiemonster.user import User, ConversionResult
-from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
-from cookiemonster.utils import (
-    GlobalStatistics,
-    IPA,
-    BIAS,
-    BUDGET,
-    FILTERS_STATE,
-    save_logs,
-    maybe_initialize_filters,
-    compute_global_sensitivity,
-)
+from cookiemonster.budget_accountant import BudgetAccountant
+from cookiemonster.dataset import Dataset
+from cookiemonster.event_logger import EventLogger
+from cookiemonster.query_batch import QueryBatch
+from cookiemonster.user import ConversionResult, User
+from cookiemonster.utils import (BIAS, BUDGET, FILTERS_STATE, IPA,
+                                 GlobalStatistics, compute_global_sensitivity,
+                                 maybe_initialize_filters, save_logs)
 
 app = typer.Typer()
 
@@ -77,47 +71,61 @@ class Evaluation:
                 ]
 
                 # Compute global sensitivity based on the aggregatable cap value
+                # TODO: update this to take kappa into account
                 global_sensitivity = compute_global_sensitivity(
                     self.config.user.sensitivity_metric, event.aggregatable_cap_value
                 )
-                # Support for only scalar reports for now
-                assert len(report.histogram) == 1
 
-                for query_id, value in report.histogram.items():
-                    if query_id not in per_query_batch:
-                        per_query_batch[query_id] = QueryBatch(
-                            query_id,
-                            event.epsilon,
-                            global_sensitivity,
-                            biggest_id=event.id,
-                        )
-                    else:
-                        # All conversion requests for the same query should have the same epsilon and sensitivity
-                        assert per_query_batch[query_id].global_epsilon == event.epsilon
-                        assert (
-                            per_query_batch[query_id].global_sensitivity
-                            == global_sensitivity
-                        )
+                
+                # TODO: handle multidim queries
 
-                    per_query_batch[query_id].update(
-                        value,
-                        unbiased_report.histogram[query_id],
-                        event.epochs_window,
+                # We only support single-query reports for now, with potentially multiple buckets
+                # At aggregation time you need to know how many buckets you are interested in
+                # Otherwise, the absence or presence of a bucket can leak info about a single record
+                if self.config.user.bias_detection_knob:
+                    impression_buckets = ["empty", "main"]
+                    # TODO: Add support for arbitrary buckets too, e.g. for histogram queries?
+                else:
+                    impression_buckets = [""]
+                    
+                query_id, value = report.get_query_value(impression_buckets)
+                _, unbiased_value = unbiased_report.get_query_value(impression_buckets)
+                
+                # for query_id, value in report.histogram.items():
+                if query_id not in per_query_batch:
+                    per_query_batch[query_id] = QueryBatch(
+                        query_id,
+                        event.epsilon,
+                        global_sensitivity,
                         biggest_id=event.id,
                     )
+                else:
+                    # All conversion requests for the same query should have the same epsilon and sensitivity
+                    assert per_query_batch[query_id].global_epsilon == event.epsilon
+                    assert (
+                        per_query_batch[query_id].global_sensitivity
+                        == global_sensitivity
+                    )
+
+                per_query_batch[query_id].update(
+                    value,
+                    unbiased_value,
+                    event.epochs_window,
+                    biggest_id=event.id,
+                )
 
                 # Check if the new report triggers scheduling / aggregation
-                for query_id in report.histogram.keys():
-                    batch = per_query_batch[query_id]
-                    if self.aggregation_policy.should_calculate_summary_reports(batch):
-                        self._calculate_summary_reports(
-                            query_id=query_id,
-                            batch=batch,
-                            destination=event.destination,
-                        )
+                # for query_id in report.histogram.keys():
+                batch = per_query_batch[query_id]
+                if self.aggregation_policy.should_calculate_summary_reports(batch):
+                    self._calculate_summary_reports(
+                        query_id=query_id,
+                        batch=batch,
+                        destination=event.destination,
+                    )
 
-                        # Reset the batch
-                        del per_query_batch[query_id]
+                    # Reset the batch
+                    del per_query_batch[query_id]
 
         # Handle the tail for those queries that have enough events for DP, but are not the preferred batch size
         for (
@@ -166,6 +174,7 @@ class Evaluation:
     def _calculate_summary_reports(
         self, *, query_id: str, batch: QueryBatch, destination: str
     ) -> None:
+        # TODO: update logs to handle vector outputs
 
         true_output = None
         aggregation_output = None

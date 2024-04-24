@@ -1,15 +1,14 @@
-import math
-import typer
-
 import datetime
+import math
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import typer
 from omegaconf import OmegaConf
 
+CURRENT_DIR = Path(__file__).parent
 app = typer.Typer()
-
-np.random.seed(seed=4)
-
 
 
 def generate_random_dates(start_date, num_days, num_samples):
@@ -132,7 +131,6 @@ def create_microbenchmark(config: OmegaConf):
     # Give impressions a head start of 1 month so that conversions always have an available attribution window of 30 days
     impressions_start_date = datetime.datetime(2024, 1, 1)
     num_days = config.num_days - 1
-    np.random.seed(seed=60)
     impressions = generate_impressions(
         impressions_start_date, num_days, config, publisher_user_profile
     )
@@ -141,7 +139,7 @@ def create_microbenchmark(config: OmegaConf):
     impressions["advertiser_id"] = advertiser_id
     impressions = impressions.sort_values(["timestamp"])
     impressions.to_csv(
-        f"impressions_knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}.csv",
+        CURRENT_DIR.joinpath(f"impressions_knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}.csv"),
         header=True,
         index=False,
     )
@@ -149,7 +147,6 @@ def create_microbenchmark(config: OmegaConf):
 
     # Set Conversions
     conversions = []
-    np.random.seed(seed=100)
     for product_id in range(config.num_query_types):
         print("Processing distinct query: ", product_id)
         conversions.append(
@@ -163,7 +160,7 @@ def create_microbenchmark(config: OmegaConf):
     # Set epsilons
     def _set_epsilon():
         [a, b] = config.accuracy
-        expected_result = config.scheduled_batch_size * 5  # 2000 * 5
+        expected_result = config.scheduled_batch_size * 5 # 500 * 5
         epsilon = config.cap_value * math.log(1 / b) / (a * expected_result)
         return epsilon
 
@@ -172,7 +169,7 @@ def create_microbenchmark(config: OmegaConf):
     # Set cap value
     conversions["aggregatable_cap_value"] = config.cap_value
     conversions.to_csv(
-        f"conversions_knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}.csv",
+        CURRENT_DIR.joinpath(f"conversions_knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}.csv"),
         header=True,
         index=False,
     )
@@ -180,7 +177,7 @@ def create_microbenchmark(config: OmegaConf):
 
 @app.command()
 def create_dataset(
-    omegaconf: str = "config.json",
+    omegaconf: str = str(CURRENT_DIR.joinpath("config.json")),
     per_day_user_impressions_rate: float = None,
     user_participation_rate_per_query: float = None,
 ):

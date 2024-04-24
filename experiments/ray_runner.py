@@ -1,8 +1,8 @@
-import ray
-from ray import tune
-from ray import train
-from loguru import logger
 from typing import Any, Dict, List
+
+import ray
+from loguru import logger
+from ray import train, tune
 from rich.pretty import pretty_repr
 
 from cookiemonster.run_evaluation import Evaluation
@@ -31,6 +31,7 @@ def grid_run(
     ray_session_dir: str,
     logging_keys: List[str],
     ray_init: bool = True,
+    bias_detection_knob: List[float] = [1.0],
 ):
 
     if ray_session_dir and ray_init:
@@ -41,6 +42,7 @@ def grid_run(
             "sensitivity_metric": "L1",
             "baseline": tune.grid_search(baseline),
             "initial_budget": tune.grid_search(initial_budget),
+            "bias_detection_knob": tune.grid_search(bias_detection_knob),
         },
         "dataset": {
             "name": dataset_name,
