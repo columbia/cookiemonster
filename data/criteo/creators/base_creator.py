@@ -31,14 +31,12 @@ class BaseCreator(ABC):
         self.conversions_filename = os.path.join(
             os.path.dirname(__file__), "..", conversions_filename
         )
-        if augmented_impressions_filename:
-            self.augmented_impressions_filename = os.path.join(
-                os.path.dirname(__file__), "..", augmented_impressions_filename
-            )
-        if augmented_conversions_filename:
-            self.augmented_conversions_filename = os.path.join(
-                os.path.dirname(__file__), "..", augmented_conversions_filename
-            )
+        self.augmented_impressions_filename = os.path.join(
+            os.path.dirname(__file__), "..", augmented_impressions_filename
+        ) if augmented_impressions_filename else None
+        self.augmented_conversions_filename = os.path.join(
+            os.path.dirname(__file__), "..", augmented_conversions_filename
+        ) if augmented_conversions_filename else None
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
@@ -203,7 +201,7 @@ class BaseCreator(ABC):
             acdf = self.augment_conversions_from_impressions(self.df)
             if not acdf.empty:
                 augmented_conversions = self.create_conversions(acdf)
-                augmented_conversions = acdf.drop(
+                augmented_conversions = augmented_conversions.drop(
                     columns=self.conversion_columns_to_drop
                 )
                 augmented_conversions = augmented_conversions.sort_values(

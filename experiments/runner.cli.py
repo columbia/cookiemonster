@@ -164,10 +164,11 @@ def criteo_run(ray_session_dir):
         "logging_keys": [BIAS, BUDGET],
     }
 
-    for batch in [[1, 7, 14, 21], [30, 60, 90]]:
-        config["num_days_per_epoch"] = batch
-        grid_run(**config)
-        config["ray_init"] = False
+    # # already ran this for the paper
+    # for batch in [[1, 7, 14, 21], [30, 60, 90]]:
+    #     config["num_days_per_epoch"] = batch
+    #     grid_run(**config)
+    #     config["ray_init"] = False
 
     if augment_rates:
         if augment_rates.get("impressions"):

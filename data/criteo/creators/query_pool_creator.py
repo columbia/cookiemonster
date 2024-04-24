@@ -302,7 +302,7 @@ class QueryPoolDatasetCreator(BaseCreator):
     def _get_attribute_domains(self, df: pd.DataFrame) -> dict[str, list]:
         attribute_domains = {}
         for dimension_name in self.dimension_names:
-            attribute_domains[dimension_name] = list(df[dimension_name].unique())
+            attribute_domains[dimension_name] = list(df[dimension_name].dropna().unique())
         return attribute_domains
 
     def augment_conversions_from_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -334,7 +334,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             )
 
             records = []
-            for _ in num_conversions_to_add:
+            for _ in range(num_conversions_to_add):
                 user_id = str(uuid4()).replace("-", "").upper()
                 conversion_timestamp = np.random.randint(
                     min_conversion_timestamp, max_conversion_timestamp + 1
@@ -343,18 +343,23 @@ class QueryPoolDatasetCreator(BaseCreator):
                 product_price = 1
                 sales_amount_in_euro = count * product_price
                 record = {
-                    self.advertiser_column_name: destination,
+                    self.advertiser_column_name: destination[0],
                     self.user_column_name: user_id,
                     "Sale": 1,
                     "click_timestamp": 0,
                     "Time_delay_for_conversion": conversion_timestamp,
                     "SalesAmountInEuro": sales_amount_in_euro,
                     "product_price": product_price,
+                    "nb_clicks_1week": -1,
+                    "filter": "",
                 }
                 for dimension_name in self.dimension_names:
                     values = attribute_domains[dimension_name]
-                    i = np.random.randint(0, len(values))
-                    record[dimension_name] = values[i]
+                    if len(values):
+                        i = np.random.randint(0, len(values))
+                        record[dimension_name] = values[i]
+                    else:
+                        record[dimension_name] = np.nan
                 records.append(record)
 
             chunks.append(pd.DataFrame.from_records(records))
@@ -368,6 +373,8 @@ class QueryPoolDatasetCreator(BaseCreator):
             "Time_delay_for_conversion",
             "SalesAmountInEuro",
             "product_price",
+            "nb_clicks_1week",
+            "filter",
             *self.dimension_names,
         ]
 
