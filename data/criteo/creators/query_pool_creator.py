@@ -20,7 +20,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             config,
             impressions_filename="criteo_query_pool_impressions.csv",
             conversions_filename="criteo_query_pool_conversions.csv",
-            # augmented_impressions_filename="criteo_query_pool_augmented_impressions.csv",
+            augmented_impressions_filename="criteo_query_pool_augmented_impressions.csv",
             augmented_conversions_filename="criteo_query_pool_augmented_conversions.csv",
         )
         self.used_dimension_names = set()
@@ -259,7 +259,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
         pd.reset_option("display.max_rows")
 
-    def augment_impressions_from_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
+    def augment_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
 
         df = df.loc[df.Sale == 1]
         df = df.assign(
@@ -312,10 +312,12 @@ class QueryPoolDatasetCreator(BaseCreator):
     def _get_attribute_domains(self, df: pd.DataFrame) -> dict[str, list]:
         attribute_domains = {}
         for dimension_name in self.dimension_names:
-            attribute_domains[dimension_name] = list(df[dimension_name].dropna().unique())
+            attribute_domains[dimension_name] = list(
+                df[dimension_name].dropna().unique()
+            )
         return attribute_domains
 
-    def augment_conversions_from_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
+    def augment_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         augment_rates = self.config.get("augment_rates")
         if not augment_rates:
             msg = "received request to augment dataset, but no augment rates. will not augment conversions"
