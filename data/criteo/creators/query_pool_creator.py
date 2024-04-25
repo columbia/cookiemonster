@@ -93,7 +93,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                 conversions[self.advertiser_column_name] == advertiser
             ]
             for dimension_name in self.dimension_names:
-                dimension_values = ad_conversions[dimension_name].unique()
+                dimension_values = ad_conversions[dimension_name].dropna().unique()
                 for dimension_value in dimension_values:
                     query_result = ad_conversions.loc[
                         ad_conversions[dimension_name] == dimension_value
@@ -350,7 +350,7 @@ class QueryPoolDatasetCreator(BaseCreator):
                     "Time_delay_for_conversion": conversion_timestamp,
                     "SalesAmountInEuro": sales_amount_in_euro,
                     "product_price": product_price,
-                    "nb_clicks_1week": -1,
+                    "nb_clicks_1week": np.nan,
                     "filter": "",
                 }
                 for dimension_name in self.dimension_names:
@@ -378,8 +378,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             *self.dimension_names,
         ]
 
+        original_records = self.df[columns_to_use]
         augmented_conversions = pd.concat(
-            [self.df[columns_to_use], augmented_conversions]
+            [original_records, augmented_conversions.astype(original_records.dtypes)]
         )
 
         return augmented_conversions

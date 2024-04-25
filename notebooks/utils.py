@@ -150,7 +150,7 @@ def get_bias_logs(row):
         queries_rmsre = Bias()
 
         for _, row in group.iterrows():
-            if math.isnan(row.aggregation_output):
+            if math.isnan(row.aggregation_output) or row.true_output == 0:
                 queries_rmsre.undefined_errors_counter += 1
             else:
                 x = abs(row.true_output - row.aggregation_output) ** 2 + 2 * (
@@ -290,7 +290,8 @@ def plot_budget_consumption_cdf(
             **category_orders,
         },
     )
-    iplot(fig)
+    fig.write_image("budget_consumption_cdf.png")
+    # iplot(fig)
 
 
 def plot_budget_consumption_boxes(
