@@ -260,6 +260,16 @@ class QueryPoolDatasetCreator(BaseCreator):
         pd.reset_option("display.max_rows")
 
     def augment_impressions_from_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        df = df.loc[df.Sale == 1]
+        df = df.assign(
+            conversion_timestamp=df.apply(
+                lambda conversion: max(0, conversion["Time_delay_for_conversion"])
+                + conversion["click_timestamp"],
+                axis=1,
+            ),
+        )
+
         augment_rates = self.config.get("augment_rates")
         if not augment_rates:
             msg = "received request to augment dataset, but no augment rates. will not augment impressions"
@@ -305,7 +315,7 @@ class QueryPoolDatasetCreator(BaseCreator):
             attribute_domains[dimension_name] = list(df[dimension_name].dropna().unique())
         return attribute_domains
 
-    def augment_conversions_from_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+    def augment_conversions_from_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         augment_rates = self.config.get("augment_rates")
         if not augment_rates:
             msg = "received request to augment dataset, but no augment rates. will not augment conversions"
@@ -322,6 +332,8 @@ class QueryPoolDatasetCreator(BaseCreator):
         min_conversion_timestamp = df.click_timestamp.min()
         dataset_window_seconds = dataset_window * 60 * 60 * 24
         max_conversion_timestamp = min_conversion_timestamp + dataset_window_seconds
+
+        df = df.loc[df.Sale == 1]
 
         # for each advertiser, add (conversions_augment_rate*100)% more conversions to bring their
         # attribution rate down. these conversions will be unattributed and scattered throughout the dataset

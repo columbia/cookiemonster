@@ -8,6 +8,7 @@
         "E3DDEB04F8AFF944B11943BB57D2F620"
     ],
     "augment_rates": {
+        "impressions": 0.3,
         "conversions": 0.5
     }
 }

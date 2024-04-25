@@ -147,7 +147,7 @@ class BaseCreator(ABC):
         pass
 
     @abstractmethod
-    def augment_conversions_from_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+    def augment_conversions_from_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         pass
 
     def create_datasets(self) -> None:
@@ -181,7 +181,7 @@ class BaseCreator(ABC):
 
         if self.augmented_impressions_filename:
             self.logger.info("augmenting impressions...")
-            aidf = self.augment_impressions_from_conversions(cdf)
+            aidf = self.augment_impressions_from_conversions(self.df)
             if not aidf.empty:
                 augmented_impressions = aidf[self.impression_columns_to_use]
                 augmented_impressions = pd.concat([impressions, augmented_impressions])
@@ -198,7 +198,7 @@ class BaseCreator(ABC):
 
         if self.augmented_conversions_filename:
             self.logger.info("augmenting conversions...")
-            acdf = self.augment_conversions_from_impressions(self.df)
+            acdf = self.augment_conversions_from_conversions(self.df)
             if not acdf.empty:
                 augmented_conversions = self.create_conversions(acdf)
                 augmented_conversions = augmented_conversions.drop(
