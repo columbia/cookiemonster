@@ -176,7 +176,9 @@ def criteo_run(ray_session_dir):
     grid_run(**config)
 
     if augment_rate:
-        config["impressions_path"] = f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
+        config["impressions_path"] = (
+            f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
+        )
         config["logs_dir"] = f"{dataset}/augmented_bias_varying_epoch_size"
 
         for batch in [[1, 7], [14, 21], [30, 60], [90]]:
@@ -244,6 +246,7 @@ def patcg_varying_initial_budget(ray_session_dir):
     config["initial_budget"] = [6, 8, 10]
     grid_run(**config)
 
+
 def patcg_bias_varying_attribution_window(ray_session_dir):
     dataset = "patcg"
     logs_dir = f"{dataset}/bias_varying_attribution_window"
@@ -270,7 +273,17 @@ def patcg_bias_varying_attribution_window(ray_session_dir):
 
     grid_run(**config)
 
+
 ## ----------------- Bias detection and mitigation ----------------- ##
+
+"""
+TODO(Pierre):
+- Consume the right budget for local reports, double check sensitivity
+- Mlflow for budget consumption too
+- Try to increase the noise or workload to check that bias works
+- Try to reduce to window = 1 epoch   
+- Add impressions in the microbenchmark, eventually?
+"""
 
 
 def bias_detection(ray_session_dir):
@@ -293,8 +306,8 @@ def bias_detection(ray_session_dir):
         "baseline": ["cookiemonster"],
         "dataset_name": f"{dataset}",
         "num_days_per_epoch": [7],
-        "num_days_attribution_window": [30],
-        "workload_size": [50],
+        "num_days_attribution_window": [14],
+        "workload_size": [5],
         "min_scheduling_batch_size_per_query": 1000,
         "max_scheduling_batch_size_per_query": 1000,
         "initial_budget": [1],
@@ -317,6 +330,7 @@ def bias_detection(ray_session_dir):
 
     experiments_start_and_join(experiments)
     # analyze(f"ray/{logs_dir}")
+
 
 @app.command()
 def run(

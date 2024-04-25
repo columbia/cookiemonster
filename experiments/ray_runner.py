@@ -10,6 +10,10 @@ from cookiemonster.utils import RAY_LOGS, get_data_path
 
 
 def run_and_report(config: dict, replace=False) -> None:
+
+    config["logs"]["trial_name"] = train._internal.session.get_trial_name()
+    config["logs"]["experiment_name"] = train._internal.session.get_experiment_name()
+
     logs = Evaluation(config).run()
     if logs:
         train.report(logs)
@@ -70,12 +74,8 @@ def grid_run(
 
     logger.info(f"Tune config: {pretty_repr(config)}")
 
-    experiment_analysis = tune.run(
-        run_and_report,
-        config=config,
-        resources_per_trial={"cpu": 1},
+    run_config = ray.train.RunConfig(
         storage_path=str(RAY_LOGS.joinpath(logs_dir)),
-        resume=False,
         verbose=1,
         callbacks=[
             CustomLoggerCallback(),
@@ -90,6 +90,15 @@ def grid_run(
             max_report_frequency=60,
         ),
     )
+
+    tuner = tune.Tuner(
+        run_and_report,
+        param_space=config,
+        run_config=run_config,
+        # resources_per_trial={"cpu": 1},
+        # resume=False,
+    )
+    tuner.fit()
     # all_trial_paths = experiment_analysis._get_trial_paths()
     # experiment_dir = Path(all_trial_paths[0]).parent
 

@@ -1,12 +1,13 @@
-from abc import ABC, abstractmethod
-import os
 import math
+import os
+from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Generator, Iterable, SupportsFloat, SupportsIndex, TypeAlias
+
 import pandas as pd
 from omegaconf import OmegaConf
-from datetime import datetime
 
-from cookiemonster.events import Impression, Conversion, Event
+from cookiemonster.events import Conversion, Event, Impression
 
 _SupportsFloatOrIndex: TypeAlias = SupportsFloat | SupportsIndex
 
@@ -86,6 +87,8 @@ class Microbenchmark(Dataset):
         super().__init__(config)
         self.impressions_data = pd.read_csv(self.impressions_path)
         self.conversions_data = pd.read_csv(self.conversions_path)
+
+        # TODO: are we ever doing anything with this? Seems that we just run all the conversions
         self.queries = list(range(self.workload_size))
         self.conversions_data.query("product_id in @self.queries", inplace=True)
 
@@ -296,7 +299,7 @@ class Patcg(Dataset):
 
     def iter_conversions_data(self):
         # for chunk in pd.read_csv(self.conversions_path, chunksize=None):
-            # chunk.query("key in @self.queries", inplace=True)
+        # chunk.query("key in @self.queries", inplace=True)
         chunk = pd.read_csv(self.conversions_path)
         yield chunk
 

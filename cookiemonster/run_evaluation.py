@@ -1,9 +1,12 @@
 import os
 from typing import Any, Dict, List
 
+import mlflow
+import numpy as np
 import typer
 from loguru import logger
 from omegaconf import OmegaConf
+from ray.air.integrations.mlflow import setup_mlflow
 from termcolor import colored
 
 from cookiemonster.aggregation_policy import AggregationPolicy
@@ -13,9 +16,17 @@ from cookiemonster.dataset import Dataset
 from cookiemonster.event_logger import EventLogger
 from cookiemonster.query_batch import QueryBatch
 from cookiemonster.user import ConversionResult, User
-from cookiemonster.utils import (BIAS, BUDGET, FILTERS_STATE, IPA,
-                                 GlobalStatistics, compute_global_sensitivity,
-                                 maybe_initialize_filters, save_logs)
+from cookiemonster.utils import (
+    BIAS,
+    BUDGET,
+    FILTERS_STATE,
+    IPA,
+    LOGS_PATH,
+    GlobalStatistics,
+    compute_global_sensitivity,
+    maybe_initialize_filters,
+    save_logs,
+)
 
 app = typer.Typer()
 
@@ -44,6 +55,17 @@ class Evaluation:
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
+        mlflow.set_tracking_uri(LOGS_PATH.joinpath("mlflow"))
+        mlflow.set_experiment(
+            experiment_name=self.config.logs.experiment_name,
+        )
+
+        mlflow.start_run(
+            run_name=self.config.logs.trial_name,
+        )
+
+        mlflow.log_params(OmegaConf.to_object(self.config))
+
         for i, res in enumerate(self.dataset.event_reader()):
             (user_id, event) = res
 
@@ -70,27 +92,32 @@ class Evaluation:
                     event.destination
                 ]
 
-                # Compute global sensitivity based on the aggregatable cap value
-                # TODO: update this to take kappa into account
-                global_sensitivity = compute_global_sensitivity(
-                    self.config.user.sensitivity_metric, event.aggregatable_cap_value
-                )
-
-                
-                # TODO: handle multidim queries
-
                 # We only support single-query reports for now, with potentially multiple buckets
                 # At aggregation time you need to know how many buckets you are interested in
                 # Otherwise, the absence or presence of a bucket can leak info about a single record
+                # Maybe one day add support for arbitrary buckets too, e.g. for histogram queries?
+
                 if self.config.user.bias_detection_knob:
                     impression_buckets = ["empty", "main"]
-                    # TODO: Add support for arbitrary buckets too, e.g. for histogram queries?
+                    # Global L1 sensitivity, removing a record can either remove kappa from "empty", or at most cap from "main"
+                    # (but not both at the same time)
+                    assert self.config.user.sensitivity_metric == "L1"
+                    global_sensitivity = max(
+                        event.aggregatable_cap_value,
+                        self.config.user.bias_detection_knob,
+                    )
+
                 else:
                     impression_buckets = [""]
-                    
+                    # Compute global sensitivity based on the aggregatable cap value
+                    global_sensitivity = compute_global_sensitivity(
+                        self.config.user.sensitivity_metric,
+                        event.aggregatable_cap_value,
+                    )
+
                 query_id, value = report.get_query_value(impression_buckets)
                 _, unbiased_value = unbiased_report.get_query_value(impression_buckets)
-                
+
                 # for query_id, value in report.histogram.items():
                 if query_id not in per_query_batch:
                     per_query_batch[query_id] = QueryBatch(
@@ -151,6 +178,10 @@ class Evaluation:
         if self.config.logs.save:
             save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
             save_logs(logs, save_dir)
+
+        print(logs["global_statistics"])
+
+        # mlflow.log_metrics(logs["global_statistics"])
 
         return logs
 
@@ -234,6 +265,27 @@ class Evaluation:
                     "aggregation_noisy_output": aggregation_noisy_output,
                 },
             )
+
+            if isinstance(true_output, np.ndarray):
+                for i in range(len(true_output)):
+                    mlflow.log_metrics(
+                        {
+                            f"true_output_{i}": true_output[i],
+                            f"aggregation_output_{i}": aggregation_output[i],
+                            f"aggregation_noisy_output_{i}": aggregation_noisy_output[
+                                i
+                            ],
+                        }
+                    )
+
+            else:
+                mlflow.log_metrics(
+                    {
+                        "true_output": true_output,
+                        "aggregation_output": aggregation_output,
+                        "aggregation_noisy_output": aggregation_noisy_output,
+                    }
+                )
 
     def _log_all_filters_state(self):
         if BUDGET in self.config.logs.logging_keys:
