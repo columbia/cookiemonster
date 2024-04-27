@@ -171,18 +171,24 @@ def criteo_run(ray_session_dir):
     #     config["ray_init"] = False
 
     if augment_rates:
-        if augment_rates.get("impressions"):
-            config["impressions_path"] = (
-                f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
-            )
-            config["logs_dir"] = (
-                f"{dataset}/augmented_impressions_bias_varying_epoch_size"
-            )
+        # if augment_rates.get("impressions"):
+        #     config["impressions_path"] = (
+        #         f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
+        #     )
+        #     config["logs_dir"] = (
+        #         f"{dataset}/augmented_impressions_bias_varying_epoch_size"
+        #     )
 
-            for batch in [[1, 7], [14, 21], [30, 60], [90]]:
-                config["num_days_per_epoch"] = batch
-                grid_run(**config)
+        #     # already ran this for the paper
+        #     # batches = [[1, 7], [14, 21], [30, 60], [90]]
+        #     batches = [[7]]
 
+        #     for batch in batches:
+        #         config["num_days_per_epoch"] = batch
+        #         grid_run(**config)
+
+
+        # TODO: poetry run python .\experiments\runner.cli.py --exp criteo_run
         if augment_rates.get("conversions"):
             config["impressions_path"] = impressions_path
             config["conversions_path"] = (

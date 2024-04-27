@@ -347,6 +347,8 @@ class QueryPoolDatasetCreator(BaseCreator):
                 num_conversions * conversions_augment_rate
             )
 
+            # this can lead to a full report of impression-less data
+
             records = []
             for _ in range(num_conversions_to_add):
                 user_id = str(uuid4()).replace("-", "").upper()
