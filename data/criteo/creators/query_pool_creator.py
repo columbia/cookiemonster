@@ -335,13 +335,17 @@ class QueryPoolDatasetCreator(BaseCreator):
             return self._augment_conversions_with_new_users(new_users_augment_rate, df)
         elif existing_users_augment_rate:
             # To provide different points of contention
-            return self._augment_conversions_with_existing_users(existing_users_augment_rate, df)
+            return self._augment_conversions_with_existing_users(
+                existing_users_augment_rate, df
+            )
         else:
             msg = "received request to augment conversions, but no augment rates were specified. will not augment conversions"
             self.logger.warning(msg)
             return pd.DataFrame()
 
-    def _augment_conversions_with_new_users(self, augment_rate: float, df: pd.DataFrame) -> pd.DataFrame:
+    def _augment_conversions_with_new_users(
+        self, augment_rate: float, df: pd.DataFrame
+    ) -> pd.DataFrame:
         attribution_window = 30  # days
         attribution_window_seconds = attribution_window * 60 * 60 * 24
 
@@ -351,9 +355,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         for destination, dest_df in df.groupby([self.advertiser_column_name]):
             attribute_domains = self._get_attribute_domains(dest_df)
             num_conversions = dest_df.shape[0]
-            num_conversions_to_add = math.ceil(
-                num_conversions * augment_rate
-            )
+            num_conversions_to_add = math.ceil(num_conversions * augment_rate)
 
             min_timestamp = dest_df.click_timestamp.min()
             max_timestamp = dest_df.click_timestamp.max() + attribution_window_seconds
@@ -409,10 +411,16 @@ class QueryPoolDatasetCreator(BaseCreator):
         )
 
         return augmented_conversions
-    
-    def _augment_conversions_with_existing_users(self, existing_users: dict, df: pd.DataFrame) -> pd.DataFrame:
-        augment_rate = existing_users.get("rate") # the proability that the user converts multiple times
-        ntimes = existing_users.get("ntimes", 1) # the number of additional times a user will convert
+
+    def _augment_conversions_with_existing_users(
+        self, existing_users: dict, df: pd.DataFrame
+    ) -> pd.DataFrame:
+        augment_rate = existing_users.get(
+            "rate"
+        )  # the proability that the user converts multiple times
+        ntimes = existing_users.get(
+            "ntimes", 1
+        )  # the number of additional times a user will convert
 
         if not augment_rate:
             msg = "no augment rate specified for augmenting existing users conversions. will not augment conversions"
@@ -426,11 +434,13 @@ class QueryPoolDatasetCreator(BaseCreator):
             records = []
             for _, conversion in dest_df.iterrows():
                 start = conversion.click_timestamp
-                end = conversion.click_timestamp + max(0, conversion.Time_delay_for_conversion)
+                end = conversion.click_timestamp + max(
+                    0, conversion.Time_delay_for_conversion
+                )
                 if start == end:
                     continue
 
-                for _ in range(ntimes):    
+                for _ in range(ntimes):
                     if np.random.rand() < augment_rate:
                         conversion_timestamp = np.random.randint(start, end)
                         count = np.random.randint(1, self.max_purchase_counts + 1)

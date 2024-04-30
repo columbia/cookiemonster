@@ -187,7 +187,6 @@ def criteo_run(ray_session_dir):
         #         config["num_days_per_epoch"] = batch
         #         grid_run(**config)
 
-
         # TODO: poetry run python .\experiments\runner.cli.py --exp criteo_run
         if augment_rates.get("conversions"):
             config["impressions_path"] = impressions_path
