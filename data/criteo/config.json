@@ -12,7 +12,7 @@
         "conversions": {
             "new_users": 0,
             "existing_users": {
-                "rate": 0.1,
+                "rate": 0.5,
                 "ntimes": 2
             }
         }

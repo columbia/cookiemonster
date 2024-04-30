@@ -427,18 +427,19 @@ class QueryPoolDatasetCreator(BaseCreator):
             self.logger.warning(msg)
             return df
 
+        attribution_window = 30  # days
+        attribution_window_seconds = attribution_window * 60 * 60 * 24
+
         # for each advertiser, add (conversions_augment_rate*100)% more conversions to bring their
         # attribution rate down. these conversions will be unattributed and scattered throughout the dataset
         chunks = []
         for _, dest_df in df.groupby([self.advertiser_column_name]):
             records = []
             for _, conversion in dest_df.iterrows():
-                start = conversion.click_timestamp
                 end = conversion.click_timestamp + max(
                     0, conversion.Time_delay_for_conversion
                 )
-                if start == end:
-                    continue
+                start = end - attribution_window_seconds
 
                 for _ in range(ntimes):
                     if np.random.rand() < augment_rate:
@@ -454,7 +455,8 @@ class QueryPoolDatasetCreator(BaseCreator):
                             "product_price": product_price,
                         }
                         records.append(record)
-            chunks.append(pd.DataFrame.from_records(records))
+            if records:
+                chunks.append(pd.DataFrame.from_records(records))
 
         columns_to_use = [
             self.advertiser_column_name,
