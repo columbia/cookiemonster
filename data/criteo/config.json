@@ -9,6 +9,12 @@
     ],
     "augment_rates": {
         "impressions": 0.3,
-        "conversions": 0.5
+        "conversions": {
+            "new_users": 0,
+            "existing_users": {
+                "rate": 0.1,
+                "ntimes": 2
+            }
+        }
     }
 }

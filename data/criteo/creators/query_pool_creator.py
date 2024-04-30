@@ -324,18 +324,26 @@ class QueryPoolDatasetCreator(BaseCreator):
             self.logger.warning(msg)
             return pd.DataFrame()
 
-        conversions_augment_rate = augment_rates.get("conversions")
-        if not conversions_augment_rate:
-            msg = "received request to augment conversions, but no augment rate was specified. will not augment conversions"
+        conversions_augment_rates = augment_rates.get("conversions", {})
+        new_users_augment_rate = conversions_augment_rates.get("new_users")
+        existing_users_augment_rate = conversions_augment_rates.get("existing_users")
+
+        df = df.loc[df.Sale == 1]
+
+        if new_users_augment_rate:
+            # To see the impact on RMSRE
+            return self._augment_conversions_with_new_users(new_users_augment_rate, df)
+        elif existing_users_augment_rate:
+            # To provide different points of contention
+            return self._augment_conversions_with_existing_users(existing_users_augment_rate, df)
+        else:
+            msg = "received request to augment conversions, but no augment rates were specified. will not augment conversions"
             self.logger.warning(msg)
             return pd.DataFrame()
 
-        dataset_window = 90  # days
-        min_conversion_timestamp = df.click_timestamp.min()
-        dataset_window_seconds = dataset_window * 60 * 60 * 24
-        max_conversion_timestamp = min_conversion_timestamp + dataset_window_seconds
-
-        df = df.loc[df.Sale == 1]
+    def _augment_conversions_with_new_users(self, augment_rate: float, df: pd.DataFrame) -> pd.DataFrame:
+        attribution_window = 30  # days
+        attribution_window_seconds = attribution_window * 60 * 60 * 24
 
         # for each advertiser, add (conversions_augment_rate*100)% more conversions to bring their
         # attribution rate down. these conversions will be unattributed and scattered throughout the dataset
@@ -344,16 +352,17 @@ class QueryPoolDatasetCreator(BaseCreator):
             attribute_domains = self._get_attribute_domains(dest_df)
             num_conversions = dest_df.shape[0]
             num_conversions_to_add = math.ceil(
-                num_conversions * conversions_augment_rate
+                num_conversions * augment_rate
             )
 
-            # this can lead to a full report of impression-less data
+            min_timestamp = dest_df.click_timestamp.min()
+            max_timestamp = dest_df.click_timestamp.max() + attribution_window_seconds
 
             records = []
             for _ in range(num_conversions_to_add):
                 user_id = str(uuid4()).replace("-", "").upper()
                 conversion_timestamp = np.random.randint(
-                    min_conversion_timestamp, max_conversion_timestamp + 1
+                    min_timestamp, max_timestamp + 1
                 )
                 count = np.random.randint(1, self.max_purchase_counts + 1)
                 product_price = 1
@@ -394,6 +403,62 @@ class QueryPoolDatasetCreator(BaseCreator):
             *self.dimension_names,
         ]
 
+        original_records = self.df[columns_to_use]
+        augmented_conversions = pd.concat(
+            [original_records, augmented_conversions.astype(original_records.dtypes)]
+        )
+
+        return augmented_conversions
+    
+    def _augment_conversions_with_existing_users(self, existing_users: dict, df: pd.DataFrame) -> pd.DataFrame:
+        augment_rate = existing_users.get("rate") # the proability that the user converts multiple times
+        ntimes = existing_users.get("ntimes", 1) # the number of additional times a user will convert
+
+        if not augment_rate:
+            msg = "no augment rate specified for augmenting existing users conversions. will not augment conversions"
+            self.logger.warning(msg)
+            return df
+
+        # for each advertiser, add (conversions_augment_rate*100)% more conversions to bring their
+        # attribution rate down. these conversions will be unattributed and scattered throughout the dataset
+        chunks = []
+        for _, dest_df in df.groupby([self.advertiser_column_name]):
+            records = []
+            for _, conversion in dest_df.iterrows():
+                start = conversion.click_timestamp
+                end = conversion.click_timestamp + max(0, conversion.Time_delay_for_conversion)
+                if start == end:
+                    continue
+
+                for _ in range(ntimes):    
+                    if np.random.rand() < augment_rate:
+                        conversion_timestamp = np.random.randint(start, end)
+                        count = np.random.randint(1, self.max_purchase_counts + 1)
+                        product_price = 1
+                        sales_amount_in_euro = count * product_price
+                        record = {
+                            **conversion.to_dict(),
+                            "click_timestamp": 0,
+                            "Time_delay_for_conversion": conversion_timestamp,
+                            "SalesAmountInEuro": sales_amount_in_euro,
+                            "product_price": product_price,
+                        }
+                        records.append(record)
+            chunks.append(pd.DataFrame.from_records(records))
+
+        columns_to_use = [
+            self.advertiser_column_name,
+            self.user_column_name,
+            "Sale",
+            "click_timestamp",
+            "Time_delay_for_conversion",
+            "SalesAmountInEuro",
+            "product_price",
+            "nb_clicks_1week",
+            "filter",
+            *self.dimension_names,
+        ]
+        augmented_conversions = pd.concat(chunks)[columns_to_use]
         original_records = self.df[columns_to_use]
         augmented_conversions = pd.concat(
             [original_records, augmented_conversions.astype(original_records.dtypes)]
