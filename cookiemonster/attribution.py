@@ -1,3 +1,5 @@
+from typing import List
+
 from cookiemonster.report import HistogramReport, Report, ScalarReport
 
 
@@ -21,12 +23,21 @@ class AttributionFunction:
     def create_report(self, partition, **kwargs) -> Report:
         pass
 
-    # TODO: maybe add null_report too
+    def sum_reports(self, reports: List[Report]) -> Report:
+        """
+        Sum all the reports in the list.
+        Can be implemented more efficiently by the subclasses.
+        """
+        report = self.create_empty_report()
+        for r in reports:
+            report += r
+        return report
 
 
 class LastTouch(AttributionFunction):
 
     def __init__(self, sensitivity_metric, attribution_cap) -> None:
+        # TODO: per-conversion attribution cap (=conversion value) instead of global cap?
         self.attribution_cap = attribution_cap
 
         if sensitivity_metric != "L1":
@@ -54,7 +65,7 @@ class LastTouch(AttributionFunction):
             # Epoch with no relevant impressions
             return 0
 
-        return self.attribution_cap
+        return self.compute_global_sensitivity()
 
     def create_empty_report(self):
         return ScalarReport()
@@ -91,10 +102,14 @@ class LastTouch(AttributionFunction):
 class LastTouchWithCount(AttributionFunction):
     """
     Keep a default bucket to count epochs with no impressions (i.e. relevant events)
+    `empty` for DP counts, `main` for the scalar count.
     """
 
     def __init__(self, sensitivity_metric, attribution_cap, kappa) -> None:
         self.attribution_cap = attribution_cap
+
+        # Harcoded buckets.
+        self.impression_buckets = ["empty", "main"]
 
         assert isinstance(kappa, float) or isinstance(kappa, int)
         self.kappa = kappa
@@ -109,20 +124,37 @@ class LastTouchWithCount(AttributionFunction):
     def compute_global_sensitivity(self):
         return max(self.attribution_cap, self.kappa)
 
-    def compute_individual_sensitivity(self, partition):
-        pass
+    def compute_individual_sensitivity(self, partition, epoch_id):
+        if partition.epochs_window_size() == 1:
+            if partition.unbiased_report is None:
+                raise ValueError("You need to create the unbiased report first")
+
+            # TODO: check kappa here
+            return sum(list(partition.unbiased_report.histogram.values()))
+
+        if epoch_id not in partition.impressions_per_epoch:
+            # Epoch not in the attribution window, or dropped out of budget
+            return 0
+
+        if not partition.impressions_per_epoch[epoch_id]:
+            # Epoch with no relevant impressions, but still has budget!
+            return self.kappa
+
+        return self.compute_global_sensitivity()
 
     def create_empty_report(self):
-        return HistogramReport(impression_buckets=["empty", "main"])
+        return HistogramReport(impression_buckets=self.impression_buckets)
 
     def create_report(self, partition, filter, key_piece: str):
 
-        report = HistogramReport(impression_buckets=["empty", "main"])
+        report = HistogramReport(impression_buckets=self.impression_buckets)
         already_attributed = False
 
         # Browse all the epochs, even those with no impressions
-        (x, y) = partition.epochs_window
-        for epoch in range(y, x - 1, -1):
+        epochs = partition.get_epochs(reverse=True)
+        for epoch in epochs:
+
+            # TODO: this is defeating the purpose of the heartbeat?
             impressions = partition.impressions_per_epoch.get(epoch, [])
 
             if impressions and not already_attributed:
@@ -147,3 +179,10 @@ class LastTouchWithCount(AttributionFunction):
                 report.add(bucket_key, bucket_value)
 
         return report
+
+    def sum_reports(self, reports: List[HistogramReport]) -> HistogramReport:
+        final_report = HistogramReport(impression_buckets=self.impression_buckets)
+        for r in reports:
+            for key, value in r.histogram.items():
+                final_report.add(key, value)
+        return final_report

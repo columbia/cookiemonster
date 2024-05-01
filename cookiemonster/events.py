@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple, Optional
+from typing import Any, Dict, Optional, Tuple
 
 
 class Event:
@@ -55,6 +55,7 @@ class Conversion(Event):
         filter: str,
         key: str,
         epsilon: float,
+        noise_scale: float,
         user_id: Any,
         metadata: Optional[Dict[str, Any]] = None,
     ):
@@ -73,6 +74,7 @@ class Conversion(Event):
         self.user_id = user_id
         self.metadata = metadata
         self.epsilon = epsilon
+        self.noise_scale = noise_scale
 
     def __str__(self):
         return f"|Conversion| {self.id}, Attribution-Window in Timestamps: {self.attribution_window}, Epochs window: {self.epochs_window}, User: {self.user_id}, Filter: {self.filter}, Value: {self.aggregatable_value}"

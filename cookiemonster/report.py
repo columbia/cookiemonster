@@ -49,7 +49,7 @@ class ScalarReport(Report):
         return self.histogram.get(key, 0)
 
     def __add__(self, other):
-        report = Report()
+        report = ScalarReport()
         for key, value in self.histogram.items():
             report.add(key, value)
         for key, value in other.histogram.items():
@@ -97,8 +97,7 @@ class HistogramReport(Report):
         return np.array(values)
 
     def __add__(self, other):
-        # TODO: optimize this, sounds inefficient
-        report = Report()
+        report = HistogramReport(impression_buckets=self.impression_buckets)
         for key, value in self.histogram.items():
             report.add(key, value)
         for key, value in other.histogram.items():
@@ -124,8 +123,14 @@ class VectorReport(Report):
     # TODO: implement the rest for the Meta use case with linear models
 
 
-# TODO: make this as dumb as possible. Shouldn't need value or attribution logic
 class Partition:
+    """
+    A simple container for impressions in a set of epochs.
+    Also stores partially computed reports.
+    Impressions might be modified in-place depending on budget consumption,
+    this does not affect the true on-device impression.
+    """
+
     def __init__(
         self,
         epochs_window: Tuple[int, int],
@@ -142,89 +147,97 @@ class Partition:
     def epochs_window_size(self) -> int:
         return self.epochs_window[1] - self.epochs_window[0] + 1
 
-    def compute_sensitivity(self, sensitivity_metric) -> float:
-        assert self.unbiased_report is not None
-        match sensitivity_metric:
-            case "L1":
-                return sum(list(self.unbiased_report.histogram.values()))
+    def get_epochs(self, reverse=False) -> List[int]:
+        # return list(self.impressions_per_epoch.keys())
 
-            case _:
-                raise ValueError(
-                    f"Unsupported sensitivity metric: {sensitivity_metric}"
-                )
+        if reverse:
+            return list(range(self.epochs_window[1], self.epochs_window[0] - 1, -1))
 
-    def create_report(
-        self, filter, key_piece: str, bias_counting_strategy=None
-    ) -> None:
-        report = Report()
+        return list(range(self.epochs_window[0], self.epochs_window[1] + 1))
 
-        match (self.attribution_logic, bias_counting_strategy):
-            case ("last_touch", None):
-                # Scan all impressions in epochs and keep the latest one
-                epochs = sorted(list(self.impressions_per_epoch.keys()), reverse=True)
-                for epoch in epochs:
-                    impressions = self.impressions_per_epoch[epoch]
+    # def compute_sensitivity(self, sensitivity_metric) -> float:
+    #     assert self.unbiased_report is not None
+    #     match sensitivity_metric:
+    #         case "L1":
+    #             return sum(list(self.unbiased_report.histogram.values()))
 
-                    if impressions:
-                        impression_key = impressions[-1].key
-                        if impression_key == "nan":
-                            impression_key = ""
+    #         case _:
+    #             raise ValueError(
+    #                 f"Unsupported sensitivity metric: {sensitivity_metric}"
+    #             )
 
-                        # Sort impression keys and stringify them
-                        bucket_key = impression_key + "#" + filter + "#" + key_piece
-                        bucket_value = self.value
+    # def create_report(
+    #     self, filter, key_piece: str, bias_counting_strategy=None
+    # ) -> None:
+    #     report = Report()
 
-                        report.add(bucket_key, bucket_value)
-                        break
+    #     match (self.attribution_logic, bias_counting_strategy):
+    #         case ("last_touch", None):
+    #             # Scan all impressions in epochs and keep the latest one
+    #             epochs = sorted(list(self.impressions_per_epoch.keys()), reverse=True)
+    #             for epoch in epochs:
+    #                 impressions = self.impressions_per_epoch[epoch]
 
-                if report.empty():
-                    bucket_key = "#" + filter + "#" + key_piece
-                    bucket_value = 0
-                    report.add(bucket_key, bucket_value)
+    #                 if impressions:
+    #                     impression_key = impressions[-1].key
+    #                     if impression_key == "nan":
+    #                         impression_key = ""
 
-            case ("last_touch", kappa):
-                # Keep a default bucket to count epochs with no impressions (i.e. relevant events)
-                assert isinstance(kappa, float) or isinstance(kappa, int)
+    #                     # Sort impression keys and stringify them
+    #                     bucket_key = impression_key + "#" + filter + "#" + key_piece
+    #                     bucket_value = self.value
 
-                already_attributed = False
+    #                     report.add(bucket_key, bucket_value)
+    #                     break
 
-                # Browse all the epochs, even those with no impressions
-                (x, y) = self.epochs_window
-                for epoch in range(y, x - 1, -1):
-                    impressions = self.impressions_per_epoch.get(epoch, [])
+    #             if report.empty():
+    #                 bucket_key = "#" + filter + "#" + key_piece
+    #                 bucket_value = 0
+    #                 report.add(bucket_key, bucket_value)
 
-                    if impressions and not already_attributed:
-                        # For epochs with impressions but already_attributed, there is no bias
-                        impression_key = impressions[-1].key
-                        if impression_key == "nan":
-                            impression_key = "main"
+    #         case ("last_touch", kappa):
+    #             # Keep a default bucket to count epochs with no impressions (i.e. relevant events)
+    #             assert isinstance(kappa, float) or isinstance(kappa, int)
 
-                        # Sort impression keys and stringify them
-                        bucket_key = impression_key + "#" + filter + "#" + key_piece
-                        bucket_value = self.value
-                        report.add(bucket_key, bucket_value)
+    #             already_attributed = False
 
-                        already_attributed = True
-                    else:
-                        # This epoch has no impressions.
-                        # Maybe it is really the case, or maybe it got zeroed-out by a filter
-                        default_bucket_prefix = "empty"
-                        bucket_key = (
-                            default_bucket_prefix + "#" + filter + "#" + key_piece
-                        )
-                        bucket_value = kappa
-                        report.add(bucket_key, bucket_value)
+    #             # Browse all the epochs, even those with no impressions
+    #             (x, y) = self.epochs_window
+    #             for epoch in range(y, x - 1, -1):
+    #                 impressions = self.impressions_per_epoch.get(epoch, [])
 
-            case _:
-                raise ValueError(
-                    f"Unsupported attribution logic: {self.attribution_logic}"
-                )
-        return report
+    #                 if impressions and not already_attributed:
+    #                     # For epochs with impressions but already_attributed, there is no bias
+    #                     impression_key = impressions[-1].key
+    #                     if impression_key == "nan":
+    #                         impression_key = "main"
 
-    def null_report(self) -> None:
-        # Set default value 0 to all histogram bins
-        for query_id in self.report.histogram.keys():
-            self.report.histogram[query_id] = 0
+    #                     # Sort impression keys and stringify them
+    #                     bucket_key = impression_key + "#" + filter + "#" + key_piece
+    #                     bucket_value = self.value
+    #                     report.add(bucket_key, bucket_value)
+
+    #                     already_attributed = True
+    #                 else:
+    #                     # This epoch has no impressions.
+    #                     # Maybe it is really the case, or maybe it got zeroed-out by a filter
+    #                     default_bucket_prefix = "empty"
+    #                     bucket_key = (
+    #                         default_bucket_prefix + "#" + filter + "#" + key_piece
+    #                     )
+    #                     bucket_value = kappa
+    #                     report.add(bucket_key, bucket_value)
+
+    #         case _:
+    #             raise ValueError(
+    #                 f"Unsupported attribution logic: {self.attribution_logic}"
+    #             )
+    #     return report
+
+    # def null_report(self) -> None:
+    #     # Set default value 0 to all histogram bins
+    #     for query_id in self.report.histogram.keys():
+    #         self.report.histogram[query_id] = 0
 
     def __str__(self):
         return str(self.__dict__)

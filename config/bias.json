@@ -1,0 +1,32 @@
+{
+    "user": {
+        "sensitivity_metric": "L1",
+        "baseline": "cookiemonster",
+        "initial_budget": 1,
+        "bias_detection_knob": 1
+    },
+    "dataset": {
+        "name": "microbenchmark",
+        "impressions_path": "data/microbenchmark/impressions_knob1_0.1_knob2_0.1.csv",
+        "conversions_path": "data/microbenchmark/conversions_knob1_0.1_knob2_0.1.csv",
+        "num_days_per_epoch": 7,
+        "num_days_attribution_window": 7,
+        "workload_size": 80
+    },
+    "logs": {
+        "save": false,
+        "save_dir": "",
+        "loguru_level": "INFO",
+        "logging_keys": [
+            "bias"
+        ],
+        "trial_name": "",
+        "experiment_name": "debug"
+    },
+    "aggregation_service": "local_laplacian",
+    "aggregation_policy": {
+        "type": "count_conversion_policy",
+        "max_interval": 1000,
+        "min_interval": 1000
+    }
+}

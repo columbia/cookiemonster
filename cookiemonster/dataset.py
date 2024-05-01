@@ -174,6 +174,7 @@ class Microbenchmark(Dataset):
                 filter=filter,
                 key=str(row["key"]),
                 epsilon=row["epsilon"],
+                noise_scale=row["aggregatable_cap_value"] / row["epsilon"],
                 user_id=conversion_user_id,
             )
 
@@ -282,6 +283,7 @@ class Criteo(Dataset):
                 filter=filter,
                 key=str(row["key"]),
                 epsilon=row["epsilon"],
+                noise_scale=row["aggregatable_cap_value"] / row["epsilon"],
                 user_id=conversion_user_id,
             )
 
@@ -421,6 +423,7 @@ class Patcg(Dataset):
                 filter=filter,
                 key=key,
                 epsilon=row["epsilon"],
+                noise_scale=15 / row["epsilon"],
                 user_id=conversion_user_id,
             )
 

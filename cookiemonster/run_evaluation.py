@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 import mlflow
 import numpy as np
 import typer
+from coolname import generate_slug
 from loguru import logger
 from omegaconf import OmegaConf
 from ray.air.integrations.mlflow import setup_mlflow
@@ -61,10 +62,12 @@ class Evaluation:
             experiment_name=self.config.logs.experiment_name,
         )
 
-        mlflow.start_run(
-            run_name=self.config.logs.trial_name,
+        run_name = (
+            self.config.logs.trial_name
+            if self.config.logs.trial_name
+            else generate_slug(2)
         )
-
+        mlflow.start_run(run_name=run_name)
         mlflow.log_params(OmegaConf.to_object(self.config))
 
         for i, res in enumerate(self.dataset.event_reader()):

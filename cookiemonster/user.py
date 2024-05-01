@@ -41,14 +41,16 @@ class User:
             self.impressions[event.epoch].append(event)
 
         elif isinstance(event, Conversion):
-            return self.create_report(event)
+            return self.process_conversion_event(event)
 
         else:
             raise ValueError(f"Unsupported event Type: {type(event)}")
 
-    def create_report(self, conversion: Conversion) -> ConversionResult:
+    def process_conversion_event(self, conversion: Conversion) -> ConversionResult:
         """Searches for impressions to attribute within the attribution window that match
-        the keys_to_match. Then creates a report using the attribution logic."""
+        the keys_to_match. Then creates a report using the attribution logic.
+        Also stores an unbiased version of the report, to compute metrics.
+        """
 
         # Create partitioning
         partitions = self.create_partitions(conversion)
@@ -58,6 +60,10 @@ class User:
             (x, y) = partition.epochs_window
             for epoch in range(x, y + 1):
                 if epoch in self.impressions:
+                    # Create an empty impression set for all the epochs on the device
+                    # Useful to tell that they have budget (hearbeat)
+                    partition.impressions_per_epoch[epoch] = []
+
                     # Linear search TODO: Optimize?
                     # Maybe sort impressions by key and do log search or sth?
                     for impression in self.impressions[epoch]:
@@ -68,8 +74,8 @@ class User:
                         ) and impression.matches(
                             conversion.destination, conversion.filter
                         ):
-                            if epoch not in partition.impressions_per_epoch:
-                                partition.impressions_per_epoch[epoch] = []
+                            # if epoch not in partition.impressions_per_epoch:
+                            #     partition.impressions_per_epoch[epoch] = []
                             partition.impressions_per_epoch[epoch].append(impression)
 
         # Initialize attribution logic
@@ -86,7 +92,7 @@ class User:
                 attribution_cap=conversion.aggregatable_cap_value,
             )
 
-        # Create the unbiased report per partition
+        # Create one unbiased report per partition
         for partition in partitions:
             # partition.unbiased_report = partition.create_report(
             #     conversion.filter,
@@ -100,8 +106,75 @@ class User:
                 key_piece=conversion.key,
             )
 
-        # IPA doesn't do on-device budget accounting
-        if self.config.baseline != IPA:
+        # Modifies partition in place and pays on-device budget
+        if self.config.baseline == COOKIEMONSTER_BASE:
+            # Use global sensitivity for all epochs in partition
+            # TODO: actually we could drop OOB epochs here too instead of aborting?
+            # Aha but it's ok because we do partition by partition? To check...
+            for partition in partitions:
+
+                # Initialize filters for the origin
+                # TODO: the state of this function is odd. Maybe initilize when we try to pay?
+                origin_filters = maybe_initialize_filters(
+                    self.filters_per_origin,
+                    conversion.destination,
+                    partition.epochs_window,
+                    self.initial_budget,
+                )
+
+                epochs_to_pay = partition.epochs_window
+
+                # TODO: could we use global sensitivity with the actual conversion value here?
+                # (that starts to be fine-grained parallel composition)
+                budget_required = conversion.epsilon
+
+                filter_result = origin_filters.pay_all_or_nothing(
+                    epochs_to_pay, budget_required
+                )
+                if not filter_result.succeeded():
+                    # If any epoch in the partition couldn't pay the required budget,
+                    # erase the partition's impressions_per_epoch so that an empty report will be created
+                    partition.impressions_per_epoch.clear()
+
+        elif self.config.baseline == COOKIEMONSTER:
+            # The noise scale is fixed for the whole query
+            noise_scale = conversion.noise_scale
+
+            # TODO(P1): actually store the noise scale inside the event itself, because global sensitivity is unclear.
+            # global_sensitivity = attribution_function.compute_global_sensitivity()
+            # noise_scale = global_sensitivity / conversion.epsilon
+
+            for partition in partitions:
+
+                origin_filters = maybe_initialize_filters(
+                    self.filters_per_origin,
+                    conversion.destination,
+                    partition.epochs_window,
+                    self.initial_budget,
+                )
+
+                for epoch in partition.get_epochs():
+                    individual_sensitivity = (
+                        attribution_function.compute_individual_sensitivity(
+                            partition, epoch
+                        )
+                    )
+
+                    budget_required = individual_sensitivity / noise_scale
+                    filter_result = origin_filters.pay_all_or_nothing(
+                        [epoch], budget_required
+                    )
+                    if not filter_result.succeeded():
+                        # Empty the impressions from `epoch`
+                        del partition.impressions_per_epoch[epoch]
+
+        else:
+            # IPA doesn't do on-device budget accounting
+            assert (
+                self.config.baseline == IPA
+            ), f"Unsupported baseline: {self.config.baseline}"
+
+        if False and self.config.baseline != IPA:
 
             # Compute global sensitivity
             global_sensitivity = attribution_function.compute_global_sensitivity()
@@ -124,6 +197,7 @@ class User:
                     budget_required = conversion.epsilon
 
                 elif self.config.baseline == COOKIEMONSTER:
+
                     # TODO: use attribution_function methods here.
                     if partition.epochs_window_size() == 1:
                         # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity
@@ -187,10 +261,13 @@ class User:
         # for partition in partitions:
         #     final_report += partition.report
 
-        # TODO: maybe neater to have attribution_function.sum_reports(partitions)
-        final_report = sum(
-            [partition.report for partition in partitions],
-            start=attribution_function.create_empty_report(),
+        # final_report = sum(
+        #     [partition.report for partition in partitions],
+        #     start=attribution_function.create_empty_report(),
+        # )
+
+        final_report = attribution_function.sum_reports(
+            partition.report for partition in partitions
         )
 
         # Keep an unbiased version of the final report for experiments
