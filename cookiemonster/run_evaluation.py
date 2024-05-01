@@ -87,6 +87,8 @@ class Evaluation:
                 # Add report to its corresponding batch
                 report = result.final_report
                 unbiased_report = result.unbiased_final_report
+
+                # TODO: do we really need this?
                 assert not report.empty() and not unbiased_report.empty()
 
                 if event.destination not in self.per_destination_per_query_batch:

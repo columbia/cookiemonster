@@ -91,6 +91,7 @@ class LastTouch(AttributionFunction):
                 report.add(bucket_key, bucket_value)
                 break
 
+        # TODO: do we really need this?
         if report.empty():
             bucket_key = "#" + filter + "#" + key_piece
             bucket_value = 0
@@ -150,33 +151,46 @@ class LastTouchWithCount(AttributionFunction):
         report = HistogramReport(impression_buckets=self.impression_buckets)
         already_attributed = False
 
-        # Browse all the epochs, even those with no impressions
+        # Browse all the epochs, even those with no impressions and the deleted ones
         epochs = partition.get_epochs(reverse=True)
         for epoch in epochs:
 
-            # TODO: this is defeating the purpose of the heartbeat?
-            impressions = partition.impressions_per_epoch.get(epoch, [])
-
-            if impressions and not already_attributed:
-                # For epochs with impressions but already_attributed, there is no bias
-                impression_key = impressions[-1].key
-                if impression_key == "nan":
-                    impression_key = "main"
-
-                # Sort impression keys and stringify them
-                bucket_key = impression_key + "#" + filter + "#" + key_piece
-                bucket_value = self.attribution_cap
-                report.add(bucket_key, bucket_value)
-
-                already_attributed = True
-            else:
-                # This epoch has no impressions.
-                # Maybe it is really the case, or maybe it got zeroed-out by a filter
-                # TODO: add a heartbeat here
+            if epoch not in partition.impressions_per_epoch:
+                # This epoch belongs to the window but has been erased from the partition
+                # That means it has no budget left.
+                # We treat it like a totally empty epoch.
+                # TODO: double check the maths
                 default_bucket_prefix = "empty"
                 bucket_key = default_bucket_prefix + "#" + filter + "#" + key_piece
                 bucket_value = self.kappa
                 report.add(bucket_key, bucket_value)
+            else:
+                impressions = partition.impressions_per_epoch.get(epoch, [])
+
+                if impressions and not already_attributed:
+                    impression_key = impressions[-1].key
+                    if impression_key == "nan":
+                        impression_key = "main"
+
+                    # Sort impression keys and stringify them
+                    bucket_key = impression_key + "#" + filter + "#" + key_piece
+                    bucket_value = self.attribution_cap
+                    report.add(bucket_key, bucket_value)
+
+                    already_attributed = True
+                if impressions and already_attributed:
+                    # We don't need to attribute again. No bias.
+                    pass
+                else:
+                    # This epoch has no impressions, but it still has budget.
+                    # We treat it like an epoch that only contains a single heartbeat event.
+                    pass
+
+        # For retrocompatibility with the scalar report, but doesn't seem super necessary
+        if report.empty():
+            bucket_key = "#" + filter + "#" + key_piece
+            bucket_value = 0
+            report.add(bucket_key, bucket_value)
 
         return report
 

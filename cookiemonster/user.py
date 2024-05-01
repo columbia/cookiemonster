@@ -1,12 +1,12 @@
 import random
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from omegaconf import OmegaConf
 
 from cookiemonster.attribution import LastTouch, LastTouchWithCount
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.events import Conversion, Impression
-from cookiemonster.report import HistogramReport, Partition, Report, ScalarReport
+from cookiemonster.report import HistogramReport, Report, ScalarReport
 from cookiemonster.utils import (
     COOKIEMONSTER,
     COOKIEMONSTER_BASE,
@@ -20,6 +20,42 @@ class ConversionResult:
     def __init__(self, unbiased_final_report: Report, final_report: Report) -> None:
         self.unbiased_final_report = unbiased_final_report
         self.final_report = final_report
+
+
+class Partition:
+    """
+    A simple container for impressions in a set of epochs on a single device.
+    Also stores partially computed reports.
+    Impressions might be modified in-place depending on budget consumption,
+    this does not affect the true on-device impression.
+    """
+
+    def __init__(
+        self,
+        epochs_window: Tuple[int, int],
+        attribution_logic: str,
+        value: Optional[float],
+    ) -> None:
+        self.epochs_window = epochs_window
+        self.attribution_logic = attribution_logic
+        self.impressions_per_epoch: Dict[int, List[Impression]] = {}
+        self.value = value
+        self.report = None
+        self.unbiased_report = None
+
+    def epochs_window_size(self) -> int:
+        return self.epochs_window[1] - self.epochs_window[0] + 1
+
+    def get_epochs(self, reverse=False) -> List[int]:
+        # return list(self.impressions_per_epoch.keys())
+
+        if reverse:
+            return list(range(self.epochs_window[1], self.epochs_window[0] - 1, -1))
+
+        return list(range(self.epochs_window[0], self.epochs_window[1] + 1))
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class User:
@@ -56,13 +92,14 @@ class User:
         partitions = self.create_partitions(conversion)
 
         # Get relevant impressions per epoch per partition
+        # TODO: do everything in a single partition loop
         for partition in partitions:
-            (x, y) = partition.epochs_window
-            for epoch in range(x, y + 1):
+            for epoch in partition.get_epochs():
+                # Create an empty impression set for all the epochs on the device
+                # Useful to tell that they have budget (hearbeat)
+                partition.impressions_per_epoch[epoch] = []
+
                 if epoch in self.impressions:
-                    # Create an empty impression set for all the epochs on the device
-                    # Useful to tell that they have budget (hearbeat)
-                    partition.impressions_per_epoch[epoch] = []
 
                     # Linear search TODO: Optimize?
                     # Maybe sort impressions by key and do log search or sth?
@@ -139,10 +176,6 @@ class User:
         elif self.config.baseline == COOKIEMONSTER:
             # The noise scale is fixed for the whole query
             noise_scale = conversion.noise_scale
-
-            # TODO(P1): actually store the noise scale inside the event itself, because global sensitivity is unclear.
-            # global_sensitivity = attribution_function.compute_global_sensitivity()
-            # noise_scale = global_sensitivity / conversion.epsilon
 
             for partition in partitions:
 
