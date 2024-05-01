@@ -3,12 +3,17 @@ from typing import Any, Dict, List, Union
 
 from omegaconf import OmegaConf
 
+from cookiemonster.attribution import LastTouch, LastTouchWithCount
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.events import Conversion, Impression
-from cookiemonster.report import Partition, Report
-from cookiemonster.utils import (COOKIEMONSTER, COOKIEMONSTER_BASE, IPA,
-                                 compute_global_sensitivity,
-                                 maybe_initialize_filters)
+from cookiemonster.report import HistogramReport, Partition, Report, ScalarReport
+from cookiemonster.utils import (
+    COOKIEMONSTER,
+    COOKIEMONSTER_BASE,
+    IPA,
+    compute_global_sensitivity,
+    maybe_initialize_filters,
+)
 
 
 class ConversionResult:
@@ -67,18 +72,39 @@ class User:
                                 partition.impressions_per_epoch[epoch] = []
                             partition.impressions_per_epoch[epoch].append(impression)
 
+        # Initialize attribution logic
+        if self.config.bias_detection_knob:
+            attribution_function = LastTouchWithCount(
+                sensitivity_metric=self.config.sensitivity_metric,
+                attribution_cap=conversion.aggregatable_cap_value,
+                kappa=self.config.bias_detection_knob,
+            )
+
+        else:
+            attribution_function = LastTouchWithCount(
+                sensitivity_metric=self.config.sensitivity_metric,
+                attribution_cap=conversion.aggregatable_cap_value,
+            )
+
         # Create the unbiased report per partition
         for partition in partitions:
-            partition.unbiased_report = partition.create_report(
-                conversion.filter, conversion.key, bias_counting_strategy=self.config.bias_detection_knob
+            # partition.unbiased_report = partition.create_report(
+            #     conversion.filter,
+            #     conversion.key,
+            #     bias_counting_strategy=self.config.bias_detection_knob,
+            # )
+
+            partition.unbiased_report = attribution_function.create_report(
+                partition=partition,
+                filter=conversion.filter,
+                key_piece=conversion.key,
             )
+
         # IPA doesn't do on-device budget accounting
         if self.config.baseline != IPA:
 
             # Compute global sensitivity
-            global_sensitivity = compute_global_sensitivity(
-                self.config.sensitivity_metric, conversion.aggregatable_cap_value
-            )
+            global_sensitivity = attribution_function.compute_global_sensitivity()
 
             # Budget accounting
             for partition in partitions:
@@ -98,6 +124,7 @@ class User:
                     budget_required = conversion.epsilon
 
                 elif self.config.baseline == COOKIEMONSTER:
+                    # TODO: use attribution_function methods here.
                     if partition.epochs_window_size() == 1:
                         # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity
                         # Assuming Laplace here
@@ -138,35 +165,42 @@ class User:
                 if not filter_result.succeeded():
                     # If epochs couldn't pay the required budget, erase the partition's impressions_per_epoch so that an empty report will be created
                     partition.impressions_per_epoch.clear()
-                    
-                # # DEBUG
-                # kappa = 1
-                # if random.random() < 0.5:
-                #     partition.impressions_per_epoch.clear()
 
         # Create the possibly biased report per partition
-        for partition in partitions:               
-            partition.report = partition.create_report(
-                conversion.filter, conversion.key, bias_counting_strategy=self.config.bias_detection_knob
+        for partition in partitions:
+            partition.report = attribution_function.create_report(
+                partition=partition,
+                filter=conversion.filter,
+                key_piece=conversion.key,
             )
-            
+
         # TODO(Pierre): count the number of reports with cleared impressions, use that as upper bound
         # Does this really augment the individual sensitivity actually? Only for epochs with impressions. Or with relevant impressions?
         # TODO: seems that we already have many legit empty epochs in the synthetic dataset.
-        
+
         # Other ideas:
         # Or cleared impressions that would have been relevant otherwise? No way to tell... Hence the prior.
         # If we use budgets, then we can combine on attribution value and reduce the individual sensitivity?
 
         # Aggregate partition reports to create a final report
-        final_report = Report()
-        for partition in partitions:
-            final_report += partition.report
-            
+        # final_report = Report()
+        # for partition in partitions:
+        #     final_report += partition.report
+
+        # TODO: maybe neater to have attribution_function.sum_reports(partitions)
+        final_report = sum(
+            [partition.report for partition in partitions],
+            start=attribution_function.create_empty_report(),
+        )
+
         # Keep an unbiased version of the final report for experiments
-        unbiased_final_report = Report()
-        for partition in partitions:
-            unbiased_final_report += partition.unbiased_report
+        # unbiased_final_report = Report()
+        # for partition in partitions:
+        #     unbiased_final_report += partition.unbiased_report
+        unbiased_final_report = sum(
+            [partition.unbiased_report for partition in partitions],
+            start=attribution_function.create_empty_report(),
+        )
 
         conversion_result = ConversionResult(unbiased_final_report, final_report)
         return conversion_result

@@ -11,6 +11,7 @@ from termcolor import colored
 
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
+from cookiemonster.attribution import LastTouch, LastTouchWithCount
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.dataset import Dataset
 from cookiemonster.event_logger import EventLogger
@@ -97,33 +98,53 @@ class Evaluation:
                 # Otherwise, the absence or presence of a bucket can leak info about a single record
                 # Maybe one day add support for arbitrary buckets too, e.g. for histogram queries?
 
-                if self.config.user.bias_detection_knob:
-                    impression_buckets = ["empty", "main"]
-                    # Global L1 sensitivity, removing a record can either remove kappa from "empty", or at most cap from "main"
-                    # (but not both at the same time)
-                    assert self.config.user.sensitivity_metric == "L1"
-                    global_sensitivity = max(
-                        event.aggregatable_cap_value,
-                        self.config.user.bias_detection_knob,
-                    )
+                # TODO(P1): store this in the report itself
+                global_sensitivity = event.aggregatable_cap_value
 
-                else:
-                    impression_buckets = [""]
-                    # Compute global sensitivity based on the aggregatable cap value
-                    global_sensitivity = compute_global_sensitivity(
-                        self.config.user.sensitivity_metric,
-                        event.aggregatable_cap_value,
-                    )
+                # if self.config.user.bias_detection_knob:
+                #     # impression_buckets = ["empty", "main"]
+                #     # Global L1 sensitivity, removing a record can either remove kappa from "empty", or at most cap from "main"
+                #     # (but not both at the same time)
+                #     # assert self.config.user.sensitivity_metric == "L1"
+                #     # global_sensitivity = max(
+                #     #     event.aggregatable_cap_value,
+                #     #     self.config.user.bias_detection_knob,
+                #     # )
 
-                query_id, value = report.get_query_value(impression_buckets)
-                _, unbiased_value = unbiased_report.get_query_value(impression_buckets)
+                #     attribution_function = LastTouchWithCount(
+                #         sensitivity_metric=self.config.user.sensitivity_metric,
+                #         attribution_cap=event.aggregatable_cap_value,
+                #         kappa=self.config.user.bias_detection_knob,
+                #     )
+
+                # else:
+                #     attribution_function = LastTouchWithCount(
+                #         sensitivity_metric=self.config.user.sensitivity_metric,
+                #         attribution_cap=event.aggregatable_cap_value,
+                #     )
+
+                #     # impression_buckets = [""]
+                #     # # Compute global sensitivity based on the aggregatable cap value
+                #     # global_sensitivity = compute_global_sensitivity(
+                #     #     self.config.user.sensitivity_metric,
+                #     #     event.aggregatable_cap_value,
+                #     # )
+
+                # global_sensitivity = attribution_function.compute_global_sensitivity()
+
+                # query_id, value = report.get_query_value(impression_buckets)
+                # _, unbiased_value = unbiased_report.get_query_value(impression_buckets)
+
+                query_id = report.get_query_id()
+                value = report.get_value()
+                unbiased_value = unbiased_report.get_value()
 
                 # for query_id, value in report.histogram.items():
                 if query_id not in per_query_batch:
                     per_query_batch[query_id] = QueryBatch(
                         query_id,
                         event.epsilon,
-                        global_sensitivity,
+                        global_sensitivity,  # TODO: allow one sensitivity per report in the batch
                         biggest_id=event.id,
                     )
                 else:
@@ -186,6 +207,9 @@ class Evaluation:
         return logs
 
     def _try_consume_budget_for_ipa(self, destination, batch):
+
+        # TODO: technically we should take the max of attributed values across reports in a query.
+
         # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)
         if self.config.user.baseline == IPA:
             origin_filters = maybe_initialize_filters(
