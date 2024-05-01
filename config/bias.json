@@ -2,15 +2,15 @@
     "user": {
         "sensitivity_metric": "L1",
         "baseline": "cookiemonster",
-        "initial_budget": 1,
-        "bias_detection_knob": 1
+        "initial_budget": 0.5,
+        "bias_detection_knob": 100
     },
     "dataset": {
         "name": "microbenchmark",
         "impressions_path": "data/microbenchmark/impressions_knob1_0.1_knob2_0.1.csv",
         "conversions_path": "data/microbenchmark/conversions_knob1_0.1_knob2_0.1.csv",
         "num_days_per_epoch": 7,
-        "num_days_attribution_window": 7,
+        "num_days_attribution_window": 1,
         "workload_size": 80
     },
     "logs": {

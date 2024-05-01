@@ -297,6 +297,8 @@ class Evaluation:
 
             if isinstance(true_output, np.ndarray):
                 for i in range(len(true_output)):
+
+                    raise NotImplementedError("Treat as bias actually, with kappa")
                     mlflow.log_metrics(
                         {
                             f"true_output_{i}": true_output[i],

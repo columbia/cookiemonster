@@ -51,6 +51,10 @@ class LastTouch(AttributionFunction):
         return self.attribution_cap
 
     def compute_individual_sensitivity(self, partition, epoch_id):
+        if epoch_id not in partition.get_epochs():
+            # Epoch not in the attribution window
+            return 0
+
         if partition.epochs_window_size() == 1:
             if partition.unbiased_report is None:
                 raise ValueError("You need to create the unbiased report first")
@@ -58,7 +62,7 @@ class LastTouch(AttributionFunction):
             return sum(list(partition.unbiased_report.histogram.values()))
 
         if epoch_id not in partition.impressions_per_epoch:
-            # Epoch not in the attribution window
+            # Empty epoch (either naturally, or because out-of-budget)
             return 0
 
         if not partition.impressions_per_epoch[epoch_id]:
@@ -123,18 +127,23 @@ class LastTouchWithCount(AttributionFunction):
         super().__init__(sensitivity_metric)
 
     def compute_global_sensitivity(self):
-        return max(self.attribution_cap, self.kappa)
+        return self.kappa + self.attribution_cap
 
     def compute_individual_sensitivity(self, partition, epoch_id):
+
+        if epoch_id not in partition.get_epochs():
+            # Epoch not in the attribution window
+            return 0
+
         if partition.epochs_window_size() == 1:
             if partition.unbiased_report is None:
                 raise ValueError("You need to create the unbiased report first")
 
             # TODO: check kappa here
-            return sum(list(partition.unbiased_report.histogram.values()))
+            return self.kappa + sum(list(partition.unbiased_report.histogram.values()))
 
         if epoch_id not in partition.impressions_per_epoch:
-            # Epoch not in the attribution window, or dropped out of budget
+            # Empty epoch (either naturally, or because out-of-budget)
             return 0
 
         if not partition.impressions_per_epoch[epoch_id]:
@@ -164,8 +173,9 @@ class LastTouchWithCount(AttributionFunction):
                 bucket_key = default_bucket_prefix + "#" + filter + "#" + key_piece
                 bucket_value = self.kappa
                 report.add(bucket_key, bucket_value)
+
             else:
-                impressions = partition.impressions_per_epoch.get(epoch, [])
+                impressions = partition.impressions_per_epoch[epoch]
 
                 if impressions and not already_attributed:
                     impression_key = impressions[-1].key
@@ -188,7 +198,8 @@ class LastTouchWithCount(AttributionFunction):
 
         # For retrocompatibility with the scalar report, but doesn't seem super necessary
         if report.empty():
-            bucket_key = "#" + filter + "#" + key_piece
+            default_bucket_prefix = "empty"
+            bucket_key = default_bucket_prefix + "#" + filter + "#" + key_piece
             bucket_value = 0
             report.add(bucket_key, bucket_value)
 
