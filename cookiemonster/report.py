@@ -35,7 +35,7 @@ class ScalarReport(Report):
                 "Empty scalar report. Should not happen thanks to `create_report`"
             )
 
-        key = key[0]
+        key = keys[0]
 
         # TODO: use proper tuples/objects instead of this string encoding
         _, filter, conversion_key = key.split("#")

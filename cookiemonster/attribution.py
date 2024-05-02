@@ -90,7 +90,7 @@ class LastTouch(AttributionFunction):
 
                 # Sort impression keys and stringify them
                 bucket_key = impression_key + "#" + filter + "#" + key_piece
-                bucket_value = self.value
+                bucket_value = partition.value
 
                 report.add(bucket_key, bucket_value)
                 break
@@ -111,6 +111,8 @@ class LastTouchWithCount(AttributionFunction):
     """
 
     def __init__(self, sensitivity_metric, attribution_cap, kappa) -> None:
+
+        # TODO: (P!1) attributionacap vs value
         self.attribution_cap = attribution_cap
 
         # Harcoded buckets.
@@ -184,7 +186,7 @@ class LastTouchWithCount(AttributionFunction):
 
                     # Sort impression keys and stringify them
                     bucket_key = impression_key + "#" + filter + "#" + key_piece
-                    bucket_value = self.attribution_cap
+                    bucket_value = partition.value
                     report.add(bucket_key, bucket_value)
 
                     already_attributed = True

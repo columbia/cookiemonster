@@ -33,7 +33,7 @@ Finally, to run the poetry interactive shell, run `poetry shell`.
 
 Criteo:
 ```bash
-cd cookiemonster/data/criteo
+cd data/criteo
 wget http://go.criteo.net/criteo-research-search-conversion.tar.gz
 tar -xzf criteo-research-search-conversion.tar.gz
 python3 create_dataset.py
@@ -41,7 +41,7 @@ python3 create_dataset.py
 
 Microbenchmark:
 ```bash
-cd cookiemonster/data/microbenchmark
+cd data/microbenchmark
 
 python3 create_dataset.py --user-participation-rate-per-query 0.001 --per-day-user-impressions-rate 0.1 &&
 python3 create_dataset.py --user-participation-rate-per-query 0.01 --per-day-user-impressions-rate 0.1 &&
@@ -54,7 +54,7 @@ python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user
 
 PATCG Synthetic Dataset:
 ```bash
-cd cookiemonster/data/patcg
+cd data/patcg
 
 # todo(automate generating them)
 ```

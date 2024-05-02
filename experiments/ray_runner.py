@@ -35,7 +35,7 @@ def grid_run(
     ray_session_dir: str,
     logging_keys: List[str],
     ray_init: bool = True,
-    bias_detection_knob: List[float] = [1.0],
+    bias_detection_knob: List[float] = [None],
 ):
 
     if ray_session_dir and ray_init:

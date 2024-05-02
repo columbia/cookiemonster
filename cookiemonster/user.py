@@ -97,7 +97,7 @@ class User:
             )
 
         else:
-            attribution_function = LastTouchWithCount(
+            attribution_function = LastTouch(
                 sensitivity_metric=self.config.sensitivity_metric,
                 attribution_cap=conversion.aggregatable_cap_value,
             )

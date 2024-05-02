@@ -24,6 +24,7 @@ from cookiemonster.utils import (
     FILTERS_STATE,
     IPA,
     LOGS_PATH,
+    MLFLOW,
     GlobalStatistics,
     compute_global_sensitivity,
     maybe_initialize_filters,
@@ -55,20 +56,28 @@ class Evaluation:
             self.config.aggregation_service
         )
 
-    def run(self):
-        """Reads events from a dataset and asks users to process them"""
+    def setup_mlfow(self):
         mlflow.set_tracking_uri(LOGS_PATH.joinpath("mlflow"))
-        mlflow.set_experiment(
-            experiment_name=self.config.logs.experiment_name,
-        )
+
+        exp_name = self.config.logs.experiment_name
+        try:
+            experiment_id = mlflow.create_experiment(name=exp_name)
+        except mlflow.exceptions.MlflowException:
+            experiment_id = mlflow.get_experiment_by_name(exp_name).experiment_id
 
         run_name = (
             self.config.logs.trial_name
             if self.config.logs.trial_name
             else generate_slug(2)
         )
-        mlflow.start_run(run_name=run_name)
+        mlflow.start_run(run_name=run_name, experiment_id=experiment_id)
         mlflow.log_params(OmegaConf.to_object(self.config))
+
+    def run(self):
+        """Reads events from a dataset and asks users to process them"""
+
+        if MLFLOW in self.config.logs.logging_keys:
+            self.setup_mlfow()
 
         for i, res in enumerate(self.dataset.event_reader()):
             (user_id, event) = res
@@ -295,28 +304,47 @@ class Evaluation:
                 },
             )
 
-            if isinstance(true_output, np.ndarray):
-                for i in range(len(true_output)):
+            if MLFLOW in self.config.logs.logging_keys:
 
-                    raise NotImplementedError("Treat as bias actually, with kappa")
+                if self.config.user.bias_detection_knob:
+                    # The output is a vector of size 2
+
+                    kappa = self.config.user.bias_detection_knob
+
                     mlflow.log_metrics(
                         {
-                            f"true_output_{i}": true_output[i],
-                            f"aggregation_output_{i}": aggregation_output[i],
-                            f"aggregation_noisy_output_{i}": aggregation_noisy_output[
-                                i
-                            ],
+                            f"true_output": true_output[1],
+                            f"aggregation_output": aggregation_output[1],
+                            f"aggregation_noisy_output": aggregation_noisy_output[1],
+                            f"true_bias": aggregation_output[1] - true_output[1],
+                            "true_empty_epochs": true_output[0] / kappa,
+                            "noisy_empty_epochs": aggregation_noisy_output[0] / kappa,
+                            "noisy_bias_bound": "TODO!",
                         }
                     )
 
-            else:
-                mlflow.log_metrics(
-                    {
-                        "true_output": true_output,
-                        "aggregation_output": aggregation_output,
-                        "aggregation_noisy_output": aggregation_noisy_output,
-                    }
-                )
+                elif isinstance(true_output, np.ndarray):
+                    # You probably don't want to log this, but who knows
+
+                    for i in range(len(true_output)):
+                        mlflow.log_metrics(
+                            {
+                                f"true_output_{i}": true_output[i],
+                                f"aggregation_output_{i}": aggregation_output[i],
+                                f"aggregation_noisy_output_{i}": aggregation_noisy_output[
+                                    i
+                                ],
+                            }
+                        )
+
+                else:
+                    mlflow.log_metrics(
+                        {
+                            "true_output": true_output,
+                            "aggregation_output": aggregation_output,
+                            "aggregation_noisy_output": aggregation_noisy_output,
+                        }
+                    )
 
     def _log_all_filters_state(self):
         if BUDGET in self.config.logs.logging_keys:
