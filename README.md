@@ -53,8 +53,9 @@ python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user
 ```
 
 PATCG Synthetic Dataset:
-cd cookiemonster/data/microbenchmark
 ```bash
+cd cookiemonster/data/patcg
+
 # todo(automate generating them)
 ```
 
