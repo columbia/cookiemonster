@@ -7,8 +7,8 @@
     },
     "dataset": {
         "name": "microbenchmark",
-        "impressions_path": "data/microbenchmark/impressions_knob1_0.1_knob2_0.1.csv",
-        "conversions_path": "data/microbenchmark/conversions_knob1_0.1_knob2_0.1.csv",
+        "impressions_path": "data/microbenchmark/impressions_bias.csv",
+        "conversions_path": "data/microbenchmark/conversions_bias.csv",
         "num_days_per_epoch": 7,
         "num_days_attribution_window": 1,
         "workload_size": 80
@@ -18,7 +18,8 @@
         "save_dir": "",
         "loguru_level": "INFO",
         "logging_keys": [
-            "bias"
+            "bias",
+            "mlflow"
         ],
         "trial_name": "",
         "experiment_name": "debug"

@@ -34,6 +34,8 @@ class Evaluation:
 
         self.logger = EventLogger()
         self.global_statistics = GlobalStatistics(self.config.user.baseline)
+        
+        self.num_queries_answered = 0
 
         # filters shared across users for IPA
         self.global_filters_per_origin: Dict[str, BudgetAccountant] = {}
@@ -73,6 +75,10 @@ class Evaluation:
 
         for i, res in enumerate(self.dataset.event_reader()):
             (user_id, event) = res
+            
+            if self.num_queries_answered > self.dataset.workload_size:
+                logger.info(f"Reached workload size {self.dataset.workload_size} at event {i}")
+                break
 
             if i % 100000 == 0:
                 logger.info(colored(str(event), "blue"))
@@ -106,40 +112,6 @@ class Evaluation:
 
                 # TODO(P1): store this in the report itself
                 global_sensitivity = event.aggregatable_cap_value
-
-                # if self.config.user.bias_detection_knob:
-                #     # impression_buckets = ["empty", "main"]
-                #     # Global L1 sensitivity, removing a record can either remove kappa from "empty", or at most cap from "main"
-                #     # (but not both at the same time)
-                #     # assert self.config.user.sensitivity_metric == "L1"
-                #     # global_sensitivity = max(
-                #     #     event.aggregatable_cap_value,
-                #     #     self.config.user.bias_detection_knob,
-                #     # )
-
-                #     attribution_function = LastTouchWithCount(
-                #         sensitivity_metric=self.config.user.sensitivity_metric,
-                #         attribution_cap=event.aggregatable_cap_value,
-                #         kappa=self.config.user.bias_detection_knob,
-                #     )
-
-                # else:
-                #     attribution_function = LastTouchWithCount(
-                #         sensitivity_metric=self.config.user.sensitivity_metric,
-                #         attribution_cap=event.aggregatable_cap_value,
-                #     )
-
-                #     # impression_buckets = [""]
-                #     # # Compute global sensitivity based on the aggregatable cap value
-                #     # global_sensitivity = compute_global_sensitivity(
-                #     #     self.config.user.sensitivity_metric,
-                #     #     event.aggregatable_cap_value,
-                #     # )
-
-                # global_sensitivity = attribution_function.compute_global_sensitivity()
-
-                # query_id, value = report.get_query_value(impression_buckets)
-                # _, unbiased_value = unbiased_report.get_query_value(impression_buckets)
 
                 query_id = report.get_query_id()
                 value = report.get_value()
@@ -257,6 +229,9 @@ class Evaluation:
                     "green",
                 )
             )
+            
+        # Keep track of the number of queries answered to stop when workload_size is reached
+        self.num_queries_answered += 1
 
         # Log budgeting metrics and accuracy related data
         if BUDGET in self.config.logs.logging_keys:

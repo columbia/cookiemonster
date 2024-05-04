@@ -112,7 +112,10 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
     return conversions
 
 
-def create_microbenchmark(config: OmegaConf):
+def create_microbenchmark(
+    config: OmegaConf,
+    dataset_name,
+    ):
     advertiser_id = 1
 
     # <user_contributions_per_query> conversions allowed per user for each batch
@@ -139,7 +142,7 @@ def create_microbenchmark(config: OmegaConf):
     impressions["advertiser_id"] = advertiser_id
     impressions = impressions.sort_values(["timestamp"])
     impressions.to_csv(
-        CURRENT_DIR.joinpath(f"impressions_knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}.csv"),
+        CURRENT_DIR.joinpath(f"impressions_{dataset_name}.csv"),
         header=True,
         index=False,
     )
@@ -169,7 +172,7 @@ def create_microbenchmark(config: OmegaConf):
     # Set cap value
     conversions["aggregatable_cap_value"] = config.cap_value
     conversions.to_csv(
-        CURRENT_DIR.joinpath(f"conversions_knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}.csv"),
+        CURRENT_DIR.joinpath(f"conversions_{dataset_name}.csv"),
         header=True,
         index=False,
     )
@@ -180,6 +183,7 @@ def create_dataset(
     omegaconf: str = str(CURRENT_DIR.joinpath("config.json")),
     per_day_user_impressions_rate: float = None,
     user_participation_rate_per_query: float = None,
+    dataset_name = None,
 ):
     config = OmegaConf.create(OmegaConf.load(omegaconf))
 
@@ -189,7 +193,13 @@ def create_dataset(
         config.per_day_user_impressions_rate = per_day_user_impressions_rate
 
     print(config)
-    return create_microbenchmark(config)
+    
+    dataset_name = dataset_name if dataset_name else f"knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}"
+    
+    return create_microbenchmark(
+        config,
+        dataset_name=dataset_name,
+        )
 
 
 if __name__ == "__main__":
