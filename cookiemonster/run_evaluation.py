@@ -18,18 +18,10 @@ from cookiemonster.dataset import Dataset
 from cookiemonster.event_logger import EventLogger
 from cookiemonster.query_batch import QueryBatch
 from cookiemonster.user import ConversionResult, User
-from cookiemonster.utils import (
-    BIAS,
-    BUDGET,
-    FILTERS_STATE,
-    IPA,
-    LOGS_PATH,
-    MLFLOW,
-    GlobalStatistics,
-    compute_global_sensitivity,
-    maybe_initialize_filters,
-    save_logs,
-)
+from cookiemonster.utils import (BIAS, BUDGET, FILTERS_STATE, IPA, LOGS_PATH,
+                                 MLFLOW, GlobalStatistics,
+                                 compute_global_sensitivity,
+                                 maybe_initialize_filters, save_logs)
 
 app = typer.Typer()
 
@@ -319,7 +311,7 @@ class Evaluation:
                             f"true_bias": aggregation_output[1] - true_output[1],
                             "true_empty_epochs": true_output[0] / kappa,
                             "noisy_empty_epochs": aggregation_noisy_output[0] / kappa,
-                            "noisy_bias_bound": "TODO!",
+                            "noisy_bias_bound": (aggregation_noisy_output[0] + batch.noise_scale * np.log(1/0.05) / np.sqrt(2)  ) * (batch.global_sensitivity / kappa),
                         }
                     )
 
@@ -379,8 +371,8 @@ def run_evaluation(
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
 
-    omegaconf = OmegaConf.load(omegaconf)
-    return Evaluation(omegaconf).run()
+    config = OmegaConf.load(omegaconf)
+    return Evaluation(config).run()
 
 
 if __name__ == "__main__":

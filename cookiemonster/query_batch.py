@@ -11,6 +11,7 @@ class QueryBatch:
         self.query_id = query_id
         self.global_epsilon = epsilon
         self.global_sensitivity = sensitivity
+        self.noise_scale = sensitivity / epsilon
         self.biggest_id = biggest_id
 
     def size(self):
