@@ -2,15 +2,15 @@
     "user": {
         "sensitivity_metric": "L1",
         "baseline": "cookiemonster",
-        "initial_budget": 0.5,
+        "initial_budget": 1,
         "bias_detection_knob": 5
     },
     "dataset": {
         "name": "microbenchmark",
         "impressions_path": "data/microbenchmark/impressions_bias.csv",
         "conversions_path": "data/microbenchmark/conversions_bias.csv",
-        "num_days_per_epoch": 7,
-        "num_days_attribution_window": 1,
+        "num_days_per_epoch": 15,
+        "num_days_attribution_window": 30,
         "workload_size": 100
     },
     "logs": {
@@ -19,7 +19,8 @@
         "loguru_level": "INFO",
         "logging_keys": [
             "bias",
-            "mlflow"
+            "mlflow",
+            "budget"
         ],
         "trial_name": "",
         "experiment_name": "debug"

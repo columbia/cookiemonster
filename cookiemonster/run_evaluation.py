@@ -237,7 +237,8 @@ class Evaluation:
         if BUDGET in self.config.logs.logging_keys:
             budget_metrics = {"max_max": 0, "sum_max": 0, "max_sum": 0, "sum_sum": 0}
 
-            def get_budget_metrics(filters_per_origin):
+            def update_budget_metrics(filters_per_origin):
+                # Modifies `budget_metrics` in-place
                 if destination in filters_per_origin:
                     budget_accountant = filters_per_origin[destination]
                     max_ = budget_accountant.get_max_consumption_across_blocks()
@@ -249,12 +250,23 @@ class Evaluation:
                     budget_metrics["sum_sum"] += sum_
 
             if self.global_filters_per_origin:
-                get_budget_metrics(self.global_filters_per_origin)
+                update_budget_metrics(self.global_filters_per_origin)
             else:
                 for user in self.users.values():
-                    get_budget_metrics(user.filters_per_origin)
+                    update_budget_metrics(user.filters_per_origin)
 
             self.logger.log(BUDGET, destination, batch.biggest_id, budget_metrics)
+            
+            
+            if MLFLOW in self.config.logs.logging_keys:
+                # TODO: is there a way to log the budget for the current batch only, and separate kappa vs query vs dropped?
+                mlflow.log_metrics(
+                    metrics={
+                        "global_budget_sum_sum": budget_metrics["sum_sum"],
+                        "global_budget_max_max": budget_metrics["max_max"],
+                        },
+                    step = self.num_queries_answered
+                )
 
         if BIAS in self.config.logs.logging_keys:
             self.logger.log(
@@ -287,7 +299,7 @@ class Evaluation:
                             "true_empty_epochs": true_output[0] / kappa,
                             "noisy_empty_epochs": aggregation_noisy_output[0] / kappa,
                             "noisy_bias": aggregation_noisy_output[0] * (batch.global_sensitivity / kappa),
-                            "noisy_bias_bound": (aggregation_noisy_output[0] + batch.noise_scale * np.log(1/0.05) / np.sqrt(2)  ) * (batch.global_sensitivity / kappa),
+                            "noisy_bias_p95_confidence": (aggregation_noisy_output[0] + batch.noise_scale * np.log(1/0.05) / np.sqrt(2)  ) * (batch.global_sensitivity / kappa),
                         },
                         step = self.num_queries_answered
                     )
