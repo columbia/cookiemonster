@@ -3,7 +3,7 @@
         "sensitivity_metric": "L1",
         "baseline": "cookiemonster",
         "initial_budget": 0.5,
-        "bias_detection_knob": 100
+        "bias_detection_knob": 5
     },
     "dataset": {
         "name": "microbenchmark",
@@ -11,7 +11,7 @@
         "conversions_path": "data/microbenchmark/conversions_bias.csv",
         "num_days_per_epoch": 7,
         "num_days_attribution_window": 1,
-        "workload_size": 80
+        "workload_size": 100
     },
     "logs": {
         "save": false,

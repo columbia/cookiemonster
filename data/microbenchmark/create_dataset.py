@@ -15,7 +15,8 @@ def generate_random_dates(start_date, num_days, num_samples):
     # start_seconds = 0
     start_seconds = int((start_date - datetime.datetime(1969, 12, 31)).total_seconds())
     # end_seconds = int((end_date - datetime.datetime(1969, 12, 31)).total_seconds())
-    end_seconds = start_seconds + (num_days * 24 * 60 * 60)
+    end_seconds = start_seconds + (num_days * 24 * 60 * 60) + 1
+        
     random_seconds = np.random.randint(
         start_seconds, end_seconds, size=num_samples, dtype=int
     )
@@ -47,7 +48,7 @@ def generate_impressions(start_date, num_days, config, publisher_user_profile):
 
 def generate_conversions(product_id, publisher_user_profile, advertiser_id, config):
     start_date = datetime.datetime(2024, 1, 31)
-    num_days = config.num_days - 31
+    num_days = config.num_days - 31 # TODO: why is that?
 
     publisher_user_profile["means"] = 5
     num_converted_users = int(

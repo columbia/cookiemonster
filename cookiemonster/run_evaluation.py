@@ -279,15 +279,17 @@ class Evaluation:
                     kappa = self.config.user.bias_detection_knob
 
                     mlflow.log_metrics(
-                        {
+                        metrics={
                             f"true_output": true_output[1],
                             f"aggregation_output": aggregation_output[1],
                             f"aggregation_noisy_output": aggregation_noisy_output[1],
-                            f"true_bias": aggregation_output[1] - true_output[1],
+                            f"true_bias": true_output[1] - aggregation_output[1],
                             "true_empty_epochs": true_output[0] / kappa,
                             "noisy_empty_epochs": aggregation_noisy_output[0] / kappa,
+                            "noisy_bias": aggregation_noisy_output[0] * (batch.global_sensitivity / kappa),
                             "noisy_bias_bound": (aggregation_noisy_output[0] + batch.noise_scale * np.log(1/0.05) / np.sqrt(2)  ) * (batch.global_sensitivity / kappa),
-                        }
+                        },
+                        step = self.num_queries_answered
                     )
 
                 elif isinstance(true_output, np.ndarray):
@@ -301,7 +303,9 @@ class Evaluation:
                                 f"aggregation_noisy_output_{i}": aggregation_noisy_output[
                                     i
                                 ],
-                            }
+                            },
+                            step = self.num_queries_answered
+
                         )
 
                 else:
@@ -310,7 +314,8 @@ class Evaluation:
                             "true_output": true_output,
                             "aggregation_output": aggregation_output,
                             "aggregation_noisy_output": aggregation_noisy_output,
-                        }
+                        },
+                        step = self.num_queries_answered
                     )
 
     def _log_all_filters_state(self):

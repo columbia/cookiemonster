@@ -4,7 +4,7 @@
     "user_contributions_per_query": 1,
     "num_query_types": 5,
     "num_schedules": 100,
-    "num_days": 120,
+    "num_days": 31,
     "scheduled_batch_size": 1000,
     "accuracy": [
         0.05,
