@@ -191,7 +191,7 @@ def criteo_run(ray_session_dir):
         if augment_rates.get("conversions"):
             config["impressions_path"] = impressions_path
             config["conversions_path"] = (
-                f"{dataset}/{dataset}_query_pool_augmented_conversions.csv"
+                f"{dataset}/{dataset}_query_pool_augmented_conversions_50.csv"
             )
             config["logs_dir"] = (
                 f"{dataset}/augmented_conversions_bias_varying_epoch_size"

@@ -23,6 +23,7 @@ class Bias:
         self.values = []
         self.count = 0
         self.undefined_errors_counter = 0
+        self.no_run_counter = 0
 
 
 def get_df(path):
@@ -150,8 +151,10 @@ def get_bias_logs(row):
         queries_rmsre = Bias()
 
         for _, row in group.iterrows():
-            if math.isnan(row.aggregation_output) or row.true_output == 0:
+            if math.isnan(row.aggregation_output):
                 queries_rmsre.undefined_errors_counter += 1
+            elif not row.true_output:
+                queries_rmsre.no_run_counter += 1
             else:
                 x = abs(row.true_output - row.aggregation_output) ** 2 + 2 * (
                     row.sensitivity**2
