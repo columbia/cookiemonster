@@ -7,13 +7,9 @@ from cookiemonster.attribution import LastTouch, LastTouchWithCount
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.events import Conversion, Impression
 from cookiemonster.report import HistogramReport, Report, ScalarReport
-from cookiemonster.utils import (
-    COOKIEMONSTER,
-    COOKIEMONSTER_BASE,
-    IPA,
-    compute_global_sensitivity,
-    maybe_initialize_filters,
-)
+from cookiemonster.utils import (COOKIEMONSTER, COOKIEMONSTER_BASE, IPA,
+                                 compute_global_sensitivity,
+                                 maybe_initialize_filters)
 
 
 class ConversionResult:
@@ -47,8 +43,7 @@ class Partition:
         return self.epochs_window[1] - self.epochs_window[0] + 1
 
     def get_epochs(self, reverse=False) -> List[int]:
-        # return list(self.impressions_per_epoch.keys())
-
+        """Returns a list of epochs in the window. Not just epochs with events!"""
         if reverse:
             return list(range(self.epochs_window[1], self.epochs_window[0] - 1, -1))
 
@@ -88,18 +83,21 @@ class User:
         Also stores an unbiased version of the report, to compute metrics.
         """
 
-        # Initialize attribution logic
+        # Initialize attribution logic. 
+        # If conversion value is public, we can use it as attribution_cap,
+        # which will be used for the global sensitivity.
+        # Otherwise you would need to use attribution_cap_value
         if self.config.bias_detection_knob:
             attribution_function = LastTouchWithCount(
                 sensitivity_metric=self.config.sensitivity_metric,
-                attribution_cap=conversion.aggregatable_cap_value,
+                attribution_cap=conversion.aggregatable_value,
                 kappa=self.config.bias_detection_knob,
             )
 
         else:
             attribution_function = LastTouch(
                 sensitivity_metric=self.config.sensitivity_metric,
-                attribution_cap=conversion.aggregatable_cap_value,
+                attribution_cap=conversion.aggregatable_value,
             )
 
         # Create partitioning
@@ -126,8 +124,6 @@ class User:
                         ) and impression.matches(
                             conversion.destination, conversion.filter
                         ):
-                            # if epoch not in partition.impressions_per_epoch:
-                            #     partition.impressions_per_epoch[epoch] = []
                             partition.impressions_per_epoch[epoch].append(impression)
 
             # Create unbiased report
@@ -152,9 +148,11 @@ class User:
 
                 epochs_to_pay = partition.epochs_window
 
-                # TODO: could we use global sensitivity with the actual conversion value here?
-                # (that starts to be fine-grained parallel composition)
-                budget_required = conversion.epsilon
+                # TODO: double check that we can use global sensitivity with the actual conversion value here.
+                # - Unlike IPA, we can't wait for the whole batch to take the max
+                # - But still ok with parallel composition
+                budget_required = attribution_function.compute_global_sensitivity() / conversion.noise_scale
+                # budget_required = conversion.epsilon
 
                 filter_result = origin_filters.pay_all_or_nothing(
                     epochs_to_pay, budget_required

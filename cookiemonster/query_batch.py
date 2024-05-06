@@ -9,21 +9,12 @@ class QueryBatch:
         self.unbiased_values = []
         self.epochs_window = EpochsWindow()
         self.query_id = query_id
-        # self.global_epsilon = epsilon
-        # self.global_sensitivity = sensitivity
-        # self.noise_scale = sensitivity / epsilon
         self.noise_scale = noise_scale
         self.biggest_id = biggest_id
         self.global_sensitivity = 0
 
     def size(self):
         return len(self.values)
-
-    # def update(self, value, unbiazed_value, epochs_window, biggest_id):
-    #     self.values.append(value)
-    #     self.unbiased_values.append(unbiazed_value)
-    #     self.epochs_window.update(epochs_window)
-    #     self.biggest_id = max(biggest_id, self.biggest_id)
 
     def add_report(self, value, unbiased_value, global_sensitivity, epochs_window, biggest_id: int):
         self.values.append(value)

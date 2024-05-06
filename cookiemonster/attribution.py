@@ -37,7 +37,6 @@ class AttributionFunction:
 class LastTouch(AttributionFunction):
 
     def __init__(self, sensitivity_metric, attribution_cap) -> None:
-        # TODO: per-conversion attribution cap (=conversion value) instead of global cap?
         self.attribution_cap = attribution_cap
 
         if sensitivity_metric != "L1":
@@ -118,8 +117,6 @@ class LastTouchWithCount(AttributionFunction):
     """
 
     def __init__(self, sensitivity_metric, attribution_cap, kappa) -> None:
-
-        # TODO: (P!1) attributionacap vs value
         self.attribution_cap = attribution_cap
 
         # Harcoded buckets.
@@ -148,7 +145,6 @@ class LastTouchWithCount(AttributionFunction):
             if partition.unbiased_report is None:
                 raise ValueError("You need to create the unbiased report first")
 
-            # TODO: check kappa here
             return self.kappa + sum(list(partition.unbiased_report.histogram.values()))
 
         if epoch_id not in partition.impressions_per_epoch:

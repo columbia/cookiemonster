@@ -112,7 +112,6 @@ class Evaluation:
                 global_sensitivity = report.global_sensitivity # Computed by the attribution function
                 
                 # Create at most one query per histogram (we don't support multi-query histograms yet)
-                # for query_id, value in report.histogram.items():
                 if query_id not in per_query_batch:
                     per_query_batch[query_id] = QueryBatch(
                         query_id=query_id,
@@ -132,7 +131,6 @@ class Evaluation:
                 
 
                 # Check if the new report triggers scheduling / aggregation
-                # for query_id in report.histogram.keys():
                 batch = per_query_batch[query_id]
                 if self.aggregation_policy.should_calculate_summary_reports(batch):
                     self._calculate_summary_reports(
@@ -150,6 +148,7 @@ class Evaluation:
             per_query_batch,
         ) in self.per_destination_per_query_batch.items():
             for query_id, batch in per_query_batch.items():
+                
                 # Use the min_batch_size thanks to `tail=True`
                 if self.aggregation_policy.should_calculate_summary_reports(
                     batch, tail=True
@@ -178,8 +177,6 @@ class Evaluation:
 
     def _try_consume_budget_for_ipa(self, destination, batch):
 
-        # TODO: technically we should take the max of attributed values across reports in a query.
-
         # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)
         if self.config.user.baseline == IPA:
             origin_filters = maybe_initialize_filters(
@@ -189,7 +186,7 @@ class Evaluation:
                 float(self.config.user.initial_budget),
             )
             batch_window = batch.epochs_window.get_epochs()
-            global_epsilon = batch.get_global_epsilon()
+            global_epsilon = batch.get_global_epsilon() # Uses the max global sensitivity over report values
             logger.info(f"IPA budget: {global_epsilon} for window {batch_window}")
             
             # TODO: is this the tightest parallel composition we can do? Can we only spend from certain epochs?
@@ -205,11 +202,8 @@ class Evaluation:
     def _calculate_summary_reports(
         self, *, query_id: str, batch: QueryBatch, destination: str
     ) -> None:
-        # TODO: update logs to handle vector outputs
 
-        true_output = None
-        aggregation_output = None
-        aggregation_noisy_output = None
+
 
         # On-device queries always succeed, but IPA can throw an OOB error
         query_succeeded = self._try_consume_budget_for_ipa(destination, batch) if self.config.user.baseline == IPA else True
@@ -225,6 +219,11 @@ class Evaluation:
                     "green",
                 )
             )
+        else:
+            if self.config.user.bias_detection_knob:
+                true_output = aggregation_output = aggregation_noisy_output = (0,0)
+            else:
+                true_output = aggregation_output = aggregation_noisy_output = None 
             
         # Keep track of the number of queries answered to stop when workload_size is reached
         self.num_queries_answered += 1
@@ -285,10 +284,6 @@ class Evaluation:
                     # The output is a vector of size 2
 
                     kappa = self.config.user.bias_detection_knob
-                    
-                    if not query_succeeded:
-                        # TODO: find a good way to plot this?
-                        true_output = aggregation_output = aggregation_noisy_output = (0,0)
 
                     mlflow.log_metrics(
                         metrics={

@@ -422,7 +422,7 @@ class Patcg(Dataset):
                 aggregatable_cap_value=15,
                 filter=filter,
                 key=key,
-                epsilon=row["epsilon"],
+                epsilon=row["epsilon"], # Not used directly anymore
                 noise_scale=15 / row["epsilon"],
                 user_id=conversion_user_id,
             )
