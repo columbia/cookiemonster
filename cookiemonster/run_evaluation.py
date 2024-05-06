@@ -105,40 +105,31 @@ class Evaluation:
                     event.destination
                 ]
 
-                # We only support single-query reports for now, with potentially multiple buckets
-                # At aggregation time you need to know how many buckets you are interested in
-                # Otherwise, the absence or presence of a bucket can leak info about a single record
-                # Maybe one day add support for arbitrary buckets too, e.g. for histogram queries?
-
-                # TODO(P1): store this in the report itself
-                global_sensitivity = event.aggregatable_cap_value
 
                 query_id = report.get_query_id()
                 value = report.get_value()
                 unbiased_value = unbiased_report.get_value()
-
+                global_sensitivity = report.global_sensitivity # Computed by the attribution function
+                
+                # Create at most one query per histogram (we don't support multi-query histograms yet)
                 # for query_id, value in report.histogram.items():
                 if query_id not in per_query_batch:
                     per_query_batch[query_id] = QueryBatch(
-                        query_id,
-                        event.epsilon,
-                        global_sensitivity,  # TODO: allow one sensitivity per report in the batch
+                        query_id=query_id,
+                        noise_scale=event.noise_scale,
                         biggest_id=event.id,
                     )
                 else:
-                    # All conversion requests for the same query should have the same epsilon and sensitivity
-                    assert per_query_batch[query_id].global_epsilon == event.epsilon
-                    assert (
-                        per_query_batch[query_id].global_sensitivity
-                        == global_sensitivity
-                    )
+                    assert per_query_batch[query_id].noise_scale == event.noise_scale, f"Different noise scales. {per_query_batch[query_id].noise_scale} != {event.noise_scale}. We can handle it by requiring >=, or by creating a new query batch every time we find a different noise scale."
 
-                per_query_batch[query_id].update(
+                per_query_batch[query_id].add_report(
                     value,
                     unbiased_value,
+                    global_sensitivity,
                     event.epochs_window,
                     biggest_id=event.id,
                 )
+                
 
                 # Check if the new report triggers scheduling / aggregation
                 # for query_id in report.histogram.keys():
@@ -159,6 +150,7 @@ class Evaluation:
             per_query_batch,
         ) in self.per_destination_per_query_batch.items():
             for query_id, batch in per_query_batch.items():
+                # Use the min_batch_size thanks to `tail=True`
                 if self.aggregation_policy.should_calculate_summary_reports(
                     batch, tail=True
                 ):
@@ -196,8 +188,14 @@ class Evaluation:
                 batch.epochs_window.get_epochs(),
                 float(self.config.user.initial_budget),
             )
+            batch_window = batch.epochs_window.get_epochs()
+            global_epsilon = batch.get_global_epsilon()
+            logger.info(f"IPA budget: {global_epsilon} for window {batch_window}")
+            
+            # TODO: is this the tightest parallel composition we can do? Can we only spend from certain epochs?
             filter_result = origin_filters.pay_all_or_nothing(
-                batch.epochs_window.get_epochs(), batch.global_epsilon
+                batch_window,
+                global_epsilon
             )
             if not filter_result.succeeded():
                 logger.info(colored(f"IPA can't run query", "red"))
@@ -213,11 +211,9 @@ class Evaluation:
         aggregation_output = None
         aggregation_noisy_output = None
 
-        status = True
-        if self.config.user.baseline == IPA:
-            status = self._try_consume_budget_for_ipa(destination, batch)
-
-        if status:
+        # On-device queries always succeed, but IPA can throw an OOB error
+        query_succeeded = self._try_consume_budget_for_ipa(destination, batch) if self.config.user.baseline == IPA else True
+        if query_succeeded:
             # Schedule the batch
             aggregation_result = self.aggregation_service.create_summary_report(batch)
             true_output = aggregation_result.true_output
@@ -274,7 +270,7 @@ class Evaluation:
                 batch.biggest_id,
                 destination,
                 query_id,
-                batch.global_epsilon,
+                batch.get_global_epsilon(),
                 batch.global_sensitivity,
                 {
                     "true_output": true_output,
@@ -289,6 +285,10 @@ class Evaluation:
                     # The output is a vector of size 2
 
                     kappa = self.config.user.bias_detection_knob
+                    
+                    if not query_succeeded:
+                        # TODO: find a good way to plot this?
+                        true_output = aggregation_output = aggregation_noisy_output = (0,0)
 
                     mlflow.log_metrics(
                         metrics={

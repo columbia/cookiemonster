@@ -75,8 +75,10 @@ class LastTouch(AttributionFunction):
         return ScalarReport()
 
     def create_report(self, partition, filter, key_piece: str):
+        
+        global_sensitivity = self.compute_global_sensitivity()
 
-        report = ScalarReport()
+        report = ScalarReport(global_sensitivity=global_sensitivity)
 
         # Scan all impressions in epochs and keep the latest one
         epochs = sorted(list(partition.impressions_per_epoch.keys()), reverse=True)
@@ -108,6 +110,11 @@ class LastTouchWithCount(AttributionFunction):
     """
     Keep a default bucket to count epochs with no impressions (i.e. relevant events)
     `empty` for DP counts, `main` for the scalar count.
+    
+    We only support single-query reports for now, with potentially multiple buckets
+    At aggregation time you need to know how many buckets you are interested in
+    Otherwise, the absence or presence of a bucket can leak info about a single record
+    Maybe one day add support for arbitrary buckets too, e.g. for histogram queries?
     """
 
     def __init__(self, sensitivity_metric, attribution_cap, kappa) -> None:
@@ -158,8 +165,12 @@ class LastTouchWithCount(AttributionFunction):
         return HistogramReport(impression_buckets=self.impression_buckets)
 
     def create_report(self, partition, filter, key_piece: str):
+        
+        global_sensitivity = self.compute_global_sensitivity()
 
-        report = HistogramReport(impression_buckets=self.impression_buckets)
+        report = HistogramReport(
+            global_sensitivity=global_sensitivity,
+            impression_buckets=self.impression_buckets)
         already_attributed = False
 
         # Browse all the epochs, even those with no impressions and the deleted ones
@@ -208,8 +219,18 @@ class LastTouchWithCount(AttributionFunction):
         return report
 
     def sum_reports(self, reports: List[HistogramReport]) -> HistogramReport:
-        final_report = HistogramReport(impression_buckets=self.impression_buckets)
+        
+        final_report = HistogramReport(
+            impression_buckets=self.impression_buckets
+            )
+        
+        global_sensitivity = 0
         for r in reports:
+            # Partitions are disjoint, so we can take the max
+            global_sensitivity = max(global_sensitivity, r.global_sensitivity)
             for key, value in r.histogram.items():
                 final_report.add(key, value)
+                
+        final_report.global_sensitivity = global_sensitivity
+        
         return final_report

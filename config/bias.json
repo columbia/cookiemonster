@@ -23,7 +23,7 @@
             "budget"
         ],
         "trial_name": "",
-        "experiment_name": "debug"
+        "experiment_name": "Default"
     },
     "aggregation_service": "local_laplacian",
     "aggregation_policy": {

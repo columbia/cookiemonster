@@ -7,8 +7,11 @@ from cookiemonster.events import Impression
 
 class Report:
     """Stores the result of an attribution report.
-    Also stores metadata about which query created the report.
+    Also stores metadata about which query created the report, like sensitivity
     """
+    
+    def __init__(self, global_sensitivity) -> None:
+        self.global_sensitivity = global_sensitivity
 
     def get_query_id(self):
         raise NotImplementedError
@@ -21,9 +24,10 @@ class Report:
 
 
 class ScalarReport(Report):
-    def __init__(self):
+    def __init__(self, global_sensitivity=0):
         # Implemented as a histogram for historical reasons
         self.histogram: Dict[str, float] = {}
+        super().__init__(global_sensitivity)
 
     def get_query_id(self):
 
@@ -49,7 +53,9 @@ class ScalarReport(Report):
         return self.histogram.get(key, 0)
 
     def __add__(self, other):
-        report = ScalarReport()
+        # Partitions are disjoint
+        report = ScalarReport(global_sensitivity=
+                              max(self.global_sensitivity, other.global_sensitivity))
         for key, value in self.histogram.items():
             report.add(key, value)
         for key, value in other.histogram.items():
@@ -69,9 +75,11 @@ class ScalarReport(Report):
 
 
 class HistogramReport(Report):
-    def __init__(self, impression_buckets: List[str]):
+    def __init__(self, impression_buckets: List[str],global_sensitivity=0):
         self.histogram: Dict[str, float] = {}
         self.impression_buckets = sorted(impression_buckets)
+        super().__init__(global_sensitivity)
+
 
     def get_query_id(self):
         # Check that there is a single query (we don't support multi-queries for now)
@@ -97,7 +105,9 @@ class HistogramReport(Report):
         return np.array(values)
 
     def __add__(self, other):
-        report = HistogramReport(impression_buckets=self.impression_buckets)
+        report = HistogramReport(
+            global_sensitivity=max(self.global_sensitivity, other.global_sensitivity),
+            impression_buckets=self.impression_buckets)
         for key, value in self.histogram.items():
             report.add(key, value)
         for key, value in other.histogram.items():

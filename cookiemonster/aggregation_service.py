@@ -45,8 +45,8 @@ class LocalLaplacianAggregationService(AggregationService):
         """Isotropic Laplace noise, i.e. iid Laplace on each coordinate"""
         true_output = sum(query_batch.unbiased_values)
         aggregation_output = sum(query_batch.values)
-
-        noise_scale = query_batch.global_sensitivity / query_batch.global_epsilon
+        noise_scale = query_batch.noise_scale
+        # noise_scale = query_batch.global_sensitivity / query_batch.global_epsilon
         
         if isinstance(aggregation_output, np.ndarray):
             noise = np.random.laplace(scale=noise_scale, size=aggregation_output.shape)
