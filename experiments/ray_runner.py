@@ -36,6 +36,7 @@ def grid_run(
     logging_keys: List[str],
     ray_init: bool = True,
     bias_detection_knob: List[float] = [None],
+    target_rmsre: List[float] = [0.05],
 ):
 
     if ray_session_dir and ray_init:
@@ -47,6 +48,7 @@ def grid_run(
             "baseline": tune.grid_search(baseline),
             "initial_budget": tune.grid_search(initial_budget),
             "bias_detection_knob": tune.grid_search(bias_detection_knob),
+            "target_rmsre": tune.grid_search(target_rmsre),
         },
         "dataset": {
             "name": dataset_name,

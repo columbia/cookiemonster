@@ -7,7 +7,7 @@ import typer
 from omegaconf import OmegaConf
 from ray_runner import grid_run
 
-from cookiemonster.utils import BIAS, BUDGET
+from cookiemonster.utils import BIAS, BUDGET, MLFLOW
 
 app = typer.Typer()
 
@@ -276,50 +276,35 @@ def patcg_bias_varying_attribution_window(ray_session_dir):
 
 ## ----------------- Bias detection and mitigation ----------------- ##
 
+
 def bias_detection(ray_session_dir):
     dataset = "microbenchmark"
     logs_dir = f"{dataset}/bias_detection"
 
-    experiments = []
-
-    impressions_path_base = f"{dataset}/impressions"
-    conversions_path_base = f"{dataset}/conversions"
-
-    knob1s = [0.1]
-    knob2 = 0.1
-
-    # bias_mitigation_knob = [0,0.1]
-    bias_detection_knob = [5]
+    bias_detection_knob = [0, 0.5, 1, 2, 5]
+    # bias_detection_knob = [5]
 
     config = {
         # "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "baseline": ["cookiemonster"],
         "dataset_name": f"{dataset}",
+        "impressions_path": f"{dataset}/impressions_bias.csv",
+        "conversions_path": f"{dataset}/conversions_bias.csv",
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [14],
-        "workload_size": [5],
+        "workload_size": [100],
         "min_scheduling_batch_size_per_query": 1000,
         "max_scheduling_batch_size_per_query": 1000,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
         "ray_session_dir": ray_session_dir,
-        "logging_keys": [BIAS, BUDGET],
+        "logging_keys": [BIAS, BUDGET, MLFLOW],
         "bias_detection_knob": bias_detection_knob,
-        # "bias_mitigation_knob": bias_mitigation_knob,
+        "target_rmsre": [0.05],
     }
 
-    for knob1 in knob1s:
-        config["impressions_path"] = get_path(impressions_path_base, knob1, knob2)
-        config["conversions_path"] = get_path(conversions_path_base, knob1, knob2)
-        experiments.append(
-            multiprocessing.Process(
-                target=lambda config: grid_run(**config), args=(deepcopy(config),)
-            )
-        )
-
-    experiments_start_and_join(experiments)
-    # analyze(f"ray/{logs_dir}")
+    grid_run(**config)
 
 
 @app.command()

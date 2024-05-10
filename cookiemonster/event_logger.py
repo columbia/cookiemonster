@@ -16,6 +16,12 @@ class EventLogger:
             self.logs[key] = []
         self.logs[key].append(data)
 
+    def store(self, key, data):
+        self.logs[key] = data
+
+    def get(self, key):
+        return self.logs.get(key, None)
+
     def __add__(self, other: "EventLogger") -> "EventLogger":
         new_logger = EventLogger()
         new_logger.logs = {**self.logs, **other.logs}

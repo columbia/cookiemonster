@@ -83,6 +83,10 @@ def compute_bias_prediction_metrics(
 
 
 def aggregate_bias_prediction_metrics(aggregatable_metrics):
+
+    if aggregatable_metrics is None:
+        return {}
+
     df = pd.DataFrame(aggregatable_metrics)
     aggregated_metrics = {
         "prediction_accuracy": df["accurately_predicted_rmsre_target"].mean(),

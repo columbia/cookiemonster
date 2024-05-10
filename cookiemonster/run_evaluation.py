@@ -76,6 +76,8 @@ class Evaluation:
             else generate_slug(2)
         )
         mlflow.start_run(run_name=run_name, experiment_id=experiment_id)
+
+        # TODO: flatten
         mlflow.log_params(OmegaConf.to_object(self.config))
 
     def run(self):
@@ -270,6 +272,7 @@ class Evaluation:
                     },
                     step=self.num_queries_answered,
                 )
+                self.logger.store("latest_budget_sum_sum", budget_metrics["sum_sum"])
 
         if BIAS in self.config.logs.logging_keys:
             self.logger.log(
@@ -380,9 +383,22 @@ class Evaluation:
     def _finalize_logs(self):
         self._log_all_filters_state()
 
+        logs = {}
+        logs["global_statistics"] = self.global_statistics.dump()
+
         if MLFLOW in self.config.logs.logging_keys:
-            aggregatable_metrics = self.logger.logs.pop(MLFLOW)
+            aggregatable_metrics = self.logger.logs.pop(MLFLOW, None)
             aggregated_metrics = aggregate_bias_prediction_metrics(aggregatable_metrics)
+
+            # Also add the average budget here
+            hardcoded_destination = "1"
+            stats = logs["global_statistics"][hardcoded_destination]
+            n_device_epochs = (
+                stats["num_unique_device_filters_touched"] * stats["num_epochs_touched"]
+            )
+            budget_sum = self.logger.get("latest_budget_sum_sum")
+            aggregated_metrics["avg_budget"] = budget_sum / n_device_epochs
+
             mlflow.log_metrics(
                 metrics=aggregated_metrics, step=self.num_queries_answered
             )
@@ -390,8 +406,6 @@ class Evaluation:
             # TODO: plot some CDFs and log them as artifacts?
             # mlflow.log_figure()
 
-        logs = {}
-        logs["global_statistics"] = self.global_statistics.dump()
         logs["event_logs"] = self.logger.logs
         logs["config"] = OmegaConf.to_object(self.config)
         if self.config.logs.save:
