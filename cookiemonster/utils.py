@@ -86,16 +86,6 @@ def maybe_initialize_filters(
     return destination_filter
 
 
-def compute_global_sensitivity(sensitivity_metric, aggregatable_cap_value):
-    match sensitivity_metric:
-        case "L1":
-            global_sensitivity = aggregatable_cap_value
-        case _:
-            raise ValueError(f"Unsupported sensitivity metric: {sensitivity_metric}")
-    assert global_sensitivity is not None
-    return global_sensitivity
-
-
 def get_data_path(path):
     return str(REPO_ROOT.joinpath(f"data/{path}"))
 

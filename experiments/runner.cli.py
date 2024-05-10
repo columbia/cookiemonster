@@ -276,16 +276,6 @@ def patcg_bias_varying_attribution_window(ray_session_dir):
 
 ## ----------------- Bias detection and mitigation ----------------- ##
 
-"""
-TODO(Pierre):
-- Consume the right budget for local reports, double check sensitivity
-- Mlflow for budget consumption too
-- Try to increase the noise or workload to check that bias works
-- Try to reduce to window = 1 epoch   
-- Add impressions in the microbenchmark, eventually?
-"""
-
-
 def bias_detection(ray_session_dir):
     dataset = "microbenchmark"
     logs_dir = f"{dataset}/bias_detection"

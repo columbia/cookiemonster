@@ -11,14 +11,23 @@ from termcolor import colored
 
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
+from cookiemonster.bias import compute_bias_metrics
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.dataset import Dataset
 from cookiemonster.event_logger import EventLogger
 from cookiemonster.query_batch import QueryBatch
 from cookiemonster.user import ConversionResult, User
-from cookiemonster.utils import (BIAS, BUDGET, FILTERS_STATE, IPA, LOGS_PATH,
-                                 MLFLOW, GlobalStatistics,
-                                 maybe_initialize_filters, save_logs)
+from cookiemonster.utils import (
+    BIAS,
+    BUDGET,
+    FILTERS_STATE,
+    IPA,
+    LOGS_PATH,
+    MLFLOW,
+    GlobalStatistics,
+    maybe_initialize_filters,
+    save_logs,
+)
 
 app = typer.Typer()
 
@@ -31,7 +40,7 @@ class Evaluation:
 
         self.logger = EventLogger()
         self.global_statistics = GlobalStatistics(self.config.user.baseline)
-        
+
         self.num_queries_answered = 0
 
         # filters shared across users for IPA
@@ -72,9 +81,11 @@ class Evaluation:
 
         for i, res in enumerate(self.dataset.event_reader()):
             (user_id, event) = res
-            
+
             if self.num_queries_answered > self.dataset.workload_size:
-                logger.info(f"Reached workload size {self.dataset.workload_size} at event {i}")
+                logger.info(
+                    f"Reached workload size {self.dataset.workload_size} at event {i}"
+                )
                 break
 
             if i % 100000 == 0:
@@ -102,12 +113,13 @@ class Evaluation:
                     event.destination
                 ]
 
-
                 query_id = report.get_query_id()
                 value = report.get_value()
                 unbiased_value = unbiased_report.get_value()
-                global_sensitivity = report.global_sensitivity # Computed by the attribution function
-                
+                global_sensitivity = (
+                    report.global_sensitivity
+                )  # Computed by the attribution function
+
                 # Create at most one query per histogram (we don't support multi-query histograms yet)
                 if query_id not in per_query_batch:
                     per_query_batch[query_id] = QueryBatch(
@@ -116,7 +128,9 @@ class Evaluation:
                         biggest_id=event.id,
                     )
                 else:
-                    assert per_query_batch[query_id].noise_scale == event.noise_scale, f"Different noise scales. {per_query_batch[query_id].noise_scale} != {event.noise_scale}. We can handle it by requiring >=, or by creating a new query batch every time we find a different noise scale."
+                    assert (
+                        per_query_batch[query_id].noise_scale == event.noise_scale
+                    ), f"Different noise scales. {per_query_batch[query_id].noise_scale} != {event.noise_scale}. We can handle it by requiring >=, or by creating a new query batch every time we find a different noise scale."
 
                 per_query_batch[query_id].add_report(
                     value,
@@ -125,7 +139,6 @@ class Evaluation:
                     event.epochs_window,
                     biggest_id=event.id,
                 )
-                
 
                 # Check if the new report triggers scheduling / aggregation
                 batch = per_query_batch[query_id]
@@ -145,7 +158,7 @@ class Evaluation:
             per_query_batch,
         ) in self.per_destination_per_query_batch.items():
             for query_id, batch in per_query_batch.items():
-                
+
                 # Use the min_batch_size thanks to `tail=True`
                 if self.aggregation_policy.should_calculate_summary_reports(
                     batch, tail=True
@@ -183,13 +196,14 @@ class Evaluation:
                 float(self.config.user.initial_budget),
             )
             batch_window = batch.epochs_window.get_epochs()
-            global_epsilon = batch.get_global_epsilon() # Uses the max global sensitivity over report values
+            global_epsilon = (
+                batch.get_global_epsilon()
+            )  # Uses the max global sensitivity over report values
             logger.info(f"IPA budget: {global_epsilon} for window {batch_window}")
-            
+
             # TODO: is this the tightest parallel composition we can do? Can we only spend from certain epochs?
             filter_result = origin_filters.pay_all_or_nothing(
-                batch_window,
-                global_epsilon
+                batch_window, global_epsilon
             )
             if not filter_result.succeeded():
                 logger.info(colored(f"IPA can't run query", "red"))
@@ -200,10 +214,12 @@ class Evaluation:
         self, *, query_id: str, batch: QueryBatch, destination: str
     ) -> None:
 
-
-
         # On-device queries always succeed, but IPA can throw an OOB error
-        query_succeeded = self._try_consume_budget_for_ipa(destination, batch) if self.config.user.baseline == IPA else True
+        query_succeeded = (
+            self._try_consume_budget_for_ipa(destination, batch)
+            if self.config.user.baseline == IPA
+            else True
+        )
         if query_succeeded:
             # Schedule the batch
             aggregation_result = self.aggregation_service.create_summary_report(batch)
@@ -218,10 +234,10 @@ class Evaluation:
             )
         else:
             if self.config.user.bias_detection_knob:
-                true_output = aggregation_output = aggregation_noisy_output = (0,0)
+                true_output = aggregation_output = aggregation_noisy_output = (0, 0)
             else:
-                true_output = aggregation_output = aggregation_noisy_output = None 
-            
+                true_output = aggregation_output = aggregation_noisy_output = None
+
         # Keep track of the number of queries answered to stop when workload_size is reached
         self.num_queries_answered += 1
 
@@ -248,16 +264,14 @@ class Evaluation:
                     update_budget_metrics(user.filters_per_origin)
 
             self.logger.log(BUDGET, destination, batch.biggest_id, budget_metrics)
-            
-            
+
             if MLFLOW in self.config.logs.logging_keys:
-                # TODO: is there a way to log the budget for the current batch only, and separate kappa vs query vs dropped?
                 mlflow.log_metrics(
                     metrics={
                         "global_budget_sum_sum": budget_metrics["sum_sum"],
                         "global_budget_max_max": budget_metrics["max_max"],
-                        },
-                    step = self.num_queries_answered
+                    },
+                    step=self.num_queries_answered,
                 )
 
         if BIAS in self.config.logs.logging_keys:
@@ -278,23 +292,16 @@ class Evaluation:
             if MLFLOW in self.config.logs.logging_keys:
 
                 if self.config.user.bias_detection_knob:
-                    # The output is a vector of size 2
-
-                    kappa = self.config.user.bias_detection_knob
-
-                    mlflow.log_metrics(
-                        metrics={
-                            f"true_output": true_output[1],
-                            f"aggregation_output": aggregation_output[1],
-                            f"aggregation_noisy_output": aggregation_noisy_output[1],
-                            f"true_bias": true_output[1] - aggregation_output[1],
-                            "true_empty_epochs": true_output[0] / kappa,
-                            "noisy_empty_epochs": aggregation_noisy_output[0] / kappa,
-                            "noisy_bias": aggregation_noisy_output[0] * (batch.global_sensitivity / kappa),
-                            "noisy_bias_p95_confidence": (aggregation_noisy_output[0] + batch.noise_scale * np.log(1/0.05) / np.sqrt(2)  ) * (batch.global_sensitivity / kappa),
-                        },
-                        step = self.num_queries_answered
+                    metrics = compute_bias_metrics(
+                        true_output,
+                        aggregation_output,
+                        aggregation_noisy_output,
+                        kappa=self.config.user.bias_detection_knob,
+                        max_report_global_sensitivity=batch.global_sensitivity,
+                        laplace_noise_scale=batch.noise_scale,
                     )
+
+                    mlflow.log_metrics(metrics=metrics, step=self.num_queries_answered)
 
                 elif isinstance(true_output, np.ndarray):
                     # You probably don't want to log this, but who knows
@@ -308,8 +315,7 @@ class Evaluation:
                                     i
                                 ],
                             },
-                            step = self.num_queries_answered
-
+                            step=self.num_queries_answered,
                         )
 
                 else:
@@ -319,7 +325,7 @@ class Evaluation:
                             "aggregation_output": aggregation_output,
                             "aggregation_noisy_output": aggregation_noisy_output,
                         },
-                        step = self.num_queries_answered
+                        step=self.num_queries_answered,
                     )
 
     def _log_all_filters_state(self):

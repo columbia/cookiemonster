@@ -9,7 +9,7 @@
         "name": "microbenchmark",
         "impressions_path": "data/microbenchmark/impressions_bias.csv",
         "conversions_path": "data/microbenchmark/conversions_bias.csv",
-        "num_days_per_epoch": 30,
+        "num_days_per_epoch": 15,
         "num_days_attribution_window": 30,
         "workload_size": 100
     },

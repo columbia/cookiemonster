@@ -3,15 +3,20 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from omegaconf import OmegaConf
 
-from cookiemonster.attribution import (LastTouch,
-                                       LastTouchWithAlteredReportCount,
-                                       LastTouchWithEmptyEpochCount)
+from cookiemonster.attribution import (
+    LastTouch,
+    LastTouchWithAlteredReportCount,
+    LastTouchWithEmptyEpochCount,
+)
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.events import Conversion, Impression
 from cookiemonster.report import HistogramReport, Report, ScalarReport
-from cookiemonster.utils import (COOKIEMONSTER, COOKIEMONSTER_BASE, IPA,
-                                 compute_global_sensitivity,
-                                 maybe_initialize_filters)
+from cookiemonster.utils import (
+    COOKIEMONSTER,
+    COOKIEMONSTER_BASE,
+    IPA,
+    maybe_initialize_filters,
+)
 
 
 class ConversionResult:
@@ -25,7 +30,7 @@ class Partition:
     A simple container for impressions in a set of epochs on a single device.
     Also stores partially computed reports.
     Impressions might be modified in-place depending on budget consumption,
-    this does not affect the true on-device impression.
+    this does not affect the true on-device impressions.
     """
 
     def __init__(
@@ -85,18 +90,18 @@ class User:
         Also stores an unbiased version of the report, to compute metrics.
         """
 
-        # Initialize attribution logic. 
+        # Initialize attribution logic.
         # If conversion value is public, we can use it as attribution_cap,
         # which will be used for the global sensitivity.
         # Otherwise you would need to use attribution_cap_value
         if self.config.bias_detection_knob:
-            
+
             # attribution_function = LastTouchWithEmptyEpochCount(
             #     sensitivity_metric=self.config.sensitivity_metric,
             #     attribution_cap=conversion.aggregatable_value,
             #     kappa=self.config.bias_detection_knob,
             # )
-            
+
             attribution_function = LastTouchWithAlteredReportCount(
                 sensitivity_metric=self.config.sensitivity_metric,
                 attribution_cap=conversion.aggregatable_value,
@@ -144,8 +149,6 @@ class User:
 
             # Modify partition in place and pay on-device budget
             if self.config.baseline == COOKIEMONSTER_BASE:
-                # Use global sensitivity for all epochs in partition
-                # TODO: actually we could drop OOB epochs here too instead of aborting?
                 # Initialize filters for the origin
                 # TODO: the state of this function is odd. Maybe initilize when we try to pay?
                 origin_filters = maybe_initialize_filters(
@@ -155,12 +158,17 @@ class User:
                     self.initial_budget,
                 )
 
+                # TODO: actually we could drop OOB epochs here too instead of aborting?
                 epochs_to_pay = partition.epochs_window
 
-                # TODO: double check that we can use global sensitivity with the actual conversion value here.
+                # Use global sensitivity for all epochs in partition
+                # TODO(P1): double check that we can use global sensitivity with the actual conversion value here.
                 # - Unlike IPA, we can't wait for the whole batch to take the max
-                # - But still ok with parallel composition
-                budget_required = attribution_function.compute_global_sensitivity() / conversion.noise_scale
+                # - But still ok with parallel composition? Maybe true (decompose in subqueries??) but not very obvious, and not what ARA is doing anyway?
+                budget_required = (
+                    attribution_function.compute_global_sensitivity()
+                    / conversion.noise_scale
+                )
                 # budget_required = conversion.epsilon
 
                 filter_result = origin_filters.pay_all_or_nothing(
