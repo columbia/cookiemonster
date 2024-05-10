@@ -3,7 +3,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from omegaconf import OmegaConf
 
-from cookiemonster.attribution import LastTouch, LastTouchWithCount
+from cookiemonster.attribution import (LastTouch,
+                                       LastTouchWithAlteredReportCount,
+                                       LastTouchWithEmptyEpochCount)
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.events import Conversion, Impression
 from cookiemonster.report import HistogramReport, Report, ScalarReport
@@ -88,7 +90,14 @@ class User:
         # which will be used for the global sensitivity.
         # Otherwise you would need to use attribution_cap_value
         if self.config.bias_detection_knob:
-            attribution_function = LastTouchWithCount(
+            
+            # attribution_function = LastTouchWithEmptyEpochCount(
+            #     sensitivity_metric=self.config.sensitivity_metric,
+            #     attribution_cap=conversion.aggregatable_value,
+            #     kappa=self.config.bias_detection_knob,
+            # )
+            
+            attribution_function = LastTouchWithAlteredReportCount(
                 sensitivity_metric=self.config.sensitivity_metric,
                 attribution_cap=conversion.aggregatable_value,
                 kappa=self.config.bias_detection_knob,

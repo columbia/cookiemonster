@@ -7,12 +7,10 @@ import typer
 from coolname import generate_slug
 from loguru import logger
 from omegaconf import OmegaConf
-from ray.air.integrations.mlflow import setup_mlflow
 from termcolor import colored
 
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
-from cookiemonster.attribution import LastTouch, LastTouchWithCount
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.dataset import Dataset
 from cookiemonster.event_logger import EventLogger
@@ -20,7 +18,6 @@ from cookiemonster.query_batch import QueryBatch
 from cookiemonster.user import ConversionResult, User
 from cookiemonster.utils import (BIAS, BUDGET, FILTERS_STATE, IPA, LOGS_PATH,
                                  MLFLOW, GlobalStatistics,
-                                 compute_global_sensitivity,
                                  maybe_initialize_filters, save_logs)
 
 app = typer.Typer()
