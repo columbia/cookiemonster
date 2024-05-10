@@ -11,7 +11,12 @@ from termcolor import colored
 
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
-from cookiemonster.bias import compute_bias_metrics
+from cookiemonster.bias import (
+    aggregate_bias_prediction_metrics,
+    compute_bias_metrics,
+    compute_bias_prediction_metrics,
+    predict_rmsre_naive,
+)
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.dataset import Dataset
 from cookiemonster.event_logger import EventLogger
@@ -169,19 +174,9 @@ class Evaluation:
                         destination=destination,
                     )
 
-        self._log_all_filters_state()
-
-        logs = {}
-        logs["global_statistics"] = self.global_statistics.dump()
-        logs["event_logs"] = self.logger.logs
-        logs["config"] = OmegaConf.to_object(self.config)
-        if self.config.logs.save:
-            save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
-            save_logs(logs, save_dir)
+        logs = self._finalize_logs()
 
         print(logs["global_statistics"])
-
-        # mlflow.log_metrics(logs["global_statistics"])
 
         return logs
 
@@ -238,6 +233,8 @@ class Evaluation:
             else:
                 true_output = aggregation_output = aggregation_noisy_output = None
 
+        # TODO: use a proper return type, and move all this logging to separate functions
+
         # Keep track of the number of queries answered to stop when workload_size is reached
         self.num_queries_answered += 1
 
@@ -292,7 +289,7 @@ class Evaluation:
             if MLFLOW in self.config.logs.logging_keys:
 
                 if self.config.user.bias_detection_knob:
-                    metrics = compute_bias_metrics(
+                    bias_metrics = compute_bias_metrics(
                         true_output,
                         aggregation_output,
                         aggregation_noisy_output,
@@ -301,7 +298,34 @@ class Evaluation:
                         laplace_noise_scale=batch.noise_scale,
                     )
 
-                    mlflow.log_metrics(metrics=metrics, step=self.num_queries_answered)
+                    # TODO: we could use the prior too, but the noisy_output is probably closer? Could also use the p95 bounds on both sides
+                    # This is a heuristic, so scaling factors are fair game too
+                    predicted_rmsre = predict_rmsre_naive(bias_metrics, batch)
+                    true_rmsre = bias_metrics["rmsre"]
+                    target_rmsre = self.config.user.target_rmsre
+
+                    # Some extra logs to get workload-level metrics
+                    aggregatable_metrics = compute_bias_prediction_metrics(
+                        predicted_rmsre,
+                        true_rmsre,
+                        target_rmsre,
+                    )
+
+                    bias_metrics.update(
+                        {
+                            "truly_meets_rmsre_target": aggregatable_metrics[
+                                "truly_meets_rmsre_target"
+                            ],
+                            "probably_meets_rmsre_target": aggregatable_metrics[
+                                "probably_meets_rmsre_target"
+                            ],
+                        }
+                    )
+
+                    mlflow.log_metrics(
+                        metrics=bias_metrics, step=self.num_queries_answered
+                    )
+                    self.logger.log_one(MLFLOW, aggregatable_metrics)
 
                 elif isinstance(true_output, np.ndarray):
                     # You probably don't want to log this, but who knows
@@ -352,6 +376,29 @@ class Evaluation:
                     get_filters_state(user.filters_per_origin)
 
             self.logger.log(FILTERS_STATE, per_destination_device_epoch_filters)
+
+    def _finalize_logs(self):
+        self._log_all_filters_state()
+
+        if MLFLOW in self.config.logs.logging_keys:
+            aggregatable_metrics = self.logger.logs.pop(MLFLOW)
+            aggregated_metrics = aggregate_bias_prediction_metrics(aggregatable_metrics)
+            mlflow.log_metrics(
+                metrics=aggregated_metrics, step=self.num_queries_answered
+            )
+
+            # TODO: plot some CDFs and log them as artifacts?
+            # mlflow.log_figure()
+
+        logs = {}
+        logs["global_statistics"] = self.global_statistics.dump()
+        logs["event_logs"] = self.logger.logs
+        logs["config"] = OmegaConf.to_object(self.config)
+        if self.config.logs.save:
+            save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
+            save_logs(logs, save_dir)
+
+        return logs
 
 
 @app.command()

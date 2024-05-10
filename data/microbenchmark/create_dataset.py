@@ -7,6 +7,8 @@ import pandas as pd
 import typer
 from omegaconf import OmegaConf
 
+from cookiemonster.epsilon_calculator import get_epsilon_for_rmsre_wrt_avg_prior
+
 CURRENT_DIR = Path(__file__).parent
 app = typer.Typer()
 
@@ -16,7 +18,7 @@ def generate_random_dates(start_date, num_days, num_samples):
     start_seconds = int((start_date - datetime.datetime(1969, 12, 31)).total_seconds())
     # end_seconds = int((end_date - datetime.datetime(1969, 12, 31)).total_seconds())
     end_seconds = start_seconds + (num_days * 24 * 60 * 60) + 1
-        
+
     random_seconds = np.random.randint(
         start_seconds, end_seconds, size=num_samples, dtype=int
     )
@@ -48,7 +50,7 @@ def generate_impressions(start_date, num_days, config, publisher_user_profile):
 
 def generate_conversions(product_id, publisher_user_profile, advertiser_id, config):
     start_date = datetime.datetime(2024, 1, 31)
-    num_days = config.num_days - 31 # TODO: why is that?
+    num_days = config.num_days - 31  # TODO: why is that?
 
     publisher_user_profile["means"] = 5
     num_converted_users = int(
@@ -116,7 +118,7 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
 def create_microbenchmark(
     config: OmegaConf,
     dataset_name,
-    ):
+):
     advertiser_id = 1
 
     # <user_contributions_per_query> conversions allowed per user for each batch
@@ -164,11 +166,18 @@ def create_microbenchmark(
     # Set epsilons
     def _set_epsilon():
         [a, b] = config.accuracy
-        expected_result = config.scheduled_batch_size * 5 # 500 * 5
+        expected_result = config.scheduled_batch_size * 5  # 500 * 5
         epsilon = config.cap_value * math.log(1 / b) / (a * expected_result)
         return epsilon
 
-    conversions["epsilon"] = _set_epsilon()
+    # conversions["epsilon"] = _set_epsilon()
+
+    conversions["epsilon"] = get_epsilon_for_rmsre_wrt_avg_prior(
+        sensitivity=config.cap_value,
+        batch_size=config.scheduled_batch_size,
+        expected_average_result=config.expected_average_result,
+        relative_error=config.target_rmsre,
+    )
 
     # Set cap value
     conversions["aggregatable_cap_value"] = config.cap_value
@@ -184,7 +193,7 @@ def create_dataset(
     omegaconf: str = str(CURRENT_DIR.joinpath("config.json")),
     per_day_user_impressions_rate: float = None,
     user_participation_rate_per_query: float = None,
-    dataset_name = None,
+    dataset_name=None,
 ):
     config = OmegaConf.create(OmegaConf.load(omegaconf))
 
@@ -194,13 +203,17 @@ def create_dataset(
         config.per_day_user_impressions_rate = per_day_user_impressions_rate
 
     print(config)
-    
-    dataset_name = dataset_name if dataset_name else f"knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}"
-    
+
+    dataset_name = (
+        dataset_name
+        if dataset_name
+        else f"knob1_{config.user_participation_rate_per_query}_knob2_{config.per_day_user_impressions_rate}"
+    )
+
     return create_microbenchmark(
         config,
         dataset_name=dataset_name,
-        )
+    )
 
 
 if __name__ == "__main__":

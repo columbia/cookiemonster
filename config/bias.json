@@ -2,8 +2,9 @@
     "user": {
         "sensitivity_metric": "L1",
         "baseline": "cookiemonster",
-        "initial_budget": 1,
-        "bias_detection_knob": 5
+        "initial_budget": 2,
+        "bias_detection_knob": 1,
+        "target_rmsre": 0.05
     },
     "dataset": {
         "name": "microbenchmark",

@@ -6,9 +6,7 @@
     "num_schedules": 100,
     "num_days": 60,
     "scheduled_batch_size": 1000,
-    "accuracy": [
-        0.05,
-        0.01
-    ],
+    "target_rmsre": 0.02,
+    "expected_average_result": 5,
     "cap_value": 5
 }

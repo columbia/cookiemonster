@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 class EventLogger:
@@ -6,6 +6,12 @@ class EventLogger:
         self.logs: Dict[str, Any] = {}
 
     def log(self, key, *data):
+        if key not in self.logs:
+            self.logs[key] = []
+        self.logs[key].append(data)
+
+    def log_one(self, key, data):
+        # Avoid building a tuple of length 1 when we just want to log one element
         if key not in self.logs:
             self.logs[key] = []
         self.logs[key].append(data)
