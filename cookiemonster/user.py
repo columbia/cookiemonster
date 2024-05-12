@@ -150,7 +150,7 @@ class User:
             # Modify partition in place and pay on-device budget
             if self.config.baseline == COOKIEMONSTER_BASE:
                 # Initialize filters for the origin
-                # TODO: the state of this function is odd. Maybe initilize when we try to pay?
+                # TODO: the state of this function is odd. Maybe initialize when we try to pay?
                 origin_filters = maybe_initialize_filters(
                     self.filters_per_origin,
                     conversion.destination,

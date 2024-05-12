@@ -73,3 +73,9 @@ python3 experiments/runner.cli.py
 
 The results will be stored inside the `logs` directory.
 Use the notebooks in `notebooks` to check how to analyze the results.
+
+### MLflow
+
+```bash
+ mlflow server --backend-store-uri logs/mlflow
+```
