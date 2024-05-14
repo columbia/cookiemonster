@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Iterable
 import pandas as pd
 import logging
 import numpy as np
@@ -20,7 +21,6 @@ class BaseCreator(ABC):
         config: DictConfig,
         impressions_filename: str,
         conversions_filename: str,
-        augmented_impressions_filename: str | None = None,
         augmented_conversions_filename: str | None = None,
     ):
         self.config = config
@@ -30,13 +30,6 @@ class BaseCreator(ABC):
         )
         self.conversions_filename = os.path.join(
             os.path.dirname(__file__), "..", conversions_filename
-        )
-        self.augmented_impressions_filename = (
-            os.path.join(
-                os.path.dirname(__file__), "..", augmented_impressions_filename
-            )
-            if augmented_impressions_filename
-            else None
         )
         self.augmented_conversions_filename = (
             os.path.join(
@@ -151,12 +144,64 @@ class BaseCreator(ABC):
         pass
 
     @abstractmethod
-    def augment_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+    def augment_impressions(self, df: pd.DataFrame, rate: float) -> pd.DataFrame:
         pass
 
     @abstractmethod
     def augment_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         pass
+
+    def _get_impression_augment_rates(self) -> list[float] | None:
+        if (
+            "augment_rates" not in self.config
+            or "impressions" not in self.config.augment_rates
+        ):
+            return None
+        elif isinstance(self.config.augment_rates.impressions, float):
+            return [self.config.augment_rates.impressions]
+        elif isinstance(self.config.augment_rates.impressions, Iterable) and all(
+            isinstance(x, float) for x in self.config.augment_rates.impressions
+        ):
+            return [x for x in self.config.augment_rates.impressions]
+        else:
+            raise ValueError(
+                "impression augment rates must be a non-zero float or a sequence of floats"
+            )
+
+    def _write_augmented_impressions(
+        self,
+        augmented_impressions: pd.DataFrame,
+        impressions: pd.DataFrame,
+        rate: float,
+    ) -> None:
+        augmented_impressions = augmented_impressions[self.impression_columns_to_use]
+        augmented_impressions = pd.concat([impressions, augmented_impressions])
+        augmented_impressions = augmented_impressions.sort_values(
+            by=["click_timestamp"]
+        )
+
+        fp = f"{self.impressions_filename}_aug_impressions_{rate}.csv"
+        if os.path.exists(fp):
+            os.remove(fp)
+
+        augmented_impressions.to_csv(fp, header=True, index=False)
+        self.logger.info(f"augmented impressions dataset written to {fp}")
+
+    def _write_augmented_conversions(self, augmented_conversions: pd.DataFrame) -> None:
+        augmented_conversions = self.create_conversions(augmented_conversions)
+        augmented_conversions = augmented_conversions.drop(
+            columns=self.conversion_columns_to_drop
+        )
+        augmented_conversions = augmented_conversions.sort_values(
+            by=["conversion_timestamp"]
+        )
+
+        fp = self.augmented_conversions_filename
+        if os.path.exists(fp):
+            os.remove(fp)
+
+        augmented_conversions.to_csv(fp, header=True, index=False)
+        self.logger.info(f"dataset written to {fp}")
 
     def create_datasets(self) -> None:
         self.logger.info("reading in criteo dataset...")
@@ -187,38 +232,18 @@ class BaseCreator(ABC):
             d.to_csv(filepath, header=True, index=False)
             self.logger.info(f"dataset written to {filepath}")
 
-        if self.augmented_impressions_filename:
-            self.logger.info("augmenting impressions...")
-            aidf = self.augment_impressions(self.df)
-            if not aidf.empty:
-                augmented_impressions = aidf[self.impression_columns_to_use]
-                augmented_impressions = pd.concat([impressions, augmented_impressions])
-                augmented_impressions = augmented_impressions.sort_values(
-                    by=["click_timestamp"]
-                )
-
-                fp = self.augmented_impressions_filename
-                if os.path.exists(fp):
-                    os.remove(fp)
-
-                augmented_impressions.to_csv(fp, header=True, index=False)
-                self.logger.info(f"dataset written to {fp}")
+        impression_augment_rates = self._get_impression_augment_rates()
+        if impression_augment_rates:
+            for rate in impression_augment_rates:
+                self.logger.info(f"augmenting impressions with augment rate {rate}...")
+                aidf = self.augment_impressions(self.df, rate)
+                if not aidf.empty:
+                    self._write_augmented_impressions(aidf, impressions, rate)
+        else:
+            self.logger.info("will not augment impressions")
 
         if self.augmented_conversions_filename:
             self.logger.info("augmenting conversions...")
             acdf = self.augment_conversions(self.df)
             if not acdf.empty:
-                augmented_conversions = self.create_conversions(acdf)
-                augmented_conversions = augmented_conversions.drop(
-                    columns=self.conversion_columns_to_drop
-                )
-                augmented_conversions = augmented_conversions.sort_values(
-                    by=["conversion_timestamp"]
-                )
-
-                fp = self.augmented_conversions_filename
-                if os.path.exists(fp):
-                    os.remove(fp)
-
-                augmented_conversions.to_csv(fp, header=True, index=False)
-                self.logger.info(f"dataset written to {fp}")
+                self._write_augmented_conversions(acdf)

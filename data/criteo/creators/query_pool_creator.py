@@ -20,7 +20,6 @@ class QueryPoolDatasetCreator(BaseCreator):
             config,
             impressions_filename="criteo_query_pool_impressions.csv",
             conversions_filename="criteo_query_pool_conversions.csv",
-            augmented_impressions_filename="criteo_query_pool_augmented_impressions.csv",
             augmented_conversions_filename="criteo_query_pool_augmented_conversions.csv",
         )
         self.used_dimension_names = set()
@@ -259,7 +258,7 @@ class QueryPoolDatasetCreator(BaseCreator):
         self.logger.info(f"Sum of epsilons per advertiser:\n{advertiser_epsilon_sum}")
         pd.reset_option("display.max_rows")
 
-    def augment_impressions(self, df: pd.DataFrame) -> pd.DataFrame:
+    def augment_impressions(self, df: pd.DataFrame, rate: float) -> pd.DataFrame:
 
         df = df.loc[df.Sale == 1]
         df = df.assign(
@@ -270,21 +269,9 @@ class QueryPoolDatasetCreator(BaseCreator):
             ),
         )
 
-        augment_rates = self.config.get("augment_rates")
-        if not augment_rates:
-            msg = "received request to augment dataset, but no augment rates. will not augment impressions"
-            self.logger.warning(msg)
-            return pd.DataFrame()
-
-        impressions_augment_rate = augment_rates.get("impressions")
-        if not impressions_augment_rate:
-            msg = "received request to augment impressions, but no augment rate was specified. will not augment impressions"
-            self.logger.warning(msg)
-            return pd.DataFrame()
-
         attribution_window = 30  # days
         attribution_window_seconds = attribution_window * 60 * 60 * 24
-        impressions_to_add = math.ceil(impressions_augment_rate * attribution_window)
+        impressions_to_add = math.ceil(rate * attribution_window)
 
         def get_click_timestamps(attribution_window_end: int) -> int:
             nonlocal impressions_to_add
