@@ -296,7 +296,7 @@ class Patcg(Dataset):
 
     def iter_conversions_data(self):
         # for chunk in pd.read_csv(self.conversions_path, chunksize=None):
-            # chunk.query("key in @self.queries", inplace=True)
+        # chunk.query("key in @self.queries", inplace=True)
         chunk = pd.read_csv(self.conversions_path)
         yield chunk
 

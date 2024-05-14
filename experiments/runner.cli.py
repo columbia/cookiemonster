@@ -146,17 +146,13 @@ def criteo_run(ray_session_dir):
 
     workload_generation = OmegaConf.load("data/criteo/config.json")
 
-    augment_rate = workload_generation.get("augment_rate")
-
-    epoch_first_batch = [1, 7, 14, 21]
-    epoch_second_batch = [30, 60, 90]
+    augment_rates = workload_generation.get("augment_rates")
 
     config = {
         "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
-        "num_days_per_epoch": epoch_first_batch,
         "num_days_attribution_window": [30],
         "workload_size": [1_000],  # force a high number so that we run on all queries
         "max_scheduling_batch_size_per_query": workload_generation.max_batch_size,
@@ -168,17 +164,39 @@ def criteo_run(ray_session_dir):
         "logging_keys": [BIAS, BUDGET],
     }
 
-    grid_run(**config)
-    config["num_days_per_epoch"] = epoch_second_batch
-    config["ray_init"] = False
-    grid_run(**config)
+    # # already ran this for the paper
+    # for batch in [[1, 7, 14, 21], [30, 60, 90]]:
+    #     config["num_days_per_epoch"] = batch
+    #     grid_run(**config)
+    #     config["ray_init"] = False
 
-    if augment_rate:
-        config["impressions_path"] = f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
-        config["logs_dir"] = f"{dataset}/augmented_bias_varying_epoch_size"
+    if augment_rates:
+        # if augment_rates.get("impressions"):
+        #     config["impressions_path"] = (
+        #         f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
+        #     )
+        #     config["logs_dir"] = (
+        #         f"{dataset}/augmented_impressions_bias_varying_epoch_size"
+        #     )
 
-        for batch in [[1, 7], [14, 21], [30, 60], [90]]:
-            config["num_days_per_epoch"] = batch
+        #     # already ran this for the paper
+        #     # batches = [[1, 7], [14, 21], [30, 60], [90]]
+        #     batches = [[7]]
+
+        #     for batch in batches:
+        #         config["num_days_per_epoch"] = batch
+        #         grid_run(**config)
+
+        # TODO: poetry run python .\experiments\runner.cli.py --exp criteo_run
+        if augment_rates.get("conversions"):
+            config["impressions_path"] = impressions_path
+            config["conversions_path"] = (
+                f"{dataset}/{dataset}_query_pool_augmented_conversions_50.csv"
+            )
+            config["logs_dir"] = (
+                f"{dataset}/augmented_conversions_bias_varying_epoch_size"
+            )
+            config["num_days_per_epoch"] = [7]
             grid_run(**config)
 
 
@@ -241,6 +259,7 @@ def patcg_varying_initial_budget(ray_session_dir):
     grid_run(**config)
     config["initial_budget"] = [6, 8, 10]
     grid_run(**config)
+
 
 def patcg_bias_varying_attribution_window(ray_session_dir):
     dataset = "patcg"

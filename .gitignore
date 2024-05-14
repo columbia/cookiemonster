@@ -6,6 +6,7 @@ logs
 node_modules
 *.zip
 *.tar.gz
+ray
 
 data/criteo/Criteo_Conversion_Search
 data/criteo/criteo-research-search-conversion.tar.gz

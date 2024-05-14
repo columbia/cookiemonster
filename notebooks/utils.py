@@ -23,6 +23,7 @@ class Bias:
         self.values = []
         self.count = 0
         self.undefined_errors_counter = 0
+        self.no_run_counter = 0
 
 
 def get_df(path):
@@ -152,6 +153,8 @@ def get_bias_logs(row):
         for _, row in group.iterrows():
             if math.isnan(row.aggregation_output):
                 queries_rmsre.undefined_errors_counter += 1
+            elif not row.true_output:
+                queries_rmsre.no_run_counter += 1
             else:
                 x = abs(row.true_output - row.aggregation_output) ** 2 + 2 * (
                     row.sensitivity**2
@@ -232,7 +235,9 @@ def save_data(path):
     save_df(df, path, "rmsres.csv")
 
 
-def focus(df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget=0):
+def focus(
+    df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget=0
+):
     # Pick a subset of the experiments
     focus = ""
     if workload_size:
@@ -288,7 +293,8 @@ def plot_budget_consumption_cdf(
             **category_orders,
         },
     )
-    iplot(fig)
+    fig.write_image("budget_consumption_cdf.png")
+    # iplot(fig)
 
 
 def plot_budget_consumption_boxes(
@@ -470,7 +476,9 @@ def plot_rmsre_cdf(
 ):
 
     df = analyze_results(path, "bias")
-    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget)
+    df, focus_ = focus(
+        df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget
+    )
     # df = df.explode("queries_rmsres")
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)
