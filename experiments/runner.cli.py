@@ -4,6 +4,7 @@ from omegaconf import OmegaConf
 import typer
 import multiprocessing
 from copy import deepcopy
+from data.criteo.creators.query_pool_creator import QueryPoolDatasetCreator as CriteoQueries
 from ray_runner import grid_run
 from cookiemonster.utils import BUDGET, BIAS
 
@@ -146,13 +147,17 @@ def criteo_run(ray_session_dir):
 
     workload_generation = OmegaConf.load("data/criteo/config.json")
 
-    augment_rates = workload_generation.get("augment_rates")
+    augment_rate = workload_generation.get("augment_rate")
+
+    epoch_first_batch = [1, 7, 14, 21]
+    epoch_second_batch = [30, 60, 90]
 
     config = {
         "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
+        "num_days_per_epoch": epoch_first_batch,
         "num_days_attribution_window": [30],
         "workload_size": [1_000],  # force a high number so that we run on all queries
         "max_scheduling_batch_size_per_query": workload_generation.max_batch_size,
@@ -164,40 +169,50 @@ def criteo_run(ray_session_dir):
         "logging_keys": [BIAS, BUDGET],
     }
 
-    # # already ran this for the paper
-    # for batch in [[1, 7, 14, 21], [30, 60, 90]]:
-    #     config["num_days_per_epoch"] = batch
-    #     grid_run(**config)
-    #     config["ray_init"] = False
+    grid_run(**config)
+    config["num_days_per_epoch"] = epoch_second_batch
+    config["ray_init"] = False
+    grid_run(**config)
 
-    if augment_rates:
-        # if augment_rates.get("impressions"):
-        #     config["impressions_path"] = (
-        #         f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
-        #     )
-        #     config["logs_dir"] = (
-        #         f"{dataset}/augmented_impressions_bias_varying_epoch_size"
-        #     )
+    if augment_rate:
+        config["impressions_path"] = (
+            f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
+        )
+        config["logs_dir"] = f"{dataset}/augmented_bias_varying_epoch_size"
 
-        #     # already ran this for the paper
-        #     # batches = [[1, 7], [14, 21], [30, 60], [90]]
-        #     batches = [[7]]
-
-        #     for batch in batches:
-        #         config["num_days_per_epoch"] = batch
-        #         grid_run(**config)
-
-        # TODO: poetry run python .\experiments\runner.cli.py --exp criteo_run
-        if augment_rates.get("conversions"):
-            config["impressions_path"] = impressions_path
-            config["conversions_path"] = (
-                f"{dataset}/{dataset}_query_pool_augmented_conversions_50.csv"
-            )
-            config["logs_dir"] = (
-                f"{dataset}/augmented_conversions_bias_varying_epoch_size"
-            )
-            config["num_days_per_epoch"] = [7]
+        for batch in [[1, 7], [14, 21], [30, 60], [90]]:
+            config["num_days_per_epoch"] = batch
             grid_run(**config)
+
+def criteo_impressions_run(ray_session_dir):
+    dataset = "criteo"
+    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
+    workload_generation = OmegaConf.load("data/criteo/config.json")
+    impression_augment_rates = CriteoQueries(workload_generation).get_impression_augment_rates()
+    ray_init = True
+
+    for rate in impression_augment_rates:
+        impressions_path = f"{dataset}/{dataset}_query_pool_impressions_augment_{rate}.csv"
+        logs_dir = f"{dataset}/augment_impressions_{rate}"
+        config = {
+            "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
+            "dataset_name": dataset,
+            "impressions_path": impressions_path,
+            "conversions_path": conversions_path,
+            "num_days_attribution_window": [30],
+            "workload_size": [1_000],  # force a high number so that we run on all queries
+            "max_scheduling_batch_size_per_query": workload_generation.max_batch_size,
+            "min_scheduling_batch_size_per_query": workload_generation.min_batch_size,
+            "initial_budget": [1],
+            "num_days_per_epoch": [7],
+            "logs_dir": logs_dir,
+            "loguru_level": "INFO",
+            "ray_session_dir": ray_session_dir,
+            "logging_keys": [BIAS, BUDGET],
+            "ray_init": ray_init,
+        }
+        grid_run(**config)
+        ray_init = False
 
 
 ## ----------------- PATCG ----------------- ##

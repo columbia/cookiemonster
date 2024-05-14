@@ -151,7 +151,7 @@ class BaseCreator(ABC):
     def augment_conversions(self, df: pd.DataFrame) -> pd.DataFrame:
         pass
 
-    def _get_impression_augment_rates(self) -> list[float] | None:
+    def get_impression_augment_rates(self) -> list[float] | None:
         if (
             "augment_rates" not in self.config
             or "impressions" not in self.config.augment_rates
@@ -180,7 +180,7 @@ class BaseCreator(ABC):
             by=["click_timestamp"]
         )
 
-        fp = f"{self.impressions_filename}_aug_impressions_{rate}.csv"
+        fp = f"{self.impressions_filename[:-4]}_augment_{rate}.csv"
         if os.path.exists(fp):
             os.remove(fp)
 
@@ -232,7 +232,7 @@ class BaseCreator(ABC):
             d.to_csv(filepath, header=True, index=False)
             self.logger.info(f"dataset written to {filepath}")
 
-        impression_augment_rates = self._get_impression_augment_rates()
+        impression_augment_rates = self.get_impression_augment_rates()
         if impression_augment_rates:
             for rate in impression_augment_rates:
                 self.logger.info(f"augmenting impressions with augment rate {rate}...")
