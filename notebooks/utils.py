@@ -1,6 +1,6 @@
 import re
 import math
-from typing import Callable
+from typing import Callable, Iterable
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -217,22 +217,53 @@ def get_filters_state_logs(row):
 
 
 def save_data(path):
+    save_data_from_multiple_paths(path, [(path, None)])
+
+def save_data_from_multiple_paths(output_directory: str, paths: Iterable[tuple[str, str]]):
 
     # Filters state
-    df = analyze_results(path, "filters_state")
-    df = df.drop(columns=["workload_size", "num_days_attribution_window"], axis=1)
-    df = df.explode("budget_consumption")
-    save_df(df, path, "filters_state.csv")
+    chunks = []
+    for path, discriminator in paths:
+        df = analyze_results(path, "filters_state")
+        df = df.drop(columns=["workload_size", "num_days_attribution_window"], axis=1)
+        df = df.explode("budget_consumption")
+        if discriminator:
+            df = df.assign(
+                baseline=df.apply(
+                    lambda r: f"{r.baseline}_{discriminator}",
+                    axis=1,
+                )
+            )
+        chunks.append(df)
+    save_df(pd.concat(chunks), output_directory, "filters_state.csv")
 
     # Budget Consumption
-    df = analyze_results(path, "budget")
-    save_df(df, path, "budgets.csv", include_index=True)
+    chunks = []
+    for path, discriminator in paths:
+        df = analyze_results(path, "budget")
+        if discriminator:
+            df = df.assign(
+                baseline=df.apply(
+                    lambda r: f"{r.baseline}_{discriminator}",
+                    axis=1,
+                )
+            )
+        chunks.append(df)
+    save_df(pd.concat(chunks), output_directory, "budgets.csv", include_index=True)
 
     # Bias
-    df = analyze_results(path, "bias")
-    # max_ = df["queries_rmsres"].max() * 2
-    # df.fillna({"queries_rmsres": max_}, inplace=True)
-    save_df(df, path, "rmsres.csv")
+    chunks = []
+    for path, discriminator in paths:
+        df = analyze_results(path, "bias")
+        if discriminator:
+            df = df.assign(
+                baseline=df.apply(
+                    lambda r: f"{r.baseline}_{discriminator}",
+                    axis=1,
+                )
+            )
+        chunks.append(df)
+    save_df(pd.concat(chunks), output_directory, "rmsres.csv")
 
 
 def focus(
@@ -501,7 +532,6 @@ def plot_rmsre_cdf(
     )
 
     iplot(fig)
-
 
 if __name__ == "__main__":
     save_data("ray/microbenchmark/varying_knob1")
