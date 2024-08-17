@@ -216,23 +216,26 @@ def get_filters_state_logs(row):
     return df
 
 
-def save_data(path):
+def save_data(path, type="budget"):
 
-    # Filters state
-    df = analyze_results(path, "filters_state")
-    df = df.drop(columns=["workload_size", "num_days_attribution_window"], axis=1)
-    df = df.explode("budget_consumption")
-    save_df(df, path, "filters_state.csv")
+    if type == "filters_state":
+        # Filters state
+        df = analyze_results(path, "filters_state")
+        df = df.drop(columns=["workload_size", "num_days_attribution_window"], axis=1)
+        df = df.explode("budget_consumption")
+        save_df(df, path, "filters_state.csv")
 
-    # Budget Consumption
-    df = analyze_results(path, "budget")
-    save_df(df, path, "budgets.csv", include_index=True)
+    elif type == "budget":
+        # Budget Consumption
+        df = analyze_results(path, "budget")
+        save_df(df, path, "budgets.csv", include_index=True)
 
-    # Bias
-    df = analyze_results(path, "bias")
-    # max_ = df["queries_rmsres"].max() * 2
-    # df.fillna({"queries_rmsres": max_}, inplace=True)
-    save_df(df, path, "rmsres.csv")
+    elif type == "bias":
+        # Bias
+        df = analyze_results(path, "bias")
+        # max_ = df["queries_rmsres"].max() * 2
+        # df.fillna({"queries_rmsres": max_}, inplace=True)
+        save_df(df, path, "rmsres.csv")
 
 
 def focus(
@@ -433,7 +436,6 @@ def plot_rmsre_boxes(
     category_orders={},
     log_y=False,
 ):
-
     df = analyze_results(path, "bias")
     df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
     # df = df.explode("queries_rmsres")
@@ -504,7 +506,8 @@ def plot_rmsre_cdf(
 
 
 if __name__ == "__main__":
-    save_data("ray/microbenchmark/varying_knob1")
-    save_data("ray/microbenchmark/varying_knob2")
-    # save_data("ray/patcg/varying_epoch_granularity_aw_7")
+    save_data("ray/microbenchmark/varying_knob1", type="budget")
+    save_data("ray/microbenchmark/varying_knob2", type="budget")
+    save_data("ray/patcg/varying_epoch_granularity_aw_7", type="budget")
+    save_data("ray/patcg/varying_epoch_granularity_aw_7", type="bias")
     # save_data("ray/patcg/varying_initial_budget")
