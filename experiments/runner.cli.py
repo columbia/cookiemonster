@@ -161,10 +161,10 @@ def criteo_run(ray_session_dir):
 
     workload_generation = OmegaConf.load("data/criteo/config.json")
 
-    augment_rate = workload_generation.get("augment_rate")
+    # augment_rate = workload_generation.get("augment_rate")
 
-    epoch_first_batch = [1, 7, 14, 21]
-    epoch_second_batch = [30, 60]
+    epoch_first_batch = [1, 60, 14]
+    epoch_second_batch = [30, 7, 21]
 
     config = {
         "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
@@ -188,15 +188,14 @@ def criteo_run(ray_session_dir):
     config["ray_init"] = False
     grid_run(**config)
 
-    if augment_rate:
-        config["impressions_path"] = (
-            f"{dataset}/{dataset}_query_pool_augmented_impressions.csv"
-        )
-        config["logs_dir"] = f"{dataset}/augmented_bias_varying_epoch_size"
+    config["impressions_path"] = (
+        f"{dataset}/{dataset}_query_pool_impressions_augment_0.3.csv"
+    )
+    config["logs_dir"] = f"{dataset}/augmented_bias_varying_epoch_size"
 
-        for batch in [[1, 7], [14, 21], [30, 60], [90]]:
-            config["num_days_per_epoch"] = batch
-            grid_run(**config)
+    for batch in [[1, 60], [14, 21], [30, 7]]:
+        config["num_days_per_epoch"] = batch
+        grid_run(**config)
 
 def criteo_impressions_run(ray_session_dir):
     dataset = "criteo"
@@ -239,33 +238,33 @@ def patcg_varying_epoch_granularity(ray_session_dir):
     impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
 
-    # config = {
-    #     "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
-    #     "dataset_name": f"{dataset}",
-    #     "impressions_path": impressions_path,
-    #     "conversions_path": conversions_path,
-    #     "num_days_per_epoch": [21, 30],
-    #     "num_days_attribution_window": [7],
-    #     "workload_size": [80],
-    #     "max_scheduling_batch_size_per_query": 303009,
-    #     "min_scheduling_batch_size_per_query": 280000,
-    #     "initial_budget": [1],
-    #     "logs_dir": logs_dir,
-    #     "loguru_level": "INFO",
-    #     "ray_session_dir": ray_session_dir,
-    #     "logging_keys": [BUDGET, BIAS],
-    # }
+    config = {
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [21, 30],
+        "num_days_attribution_window": [7],
+        "workload_size": [80],
+        "max_scheduling_batch_size_per_query": 303009,
+        "min_scheduling_batch_size_per_query": 280000,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [BUDGET, BIAS],
+    }
 
-    # grid_run(**config)
-    # config["num_days_per_epoch"] = [1, 60]
-    # grid_run(**config)
+    grid_run(**config)
+    config["num_days_per_epoch"] = [1, 60]
+    grid_run(**config)
     
-    # config["num_days_per_epoch"] = [14, 7]
-    # grid_run(**config)
+    config["num_days_per_epoch"] = [14, 7]
+    grid_run(**config)
 
     path = "ray/patcg/varying_epoch_granularity_aw_7"
-    # save_data(path, type="budget")
-    # save_data(path, type="bias")
+    save_data(path, type="budget")
+    save_data(path, type="bias")
     os.makedirs("figures", exist_ok=True)
     patcg_plot_experiments_side_by_side(
         f"{LOGS_PATH.joinpath(path)}", "figures/fig5_a_b_c.png")

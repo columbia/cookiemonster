@@ -37,62 +37,12 @@ Enter the repository:
 cd cookiemonster
 ```
 
-### Build the Turbo docker
+### Build the Cookie Monster docker
 
-Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets, queries and workloads used in the evaluation section of the paper. This step takes several minutes to finish (~20') due to the processing and generation of the datasets.
+Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets used in the evaluation section of the paper. This step takes several minutes to finish (~30') due to the processing and generation of the datasets.
 ``` bash 
 sudo docker build -t cookiemonster -f Dockerfile .
 
-
-## Install dependencies
-
-Install the package management system, poetry: `pip install poetry`.
-
-We use Python 3.10.11. If that is not your system version, we advise using [pyenv](https://github.com/pyenv/pyenv).
-Once pyenv is installed, run: `poetry env use 3.10.11`.
-
-Then, install the dependencies: `poetry install`.
-
-Finally, to run the poetry interactive shell, run `poetry shell`.
-
-
-## Create datasets
-
-### Criteo
-
-Ensure you are in the "cookiemonster/data/criteo" directory: `cd cookiemonster/data/criteo`.
-Ensure you have the Criteo dataset downloaded. If not, run the following:
-Download the Criteo dataset
-```bash
-wget http://go.criteo.net/criteo-research-search-conversion.tar.gz
-tar -xzf criteo-research-search-conversion.tar.gz
-```
-
-Once the dataset has been downloaded, run `python3 create_dataset.py`.
-This will use the configuration file found at "cookiemonster/data/criteo/config.json" to drive the datasets created.
-
-#### A note on the augment rates for impressions
-If you want to augment the impressions of the Criteo dataset, to see how the various attribution systems handle an increasing number of impressions per conversion (within an attribution window), the config.json file takes an `augment_rates.impressions` list. At the time of writing this, the impression rates are 0.1, 0.2, and 0.3. These rates are multiplied by the attribution window, which is 30 days in the Criteo dataset. This ends up adding 3, 6, and 9 synthetic impressions for each conversion discovered.
-
-### Microbenchmark
-```bash
-cd cookiemonster/data/microbenchmark
-
-python3 create_dataset.py --user-participation-rate-per-query 0.001 --per-day-user-impressions-rate 0.1 &&
-python3 create_dataset.py --user-participation-rate-per-query 0.01 --per-day-user-impressions-rate 0.1 &&
-python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.1 &&
-python3 create_dataset.py --user-participation-rate-per-query 1.0 --per-day-user-impressions-rate 0.1 &&
-python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.001 &&
-python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.01 &&
-python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 1.0
-```
-
-PATCG Synthetic Dataset:
-https://docs.google.com/document/d/1Vxq4LrMe3A2WIlu-7IYP1Hycr_nz3_qTpPAICX9fLcw/edit#heading=h.5viiz0en8hkz
-cd cookiemonster/data/microbenchmark
-```bash
-# todo(automate generating them)
-```
 
 ## Run experiments
 
@@ -104,12 +54,32 @@ Use the notebooks in `notebooks` to check how to analyze the results.
 python3 cookiemonster/run_evaluation.py --omegaconf config/config.json
 ```
 
-### Run many experiments in parallel
-```bash
-python3 experiments/runner.cli.py
+### Reproduce experiments
+
+We evaluate Cookie Monster by orchestrating the arrival of new impressions and conversions into the system. You can control the simulation and create your own simulation settings by editing the configuration files. The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script automates the execution of multiple experiments concurrently using [Ray](https://www.ray.io/). You can find the configuration for each experiment hardcoded inside the script.
+
+The script [experiments/run_all.sh](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/run_all.sh) contains a complete list of all the commands that generate the experiments presented in the paper.
+
+### 4.1. Run all experiments
+
+Reproduce all Cookie Monster experiments by running the cookiemonster docker with the following command:
+
+``` bash
+sudo docker run -v $PWD/logs:/cookiemonster/logs $PWD/figures:/cookiemonster/figures -v $PWD/cookiemonster/config:/cookiemonster/cookiemonster/config -v $PWD/temp:/tmp --network=host --name cookiemonster --shm-size=204.89gb --rm cookiemonster experiments/run_all.sh
 ```
 
-### Run the Criteo experiments we ran for the paper
-Get the unaugmented results across various epoch sizes by running the `criteo_run` experiment (found in "experiments/runner.cli.py").
+This step takes around 12 hours to finish.
 
-Get the augmented impressions results across various augmented impressions rates by running the `criteo_impressions_run` experiment (found in "experiments/runner.cli.py").
+Make sure that the cookiemonster container has enough disk space at `/tmp` which Ray uses to store checkpoints and other internal data. If that's not the case then mount the `/tmp` directory on a directory that has enough space.
+
+For example, use an additional -v flag followed by the directory of your choice:
+
+`-v $PWD/temp:/tmp`
+
+With the `-v` flag we mount directories `cookiemonster/logs` and `cookiemonster/config` from the host into the container so that we can access the logs from the host even after the container stops and also allow for the container to access user-defined configurations stored in the host.
+
+### 4.2. Analyze results
+
+The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script will automatically analyze the execution logs and create plots corresponding to the figures presented in the paper.
+
+Check the `figures` directory for all the outputs.
