@@ -6,10 +6,10 @@ import process_pqt
 # gdown.download_folder(
 #     "https://drive.google.com/drive/folders/1qt1YVpxIuhmiCbTn4LDi3CDflkcqi_vf", quiet=True)
 
-if not os.path.exists("publishers"):
-    os.mkdir("publishers")
-if not os.path.exists("advertisers"):
-    os.mkdir("advertisers")
+# if not os.path.exists("publishers"):
+#     os.mkdir("publishers")
+# if not os.path.exists("advertisers"):
+#     os.mkdir("advertisers")
 
 # for file in os.listdir("patcg_dataset"):
 #     if file.endswith(".zip") and file.startswith("advertiser_conversions"):

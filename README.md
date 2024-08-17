@@ -69,10 +69,10 @@ For example, use an additional -v flag followed by the directory of your choice:
 
 `-v $PWD/temp:/tmp`
 
-With the `-v` flag we mount directories `cookiemonster/logs` and `cookiemonster/config` from the host into the container so that we can access the logs from the host even after the container stops and also allow for the container to access user-defined configurations stored in the host.
+With the `-v` flag we mount directories `cookiemonster/logs`, `cookiemonster/figures` and `cookiemonster/config` from the host into the container so that we can access the logs/figures from the host even after the container stops and also allow for the container to access user-defined configurations stored in the host.
 
 ### 3.2. Analyze results
 
 The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script will automatically analyze the execution logs and create plots corresponding to the figures presented in the paper.
 
-Check the `figures` directory for all the outputs
+Check the `figures` directory for all the outputs.

@@ -10,6 +10,7 @@ from cookiemonster.utils import BUDGET, BIAS, LOGS_PATH
 from notebooks.utils import save_data
 from plotting.microbenchmark_plot import microbenchmark_plot_budget_consumption_bars
 from plotting.patcg_plot import patcg_plot_experiments_side_by_side
+from plotting.criteo_plot import criteo_plot_experiments_side_by_side
 
 app = typer.Typer()
 
@@ -119,7 +120,6 @@ def microbenchmark_varying_knob2(ray_session_dir):
         "knob2", f"{LOGS_PATH.joinpath(path)}/budgets.csv", "figures/fig4_c_d.png")
 
 
-
 def microbenchmark_varying_epoch_granularity(ray_session_dir):
     dataset = "microbenchmark"
     logs_dir = f"{dataset}/varying_epoch_granularity"
@@ -196,6 +196,21 @@ def criteo_run(ray_session_dir):
     for batch in [[1, 60], [14, 21], [30, 7]]:
         config["num_days_per_epoch"] = batch
         grid_run(**config)
+
+    path1 = "ray/criteo/augmented_bias_varying_epoch_size"
+    save_data(path1, type="filters_state")
+    save_data(path1, type="bias")
+
+    path2 = "ray/criteo/augmented_bias_varying_epoch_size"
+    save_data(path2, type="filters_state")
+    save_data(path2, type="bias")
+
+    os.makedirs("figures", exist_ok=True)
+    criteo_plot_experiments_side_by_side(
+        f"{LOGS_PATH.joinpath(path1)}",
+        f"{LOGS_PATH.joinpath(path2)}",
+        "figures/fig6_a_b_c_d.png")
+
 
 def criteo_impressions_run(ray_session_dir):
     dataset = "criteo"
