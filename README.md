@@ -24,6 +24,9 @@ A description of this project can be found on our paper, titled Cookie Monster: 
 
 Make sure you have a working installation of [`docker`](https://docs.docker.com/get-docker/).
 
+Spec requirements: at least 128 GB memory, and 100 GB disk space.
+
+
 ## 2. Install Cookie Monster
 ### Download the code
 
@@ -42,25 +45,15 @@ cd cookiemonster
 Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets used in the evaluation section of the paper. This step takes several minutes to finish (~30') due to the processing and generation of the datasets.
 ``` bash 
 sudo docker build -t cookiemonster -f Dockerfile .
-
-
-## Run experiments
-
-The results will be stored inside the `logs` directory.
-Use the notebooks in `notebooks` to check how to analyze the results.
-
-### Run one experiment at a time
-```bash
-python3 cookiemonster/run_evaluation.py --omegaconf config/config.json
 ```
 
-### Reproduce experiments
+## 3. Reproduce experiments
 
-We evaluate Cookie Monster by orchestrating the arrival of new impressions and conversions into the system. You can control the simulation and create your own simulation settings by editing the configuration files. The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script automates the execution of multiple experiments concurrently using [Ray](https://www.ray.io/). You can find the configuration for each experiment hardcoded inside the script.
+The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script automates the execution of multiple experiments concurrently using [Ray](https://www.ray.io/). You can find the configuration for each experiment hardcoded inside the script.
 
 The script [experiments/run_all.sh](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/run_all.sh) contains a complete list of all the commands that generate the experiments presented in the paper.
 
-### 4.1. Run all experiments
+### 3.1. Run all experiments
 
 Reproduce all Cookie Monster experiments by running the cookiemonster docker with the following command:
 
@@ -78,8 +71,8 @@ For example, use an additional -v flag followed by the directory of your choice:
 
 With the `-v` flag we mount directories `cookiemonster/logs` and `cookiemonster/config` from the host into the container so that we can access the logs from the host even after the container stops and also allow for the container to access user-defined configurations stored in the host.
 
-### 4.2. Analyze results
+### 3.2. Analyze results
 
 The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script will automatically analyze the execution logs and create plots corresponding to the figures presented in the paper.
 
-Check the `figures` directory for all the outputs.
+Check the `figures` directory for all the outputs
