@@ -31,15 +31,23 @@ Finally, to run the poetry interactive shell, run `poetry shell`.
 
 ## Create datasets
 
-Criteo:
+### Criteo
+
+Ensure you are in the "cookiemonster/data/criteo" directory: `cd cookiemonster/data/criteo`.
+Ensure you have the Criteo dataset downloaded. If not, run the following:
+Download the Criteo dataset
 ```bash
-cd cookiemonster/data/criteo
 wget http://go.criteo.net/criteo-research-search-conversion.tar.gz
 tar -xzf criteo-research-search-conversion.tar.gz
-python3 create_dataset.py
 ```
 
-Microbenchmark:
+Once the dataset has been downloaded, run `python3 create_dataset.py`.
+This will use the configuration file found at "cookiemonster/data/criteo/config.json" to drive the datasets created.
+
+#### A note on the augment rates for impressions
+If you want to augment the impressions of the Criteo dataset, to see how the various attribution systems handle an increasing number of impressions per conversion (within an attribution window), the config.json file takes an `augment_rates.impressions` list. At the time of writing this, the impression rates are 0.1, 0.2, and 0.3. These rates are multiplied by the attribution window, which is 30 days in the Criteo dataset. This ends up adding 3, 6, and 9 synthetic impressions for each conversion discovered.
+
+### Microbenchmark
 ```bash
 cd cookiemonster/data/microbenchmark
 
@@ -52,13 +60,16 @@ python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user
 python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 1.0
 ```
 
-PATCG Synthetic Dataset:
+### PATCG Synthetic Dataset
 cd cookiemonster/data/microbenchmark
 ```bash
 # todo(automate generating them)
 ```
 
 ## Run experiments
+
+The results will be stored inside the `logs` directory.
+Use the notebooks in `notebooks` to check how to analyze the results.
 
 ### Run one experiment at a time
 ```bash
@@ -70,5 +81,7 @@ python3 cookiemonster/run_evaluation.py --omegaconf config/config.json
 python3 experiments/runner.cli.py
 ```
 
-The results will be stored inside the `logs` directory.
-Use the notebooks in `notebooks` to check how to analyze the results.
+### Run the Criteo experiments we ran for the paper
+Get the unaugmented results across various epoch sizes by running the `criteo_run` experiment (found in "experiments/runner.cli.py").
+
+Get the augmented impressions results across various augmented impressions rates by running the `criteo_impressions_run` experiment (found in "experiments/runner.cli.py").
