@@ -9,7 +9,7 @@ python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user
 python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 0.01 &&
 python3 create_dataset.py --user-participation-rate-per-query 0.1 --per-day-user-impressions-rate 1.0
 
-Create criteo datasets
+# Create criteo datasets
 cd ../criteo
 
 wget http://go.criteo.net/criteo-research-search-conversion.tar.gz
