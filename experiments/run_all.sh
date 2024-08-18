@@ -1,5 +1,3 @@
-#!/bin/sh
-
 export LOGURU_LEVEL=ERROR
 
 echo "Running Figures 4.a and 4.b.."

@@ -24,7 +24,7 @@ A description of this project can be found on our paper, titled Cookie Monster: 
 
 Make sure you have a working installation of [`docker`](https://docs.docker.com/get-docker/).
 
-Spec requirements: at least 128 GB memory, and 100 GB disk space.
+Spec requirements: at least 128 GB memory and 100 GB disk space.
 
 
 ## 2. Install Cookie Monster
@@ -61,7 +61,7 @@ Reproduce all Cookie Monster experiments by running the cookiemonster docker wit
 sudo docker run -v $PWD/logs:/cookiemonster/logs $PWD/figures:/cookiemonster/figures -v $PWD/cookiemonster/config:/cookiemonster/cookiemonster/config -v $PWD/temp:/tmp --network=host --name cookiemonster --shm-size=204.89gb --rm cookiemonster experiments/run_all.sh
 ```
 
-This step takes around 12 hours to finish.
+This step takes around 14 hours to finish.
 
 Make sure that the cookiemonster container has enough disk space at `/tmp` which Ray uses to store checkpoints and other internal data. If that's not the case then mount the `/tmp` directory on a directory that has enough space.
 
@@ -76,3 +76,4 @@ With the `-v` flag we mount directories `cookiemonster/logs`, `cookiemonster/fig
 The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script will automatically analyze the execution logs and create plots corresponding to the figures presented in the paper.
 
 Check the `figures` directory for all the outputs.
+Due to noise addition not being deterministic results might not be identical but the relative difference between baselines should be the same. 

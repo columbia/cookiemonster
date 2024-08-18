@@ -75,9 +75,9 @@ def criteo_plot_experiments_side_by_side(path1, path2, output_path, variable="nu
         "axis_tick_font_size": {"x": 14, "y": 14},
         "legend": {
             "yanchor": "top",
-            "ypos": 1.3,
+            "y": 1.3,
             "xanchor": "left",
-            "xpos": 0.2,
+            "x": 0.2,
             "orientation": "h",
         },
         "output_path": output_path,

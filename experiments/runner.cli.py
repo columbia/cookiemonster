@@ -197,7 +197,7 @@ def criteo_run(ray_session_dir):
         config["num_days_per_epoch"] = batch
         grid_run(**config)
 
-    path1 = "ray/criteo/augmented_bias_varying_epoch_size"
+    path1 = "ray/criteo/bias_varying_epoch_size"
     save_data(path1, type="filters_state")
     save_data(path1, type="bias")
 

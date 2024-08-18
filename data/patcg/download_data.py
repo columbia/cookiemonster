@@ -3,9 +3,11 @@ import gdown
 import zipfile
 import process_pqt
 
-# gdown.download_folder(
-#     "https://drive.google.com/drive/folders/1qt1YVpxIuhmiCbTn4LDi3CDflkcqi_vf", quiet=True)
+gdown.download_folder(
+    "https://drive.google.com/drive/folders/1-qPZ4FRvQxvXwWdnIEmCgEtdNwC2h_KE", quiet=True)
 
+# move file one folder up
+# os.rename("patcg_dataset.zip", "patcg_dataset.zip")
 # if not os.path.exists("publishers"):
 #     os.mkdir("publishers")
 # if not os.path.exists("advertisers"):
