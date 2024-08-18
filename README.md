@@ -42,7 +42,7 @@ cd cookiemonster
 
 ### Build the Cookie Monster docker
 
-Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets used in the evaluation section of the paper. This step takes several minutes to finish (~30') due to the processing and generation of the datasets.
+Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets used in the evaluation section of the paper. This step takes several minutes to finish (~50') due to the processing and generation of the datasets.
 ``` bash 
 sudo docker build -t cookiemonster -f Dockerfile .
 ```
@@ -58,7 +58,7 @@ The script [experiments/run_all.sh](https://github.com/columbia/cookiemonster/bl
 Reproduce all Cookie Monster experiments by running the cookiemonster docker with the following command:
 
 ``` bash
-sudo docker run -v $PWD/logs:/cookiemonster/logs $PWD/figures:/cookiemonster/figures -v $PWD/cookiemonster/config:/cookiemonster/cookiemonster/config -v $PWD/temp:/tmp --network=host --name cookiemonster --shm-size=204.89gb --rm cookiemonster experiments/run_all.sh
+sudo docker run -v $PWD/logs:/cookiemonster/logs -v $PWD/figures:/cookiemonster/figures -v $PWD/cookiemonster/config:/cookiemonster/cookiemonster/config -v $PWD/temp:/tmp --network=host --name cookiemonster --shm-size=204.89gb --rm cookiemonster experiments/run_all.sh
 ```
 
 This step takes around 14 hours to finish.
