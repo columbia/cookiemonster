@@ -44,7 +44,7 @@ cd cookiemonster
 
 Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets used in the evaluation section of the paper. This step takes several minutes to finish (~50') due to the processing and generation of the datasets.
 ``` bash 
-sudo docker build -t cookiemonster -f Dockerfile .
+sudo docker build --network host -t cookiemonster -f Dockerfile .
 ```
 
 ## 3. Reproduce experiments
