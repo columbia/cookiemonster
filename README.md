@@ -2,7 +2,7 @@
 
 Cookie Monster is an on-device budgeting component that can be integrated into differentially private ad-measurement systems.
 Powered by a robust theoretical framework known as Individual Differential Privacy (IDP), a variant of traditional differential privacy, Cookie Monster allows advertisers to conserve significantly more privacy budget compared to existing alternatives.
-A description of this project can be found on our paper, titled Cookie Monster: Effective On-Device DP Budgeting for Private Attribution Measurement Systems and published as SOSP '24.
+A description of this project can be found on our paper, titled Cookie Monster: Effective On-Device DP Budgeting for Private Attribution Measurement Systems and published at SOSP '24.
 
 ## Repo Structure
 
