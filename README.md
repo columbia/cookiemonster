@@ -42,7 +42,7 @@ cd cookiemonster
 
 ### Build the Cookie Monster docker
 
-Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets used in the evaluation section of the paper. This step takes several minutes to finish (~50') due to the processing and generation of the datasets.
+Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets used in the evaluation section of the paper. This step takes several minutes to finish (~60') due to the processing and generation of the datasets.
 ``` bash 
 sudo docker build -t cookiemonster -f Dockerfile .
 ```
@@ -61,7 +61,7 @@ Reproduce all Cookie Monster experiments by running the cookiemonster docker wit
 sudo docker run -v $PWD/logs:/cookiemonster/logs -v $PWD/figures:/cookiemonster/figures -v $PWD/cookiemonster/config:/cookiemonster/cookiemonster/config -v $PWD/temp:/tmp --network=host --name cookiemonster --shm-size=204.89gb --rm cookiemonster experiments/run_all.sh
 ```
 
-This step takes around 14 hours to finish.
+This step takes around 15-18 hours to finish.
 
 Make sure that the cookiemonster container has enough disk space at `/tmp` which Ray uses to store checkpoints and other internal data. If that's not the case then mount the `/tmp` directory on a directory that has enough space.
 
@@ -76,4 +76,4 @@ With the `-v` flag we mount directories `cookiemonster/logs`, `cookiemonster/fig
 The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script will automatically analyze the execution logs and create plots corresponding to the figures presented in the paper.
 
 Check the `figures` directory for all the outputs.
-Due to noise addition not being deterministic results might not be identical but the relative difference between baselines should be the same. 
+Due to noise addition not being deterministic results might not be identical but the relative difference between baselines should be the same.
