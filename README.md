@@ -2,7 +2,7 @@
 
 Cookie Monster is an on-device budgeting component that can be integrated into differentially private ad-measurement systems.
 Powered by a robust theoretical framework known as Individual Differential Privacy (IDP), a variant of traditional differential privacy, Cookie Monster allows advertisers to conserve significantly more privacy budget compared to existing alternatives.
-A description of this project can be found on our paper, titled Cookie Monster: Effective On-Device DP Budgeting for Private Attribution Measurement Systems and published as SOSP '24.
+A description of this project can be found on our paper, titled Cookie Monster: Effective On-Device DP Budgeting for Private Attribution Measurement Systems and published at SOSP '24.
 
 ## Repo Structure
 
@@ -44,7 +44,7 @@ cd cookiemonster
 
 Build the docker image for CookieMonster. This will automatically install all dependencies required for the CookieMonster system as well as the datasets used in the evaluation section of the paper. This step takes several minutes to finish (~60') due to the processing and generation of the datasets.
 ``` bash 
-sudo docker build -t cookiemonster -f Dockerfile .
+sudo docker build --network host -t cookiemonster -f Dockerfile .
 ```
 
 ## 3. Reproduce experiments
@@ -55,7 +55,7 @@ The script [experiments/run_all.sh](https://github.com/columbia/cookiemonster/bl
 
 ### 3.1. Run all experiments
 
-Reproduce all Cookie Monster experiments by running the cookiemonster docker with the following command:
+Reproduce all Cookie Monster experiments by running the cookiemonster docker with the following command, from any directory (e.g., the `cookiemonster` repository root):
 
 ``` bash
 sudo docker run -v $PWD/logs:/cookiemonster/logs -v $PWD/figures:/cookiemonster/figures -v $PWD/cookiemonster/config:/cookiemonster/cookiemonster/config -v $PWD/temp:/tmp --network=host --name cookiemonster --shm-size=204.89gb --rm cookiemonster experiments/run_all.sh
@@ -73,7 +73,7 @@ With the `-v` flag we mount directories `cookiemonster/logs`, `cookiemonster/fig
 
 ### 3.2. Analyze results
 
-The [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script will automatically analyze the execution logs and create plots corresponding to the figures presented in the paper.
+The previous `experiments/run_all.sh` command will automatically analyze the execution logs and create plots corresponding to the figures presented in the paper, using the [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script.
 
 Check the `figures` directory for all the outputs.
 Due to noise addition not being deterministic results might not be identical but the relative difference between baselines should be the same.

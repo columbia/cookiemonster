@@ -1,16 +1,20 @@
+import multiprocessing
 import os
 import time
-from omegaconf import OmegaConf
-import typer
-import multiprocessing
 from copy import deepcopy
-from data.criteo.creators.query_pool_creator import QueryPoolDatasetCreator as CriteoQueries
+
+import typer
+from omegaconf import OmegaConf
 from ray_runner import grid_run
-from cookiemonster.utils import BUDGET, BIAS, LOGS_PATH
+
+from cookiemonster.utils import BIAS, BUDGET, LOGS_PATH
+from data.criteo.creators.query_pool_creator import (
+    QueryPoolDatasetCreator as CriteoQueries,
+)
 from notebooks.utils import save_data
+from plotting.criteo_plot import criteo_plot_experiments_side_by_side
 from plotting.microbenchmark_plot import microbenchmark_plot_budget_consumption_bars
 from plotting.patcg_plot import patcg_plot_experiments_side_by_side
-from plotting.criteo_plot import criteo_plot_experiments_side_by_side
 
 app = typer.Typer()
 
@@ -72,8 +76,9 @@ def microbenchmark_varying_knob1(ray_session_dir):
     path = "ray/microbenchmark/varying_knob1"
     save_data(path, type="budget")
     microbenchmark_plot_budget_consumption_bars(
-        "knob1", f"{LOGS_PATH.joinpath(path)}/budgets.csv", "figures/fig4_a_b.png")
-    
+        "knob1", f"{LOGS_PATH.joinpath(path)}/budgets.csv", "figures/fig4_a_b.png"
+    )
+
 
 def microbenchmark_varying_knob2(ray_session_dir):
     dataset = "microbenchmark"
@@ -117,7 +122,8 @@ def microbenchmark_varying_knob2(ray_session_dir):
     path = "ray/microbenchmark/varying_knob2"
     save_data(path, type="budget")
     microbenchmark_plot_budget_consumption_bars(
-        "knob2", f"{LOGS_PATH.joinpath(path)}/budgets.csv", "figures/fig4_c_d.png")
+        "knob2", f"{LOGS_PATH.joinpath(path)}/budgets.csv", "figures/fig4_c_d.png"
+    )
 
 
 def microbenchmark_varying_epoch_granularity(ray_session_dir):
@@ -209,18 +215,23 @@ def criteo_run(ray_session_dir):
     criteo_plot_experiments_side_by_side(
         f"{LOGS_PATH.joinpath(path1)}",
         f"{LOGS_PATH.joinpath(path2)}",
-        "figures/fig6_a_b_c_d.png")
+        "figures/fig6_a_b_c_d.png",
+    )
 
 
 def criteo_impressions_run(ray_session_dir):
     dataset = "criteo"
     conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
     workload_generation = OmegaConf.load("data/criteo/config.json")
-    impression_augment_rates = CriteoQueries(workload_generation).get_impression_augment_rates()
+    impression_augment_rates = CriteoQueries(
+        workload_generation
+    ).get_impression_augment_rates()
     ray_init = True
 
     for rate in impression_augment_rates:
-        impressions_path = f"{dataset}/{dataset}_query_pool_impressions_augment_{rate}.csv"
+        impressions_path = (
+            f"{dataset}/{dataset}_query_pool_impressions_augment_{rate}.csv"
+        )
         logs_dir = f"{dataset}/augment_impressions_{rate}"
         config = {
             "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
@@ -228,7 +239,9 @@ def criteo_impressions_run(ray_session_dir):
             "impressions_path": impressions_path,
             "conversions_path": conversions_path,
             "num_days_attribution_window": [30],
-            "workload_size": [1_000],  # force a high number so that we run on all queries
+            "workload_size": [
+                1_000
+            ],  # force a high number so that we run on all queries
             "max_scheduling_batch_size_per_query": workload_generation.max_batch_size,
             "min_scheduling_batch_size_per_query": workload_generation.min_batch_size,
             "initial_budget": [1],
@@ -273,7 +286,7 @@ def patcg_varying_epoch_granularity(ray_session_dir):
     grid_run(**config)
     config["num_days_per_epoch"] = [1, 60]
     grid_run(**config)
-    
+
     config["num_days_per_epoch"] = [14, 7]
     grid_run(**config)
 
@@ -282,9 +295,9 @@ def patcg_varying_epoch_granularity(ray_session_dir):
     save_data(path, type="bias")
     os.makedirs("figures", exist_ok=True)
     patcg_plot_experiments_side_by_side(
-        f"{LOGS_PATH.joinpath(path)}", "figures/fig5_a_b_c.png")
+        f"{LOGS_PATH.joinpath(path)}", "figures/fig5_a_b_c.png"
+    )
 
-    
 
 def patcg_varying_initial_budget(ray_session_dir):
     dataset = "patcg"
