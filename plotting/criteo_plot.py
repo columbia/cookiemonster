@@ -1,16 +1,24 @@
 import pandas as pd
+
 from plotting.macros import *
 from plotting.plot_template import *
 
 
-def criteo_plot_experiments_side_by_side(path1, path2, output_path, variable="num_days_per_epoch", value=7, x_axis_title=NUM_DAYS_PER_EPOCH_X):
+def criteo_plot_experiments_side_by_side(
+    path1,
+    path2,
+    output_path,
+    variable="num_days_per_epoch",
+    value=7,
+    x_axis_title=NUM_DAYS_PER_EPOCH_X,
+):
     df = pd.read_csv(f"{path1}/rmsres.csv")
 
     # print(df["queries_rmsres"].max())
     # df["queries_rmsres"] = df["queries_rmsres"].apply(lambda x: x if x < 0.4751914699759363 else None)
     # df.to_csv(f"{path1}/rmsres.csv", index=False)
     df = df[df[variable] != 90]
-    df = df[df["baseline"] != "ipa"]
+    # df = df[df["baseline"] != "ipa"]
 
     args1 = {
         "df": df,
@@ -68,6 +76,8 @@ def criteo_plot_experiments_side_by_side(path1, path2, output_path, variable="nu
         "x_range": [1, 100],
         "showlegend": False,
     }
+
+    # TODO: reorder, and replace cdf by augmented cdf? Or just separate.
 
     figs = [(boxes, args1), (cdf, args2), (cdf, args3), (cdf, args4)]
     figs_args = {
