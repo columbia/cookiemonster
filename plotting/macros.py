@@ -1,6 +1,6 @@
 TEMPLATE = "simple_white"
 
-IPA = "IPA-like (off-device))"
+IPA = "IPA-like (off-device)"
 COOKIEMONSTER_BASE = "ARA-like (on-device)"
 COOKIEMONSTER = "Cookie Monster"
 
