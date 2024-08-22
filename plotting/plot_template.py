@@ -227,7 +227,7 @@ def boxes(
         )
         traces.append(trace)
 
-    if kwargs["show_nqueries"]:
+    if kwargs.get("show_nqueries", None):
         # Add number of queries executed
         baseline = IPA
         csv_name = csv_mapping[baseline]
@@ -240,13 +240,19 @@ def boxes(
         y_label = []
         labels = []
         vspace = kwargs["vspace"]
+        hspace = kwargs.get("hspace", 12)
+
         for x in x_label:
             # y_label.append(ara_group.query(f"{x_axis} == @x")[metric].max() + vspace)
             y_label.append(group.query(f"{x_axis} == @x")[metric].max() + vspace)
             n_ipa_queries = len(group.query(f"{x_axis} == @x").dropna())
             n_ara_queries = len(ara_group.query(f"{x_axis} == @x"))
-            space_string = " " * 12
-            labels.append(f"{space_string}{n_ipa_queries}/{n_ara_queries}")
+            space_string = " " * hspace
+
+            if kwargs["show_nqueries"] == "percentage":
+                labels.append(f"{space_string}{100*n_ipa_queries/n_ara_queries:.0f}%")
+            else:
+                labels.append(f"{space_string}{n_ipa_queries}/{n_ara_queries}")
 
         text_trace = go.Scatter(
             x=x_label,
@@ -365,7 +371,8 @@ def augmented_impressions_cdf(
     aug_lines_map = {**lines_map}
     aug_legendranks = [0] * 6
 
-    symbols = ["square", "circle", "x", "triangle-up"]
+    # symbols = ["square", "circle", "x", "triangle-up"]
+    symbols = ["x", "circle", "square", "triangle-up"]
     for i, impressions in enumerate([0, 3, 6, 9]):
         baseline, csv_baseline = (COOKIEMONSTER, "cookiemonster")
         title = (
@@ -406,7 +413,9 @@ def augmented_impressions_cdf(
             continue
 
         group.dropna(inplace=True)
+
         stop = group.shape[0]
+
         values = np.sort(group[metric].values)
         cumulative_probabilities = np.arange(start, stop + 1) / float(len_values) * 100
 
