@@ -13,7 +13,10 @@ from data.criteo.creators.query_pool_creator import (
 )
 from notebooks.utils import save_data
 from plotting.criteo_plot import criteo_plot_experiments_side_by_side
-from plotting.microbenchmark_plot import microbenchmark_plot_budget_consumption_bars
+from plotting.microbenchmark_plot import (
+    microbenchmark_plot_all_budget_consumption_bars,
+    microbenchmark_plot_budget_consumption_bars,
+)
 from plotting.patcg_plot import patcg_plot_experiments_side_by_side
 
 app = typer.Typer()
@@ -32,6 +35,67 @@ def experiments_start_and_join(experiments):
 
 def get_path(path_base, knob1, knob2):
     return f"{path_base}_knob1_{knob1}_knob2_{knob2}.csv"
+
+
+def microbenchmark_varying_knob1_and_knob2(ray_session_dir):
+    dataset = "microbenchmark"
+    impressions_path_base = f"{dataset}/impressions"
+    conversions_path_base = f"{dataset}/conversions"
+    config = {
+        "baseline": ["ipa", "cookiemonster_base", "cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "num_days_per_epoch": [7],
+        "num_days_attribution_window": [30],
+        "workload_size": [10],
+        "min_scheduling_batch_size_per_query": 2000,
+        "max_scheduling_batch_size_per_query": 2000,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [BUDGET, BIAS],
+    }
+
+    experiments = []
+
+    logs_dir = f"{dataset}/varying_knob1"
+    knob1s = [0.001, 0.01, 0.1, 1.0]
+    knob2 = 0.1
+    for knob1 in knob1s:
+        config["impressions_path"] = get_path(impressions_path_base, knob1, knob2)
+        config["conversions_path"] = get_path(conversions_path_base, knob1, knob2)
+        experiments.append(
+            multiprocessing.Process(
+                target=lambda config: grid_run(**config), args=(deepcopy(config),)
+            )
+        )
+
+    logs_dir = f"{dataset}/varying_knob2"
+    knob1 = 0.1
+    knob2s = [0.001, 0.01, 0.1, 1.0]
+    for knob2 in knob2s:
+        config["impressions_path"] = get_path(impressions_path_base, knob1, knob2)
+        config["conversions_path"] = get_path(conversions_path_base, knob1, knob2)
+        experiments.append(
+            multiprocessing.Process(
+                target=lambda config: grid_run(**config), args=(deepcopy(config),)
+            )
+        )
+
+    experiments_start_and_join(experiments)
+
+    os.makedirs("figures", exist_ok=True)
+    path_knob_1 = "ray/microbenchmark/varying_knob1"
+    save_data(path_knob_1, type="budget")
+
+    path_knob_2 = "ray/microbenchmark/varying_knob2"
+    save_data(path_knob_2, type="budget")
+
+    microbenchmark_plot_all_budget_consumption_bars(
+        f"{LOGS_PATH.joinpath(path_knob_1)}/budgets.csv",
+        f"{LOGS_PATH.joinpath(path_knob_2)}/budgets.csv",
+        "figures/side_by_side_budget_consumption_bars.pdf",
+    )
 
 
 def microbenchmark_varying_knob1(ray_session_dir):
@@ -69,8 +133,6 @@ def microbenchmark_varying_knob1(ray_session_dir):
                 target=lambda config: grid_run(**config), args=(deepcopy(config),)
             )
         )
-
-    experiments_start_and_join(experiments)
 
     os.makedirs("figures", exist_ok=True)
     path = "ray/microbenchmark/varying_knob1"
