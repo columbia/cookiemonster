@@ -12,7 +12,6 @@ from cookiemonster.epsilon_calculator import get_epsilon_for_rmsre_wrt_avg_prior
 CURRENT_DIR = Path(__file__).parent
 app = typer.Typer()
 
-
 def generate_random_dates(start_date, num_days, num_samples):
     # start_seconds = 0
     start_seconds = int((start_date - datetime.datetime(1969, 12, 31)).total_seconds())

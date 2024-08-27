@@ -15,6 +15,7 @@ def create_dataset(datasettype: str = "query-pool", config: str = "config.json")
             f"dataset creator of type {datasettype} has not been implemented. Supported dataset types are {registered_dataset_creators.keys()}"
         )
 
+
     dataset_creator(omegaconf).create_datasets()
 
 

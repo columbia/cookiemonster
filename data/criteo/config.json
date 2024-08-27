@@ -7,5 +7,7 @@
     "advertiser_exclusions": [
         "E3DDEB04F8AFF944B11943BB57D2F620"
     ],
-    "augment_rate": 0.3
+    "augment_rates": {
+        "impressions": [0.1, 0.2, 0.3]
+    }
 }

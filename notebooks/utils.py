@@ -1,6 +1,6 @@
 import re
 import math
-from typing import Callable
+from typing import Callable, Iterable
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -23,6 +23,7 @@ class Bias:
         self.values = []
         self.count = 0
         self.undefined_errors_counter = 0
+        self.no_run_counter = 0
 
 
 def get_df(path):
@@ -152,6 +153,8 @@ def get_bias_logs(row):
         for _, row in group.iterrows():
             if math.isnan(row.aggregation_output):
                 queries_rmsre.undefined_errors_counter += 1
+            elif not row.true_output:
+                queries_rmsre.no_run_counter += 1
             else:
                 x = abs(row.true_output - row.aggregation_output) ** 2 + 2 * (
                     row.sensitivity**2
@@ -213,26 +216,79 @@ def get_filters_state_logs(row):
     return df
 
 
-def save_data(path):
+def save_data(path, type="budget"):
+
+    if type == "filters_state":
+        # Filters state
+        df = analyze_results(path, "filters_state")
+        df = df.drop(columns=["workload_size", "num_days_attribution_window"], axis=1)
+        df = df.explode("budget_consumption")
+        save_df(df, path, "filters_state.csv")
+
+    elif type == "budget":
+        # Budget Consumption
+        df = analyze_results(path, "budget")
+        save_df(df, path, "budgets.csv", include_index=True)
+
+    elif type == "bias":
+        # Bias
+        df = analyze_results(path, "bias")
+        # max_ = df["queries_rmsres"].max() * 2
+        # df.fillna({"queries_rmsres": max_}, inplace=True)
+        save_df(df, path, "rmsres.csv")
+
+
+def save_data_from_multiple_paths(output_directory: str, paths: Iterable[tuple[str, str]]):
 
     # Filters state
-    df = analyze_results(path, "filters_state")
-    df = df.drop(columns=["workload_size", "num_days_attribution_window"], axis=1)
-    df = df.explode("budget_consumption")
-    save_df(df, path, "filters_state.csv")
+    chunks = []
+    for path, discriminator in paths:
+        df = analyze_results(path, "filters_state")
+        df = df.drop(columns=["workload_size",
+                     "num_days_attribution_window"], axis=1)
+        df = df.explode("budget_consumption")
+        if discriminator:
+            df = df.assign(
+                baseline=df.apply(
+                    lambda r: f"{r.baseline}_{discriminator}",
+                    axis=1,
+                )
+            )
+        chunks.append(df)
+    save_df(pd.concat(chunks), output_directory, "filters_state.csv")
 
     # Budget Consumption
-    df = analyze_results(path, "budget")
-    save_df(df, path, "budgets.csv", include_index=True)
+    chunks = []
+    for path, discriminator in paths:
+        df = analyze_results(path, "budget")
+        if discriminator:
+            df = df.assign(
+                baseline=df.apply(
+                    lambda r: f"{r.baseline}_{discriminator}",
+                    axis=1,
+                )
+            )
+        chunks.append(df)
+    save_df(pd.concat(chunks), output_directory,
+            "budgets.csv", include_index=True)
 
     # Bias
-    df = analyze_results(path, "bias")
-    # max_ = df["queries_rmsres"].max() * 2
-    # df.fillna({"queries_rmsres": max_}, inplace=True)
-    save_df(df, path, "rmsres.csv")
+    chunks = []
+    for path, discriminator in paths:
+        df = analyze_results(path, "bias")
+        if discriminator:
+            df = df.assign(
+                baseline=df.apply(
+                    lambda r: f"{r.baseline}_{discriminator}",
+                    axis=1,
+                )
+            )
+        chunks.append(df)
+    save_df(pd.concat(chunks), output_directory, "rmsres.csv")
 
-
-def focus(df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget=0):
+def focus(
+    df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget=0
+):
     # Pick a subset of the experiments
     focus = ""
     if workload_size:
@@ -288,7 +344,8 @@ def plot_budget_consumption_cdf(
             **category_orders,
         },
     )
-    iplot(fig)
+    fig.write_image("budget_consumption_cdf.png")
+    # iplot(fig)
 
 
 def plot_budget_consumption_boxes(
@@ -427,7 +484,6 @@ def plot_rmsre_boxes(
     category_orders={},
     log_y=False,
 ):
-
     df = analyze_results(path, "bias")
     df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window)
     # df = df.explode("queries_rmsres")
@@ -470,7 +526,9 @@ def plot_rmsre_cdf(
 ):
 
     df = analyze_results(path, "bias")
-    df, focus_ = focus(df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget)
+    df, focus_ = focus(
+        df, workload_size, epoch_size, knob1, knob2, attribution_window, initial_budget
+    )
     # df = df.explode("queries_rmsres")
     max_ = df["queries_rmsres"].max() * 2
     df.fillna({"queries_rmsres": max_}, inplace=True)
@@ -494,9 +552,9 @@ def plot_rmsre_cdf(
 
     iplot(fig)
 
-
 if __name__ == "__main__":
-    save_data("ray/microbenchmark/varying_knob1")
-    save_data("ray/microbenchmark/varying_knob2")
-    # save_data("ray/patcg/varying_epoch_granularity_aw_7")
+    save_data("ray/microbenchmark/varying_knob1", type="budget")
+    save_data("ray/microbenchmark/varying_knob2", type="budget")
+    save_data("ray/patcg/varying_epoch_granularity_aw_7", type="budget")
+    save_data("ray/patcg/varying_epoch_granularity_aw_7", type="bias")
     # save_data("ray/patcg/varying_initial_budget")
