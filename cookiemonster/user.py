@@ -1,6 +1,7 @@
 import random
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from loguru import logger
 from omegaconf import OmegaConf
 
 from cookiemonster.attribution import (
@@ -95,6 +96,8 @@ class User:
         # which will be used for the global sensitivity.
         # Otherwise you would need to use attribution_cap_value
         if self.config.bias_detection_knob:
+
+            # TODO(bias): add global bound
 
             # attribution_function = LastTouchWithEmptyEpochCount(
             #     sensitivity_metric=self.config.sensitivity_metric,

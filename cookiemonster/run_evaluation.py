@@ -78,7 +78,13 @@ class Evaluation:
         mlflow.start_run(run_name=run_name, experiment_id=experiment_id)
 
         # TODO: flatten
-        mlflow.log_params(OmegaConf.to_object(self.config))
+        for k, v in OmegaConf.to_object(self.config).items():
+            if isinstance(v, dict):
+                for k2, v2 in v.items():
+                    mlflow.log_param(f"{k}.{k2}", v2)
+            else:
+                mlflow.log_param(k, v)
+        # mlflow.log_params(OmegaConf.to_object(self.config))
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
@@ -95,8 +101,8 @@ class Evaluation:
                 )
                 break
 
-            if i % 100000 == 0:
-                logger.info(colored(str(event), "blue"))
+            if i % 100_000 == 0:
+                logger.info(f"Event {i}: {event}")
 
             if user_id not in self.users:
                 self.users[user_id] = User(user_id, self.config)
@@ -149,11 +155,20 @@ class Evaluation:
 
                 # Check if the new report triggers scheduling / aggregation
                 batch = per_query_batch[query_id]
+
+                if i % 100_000 == 0:
+                    logger.info(
+                        f"Batch at event {i}: query {query_id}, sum {sum(batch.values)}, true sum {sum(batch.unbiased_values)}"
+                    )
+
                 if self.aggregation_policy.should_calculate_summary_reports(batch):
-                    self._calculate_summary_reports(
+                    query_result = self._calculate_summary_reports(
                         query_id=query_id,
                         batch=batch,
                         destination=event.destination,
+                    )
+                    self._log_query_result(
+                        query_id, batch, event.destination, query_result
                     )
 
                     # Reset the batch
@@ -170,11 +185,12 @@ class Evaluation:
                 if self.aggregation_policy.should_calculate_summary_reports(
                     batch, tail=True
                 ):
-                    self._calculate_summary_reports(
+                    query_result = self._calculate_summary_reports(
                         query_id=query_id,
                         batch=batch,
                         destination=destination,
                     )
+                    self._log_query_result(query_id, batch, destination, query_result)
 
         logs = self._finalize_logs()
 
@@ -209,7 +225,7 @@ class Evaluation:
 
     def _calculate_summary_reports(
         self, *, query_id: str, batch: QueryBatch, destination: str
-    ) -> None:
+    ) -> Any:
 
         # On-device queries always succeed, but IPA can throw an OOB error
         query_succeeded = (
@@ -220,25 +236,33 @@ class Evaluation:
         if query_succeeded:
             # Schedule the batch
             aggregation_result = self.aggregation_service.create_summary_report(batch)
+            return aggregation_result
+        else:
+            return None
+
+    def _log_query_result(
+        self,
+        query_id: str,
+        batch: QueryBatch,
+        destination: str,
+        aggregation_result: Any,
+    ) -> None:
+
+        # Keep track of the number of queries answered (potentially with answer=None) to stop when workload_size is reached
+        self.num_queries_answered += 1
+
+        if aggregation_result is None:
+            if self.config.user.bias_detection_knob is not None:
+                true_output = aggregation_output = aggregation_noisy_output = -1
+            else:
+                true_output = aggregation_output = aggregation_noisy_output = None
+        else:
             true_output = aggregation_result.true_output
             aggregation_output = aggregation_result.aggregation_output
             aggregation_noisy_output = aggregation_result.aggregation_noisy_output
             logger.info(
-                colored(
-                    f"Scheduling query batch {query_id}, true_output: {true_output}, aggregation_output: {aggregation_output}, noisy_output: {aggregation_noisy_output}",
-                    "green",
-                )
+                f"Scheduling query #{self.num_queries_answered}, id {query_id}, true_output: {true_output}, aggregation_output: {aggregation_output}, noisy_output: {aggregation_noisy_output}"
             )
-        else:
-            if self.config.user.bias_detection_knob:
-                true_output = aggregation_output = aggregation_noisy_output = (0, 0)
-            else:
-                true_output = aggregation_output = aggregation_noisy_output = None
-
-        # TODO: use a proper return type, and move all this logging to separate functions
-
-        # Keep track of the number of queries answered to stop when workload_size is reached
-        self.num_queries_answered += 1
 
         # Log budgeting metrics and accuracy related data
         if BUDGET in self.config.logs.logging_keys:
@@ -292,6 +316,7 @@ class Evaluation:
             if MLFLOW in self.config.logs.logging_keys:
 
                 if self.config.user.bias_detection_knob:
+                    # TODO(bias): add global bound
                     bias_metrics = compute_bias_metrics(
                         true_output,
                         aggregation_output,
@@ -299,6 +324,10 @@ class Evaluation:
                         kappa=self.config.user.bias_detection_knob,
                         max_report_global_sensitivity=batch.global_sensitivity,
                         laplace_noise_scale=batch.noise_scale,
+                    )
+
+                    logger.info(
+                        f"Bias metrics for query {self.num_queries_answered}: {bias_metrics}"
                     )
 
                     # TODO: we could use the prior too, but the noisy_output is probably closer? Could also use the p95 bounds on both sides

@@ -2,6 +2,7 @@ import multiprocessing
 import os
 import time
 from copy import deepcopy
+from datetime import datetime
 
 import typer
 from omegaconf import OmegaConf
@@ -362,21 +363,23 @@ def patcg_bias_varying_attribution_window(ray_session_dir):
 def bias_detection(ray_session_dir):
     dataset = "microbenchmark"
     logs_dir = f"{dataset}/bias_detection"
+    current_time = datetime.now().strftime("%m-%d_%H-%M")
+    experiment_name = f"bias_detection_{current_time}"
 
-    bias_detection_knob = [0, 0.5, 1, 2, 5]
-    # bias_detection_knob = [5]
+    experiments = []
 
+    # bias_detection_knob = [0.1, 0.5, 1]
+    bias_detection_knob = [1]
     config = {
-        # "baseline": ["ipa", "user_epoch_ara", "cookiemonster"],
         "baseline": ["cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": f"{dataset}/impressions_bias.csv",
         "conversions_path": f"{dataset}/conversions_bias.csv",
         "num_days_per_epoch": [7],
-        "num_days_attribution_window": [14],
-        "workload_size": [100],
-        "min_scheduling_batch_size_per_query": 1000,
-        "max_scheduling_batch_size_per_query": 1000,
+        "num_days_attribution_window": [30],
+        "workload_size": [500],
+        "min_scheduling_batch_size_per_query": 2000,
+        "max_scheduling_batch_size_per_query": 2000,
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
@@ -384,9 +387,23 @@ def bias_detection(ray_session_dir):
         "logging_keys": [BIAS, BUDGET, MLFLOW],
         "bias_detection_knob": bias_detection_knob,
         "target_rmsre": [0.05],
+        "experiment_name": experiment_name,
     }
+    experiments.append(
+        multiprocessing.Process(
+            target=lambda config: grid_run(**config), args=(deepcopy(config),)
+        )
+    )
 
-    grid_run(**config)
+    config["bias_detection_knob"] = [0]
+    config["baseline"] = ["ipa", "cookiemonster_base", "cookiemonster"]
+    experiments.append(
+        multiprocessing.Process(
+            target=lambda config: grid_run(**config), args=(deepcopy(config),)
+        )
+    )
+
+    experiments_start_and_join(experiments)
 
 
 @app.command()

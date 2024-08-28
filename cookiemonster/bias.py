@@ -15,12 +15,14 @@ def compute_bias_metrics(
     """
     Outputs are vectors with 2 dimensions (first one for the DP count, second for the scalar metric)
     """
+
     m = {
         "true_output": true_output[1],
         "aggregation_output": aggregation_output[1],
         "aggregation_noisy_output": aggregation_noisy_output[1],
         "true_bias": true_output[1] - aggregation_output[1],
-        "true_empty_epochs": true_output[0] / kappa,
+        "true_empty_epochs": true_output[0] / kappa,  # Should be 0 for us
+        "true_empty_or_exhausted_epochs": aggregation_output[0] / kappa,
         "noisy_empty_epochs": aggregation_noisy_output[0] / kappa,
         "noisy_bias": aggregation_noisy_output[0]
         * (max_report_global_sensitivity / kappa),

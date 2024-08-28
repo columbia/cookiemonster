@@ -1,3 +1,5 @@
+import random
+import time
 from typing import Any, Dict, List
 
 import ray
@@ -11,9 +13,9 @@ from cookiemonster.utils import RAY_LOGS, get_data_path
 
 def run_and_report(config: dict, replace=False) -> None:
 
-    config["logs"]["trial_name"] = train._internal.session.get_trial_name()
-    config["logs"]["experiment_name"] = train._internal.session.get_experiment_name()
-
+    # config["logs"]["trial_name"] = train._internal.session.get_trial_name()
+    # config["logs"]["experiment_name"] = train._internal.session.get_experiment_name()
+    time.sleep(random.uniform(0, 2))  # Don't start all trials at the exact same time
     logs = Evaluation(config).run()
     if logs:
         train.report(logs)
@@ -37,6 +39,7 @@ def grid_run(
     ray_init: bool = True,
     bias_detection_knob: List[float] = [None],
     target_rmsre: List[float] = [0.05],
+    experiment_name: str = "Default",
 ):
 
     if ray_session_dir and ray_init:
@@ -65,6 +68,8 @@ def grid_run(
             "save_dir": "",
             "logging_keys": logging_keys,
             "loguru_level": loguru_level,
+            "experiment_name": experiment_name,
+            "trial_name": "",
         },
         "aggregation_service": "local_laplacian",
         "aggregation_policy": {

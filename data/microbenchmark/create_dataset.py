@@ -7,10 +7,13 @@ import pandas as pd
 import typer
 from omegaconf import OmegaConf
 
-from cookiemonster.epsilon_calculator import get_epsilon_for_rmsre_wrt_avg_prior
+from cookiemonster.epsilon_calculator import (
+    get_epsilon_for_high_probability_relative_error_wrt_avg_prior,
+)
 
 CURRENT_DIR = Path(__file__).parent
 app = typer.Typer()
+
 
 def generate_random_dates(start_date, num_days, num_samples):
     # start_seconds = 0
@@ -161,21 +164,14 @@ def create_microbenchmark(
         )
     conversions = pd.concat(conversions)
     conversions = conversions.sort_values(["timestamp"])
-
-    # Set epsilons
-    def _set_epsilon():
-        [a, b] = config.accuracy
-        expected_result = config.scheduled_batch_size * 5  # 500 * 5
-        epsilon = config.cap_value * math.log(1 / b) / (a * expected_result)
-        return epsilon
-
-    # conversions["epsilon"] = _set_epsilon()
-
-    conversions["epsilon"] = get_epsilon_for_rmsre_wrt_avg_prior(
-        sensitivity=config.cap_value,
-        batch_size=config.scheduled_batch_size,
-        expected_average_result=config.expected_average_result,
-        relative_error=config.target_rmsre,
+    conversions["epsilon"] = (
+        get_epsilon_for_high_probability_relative_error_wrt_avg_prior(
+            sensitivity=config.cap_value,
+            batch_size=config.scheduled_batch_size,
+            expected_average_result=config.expected_average_result,
+            relative_error=config.accuracy[0],
+            failure_probability=config.accuracy[1],
+        )
     )
 
     # Set cap value
