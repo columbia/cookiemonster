@@ -24,6 +24,7 @@ const demoHomeUrl = process.env.DEMO_HOME_URL
 const publisherUrl = process.env.PUBLISHER_URL
 const advertiserUrl = process.env.ADVERTISER_URL
 const adtechUrl = process.env.ADTECH_URL
+const adtechNewUrl = process.env.ADTECHNEW_URL
 
 const advertiser = express()
 advertiser.set('view engine', 'pug')
@@ -78,13 +79,19 @@ advertiser.get('/checkout', (req, res) => {
     process.env.ADTECH_URL
   }/conversion?${searchParams.toString()}`
 
+  const adtechNewRequestUrl = `${
+    process.env.ADTECHNEW_URL
+  }/conversion?${searchParams.toString()}`
+
   res.render('checkout', {
     adtechRequestUrl,
+    adtechNewRequestUrl,
     purchaseId,
     demoHomeUrl,
     publisherUrl,
     advertiserUrl,
-    adtechUrl
+    adtechUrl,
+    adtechNewUrl
   })
 })
 
