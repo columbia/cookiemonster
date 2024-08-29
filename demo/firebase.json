@@ -63,6 +63,40 @@
           "function": "publisher"
         }
       ]
+    },
+    {
+      "site": "adtechnew",
+      "public": "sites/adtechnew",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "adtechnew"
+        },
+        {
+          "source": "/.well-known/**",
+          "function": "adtechnew"
+        }
+      ]
+    },
+    {
+      "site": "advertisernew",
+      "public": "sites/advertisernew",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "advertiser"
+        }
+      ]
     }
   ],
   "emulators": {

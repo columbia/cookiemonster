@@ -32,6 +32,7 @@ adtech.set('view engine', 'pug')
 adtech.set('views', './views/adtech')
 const adtechUrl = process.env.ADTECH_URL
 const advertiserUrl = process.env.ADVERTISER_URL
+const advertiserNewUrl = process.env.ADVERTISERNEW_URL
 
 adtech.get('/', (req, res) => {
   res.render('index')
@@ -112,9 +113,20 @@ adtech.get('/ad-click', (req, res) => {
   res.render('ad-click')
 })
 
+adtech.get('/ad-click-new', (req, res) => {
+  res.render('ad-click-new')
+})
+
 adtech.get('/ad-script-click-element', (req, res) => {
   res.set('Content-Type', 'text/javascript')
   const adClickUrl = `${process.env.ADTECH_URL}/ad-click`
+  const iframe = `<iframe src='${adClickUrl}' allow='attribution-reporting' width=190 height=190 scrolling=no frameborder=1 padding=0></iframe>`
+  res.send(`document.write("${iframe}");`)
+})
+
+adtech.get('/ad-script-click-element-new', (req, res) => {
+  res.set('Content-Type', 'text/javascript')
+  const adClickUrl = `${process.env.ADTECH_URL}/ad-click-new`
   const iframe = `<iframe src='${adClickUrl}' allow='attribution-reporting' width=190 height=190 scrolling=no frameborder=1 padding=0></iframe>`
   res.send(`document.write("${iframe}");`)
 })
@@ -161,6 +173,47 @@ adtech.get('/register-source-href', (req, res) => {
   log('REGISTERING SOURCE \n', headerConfig)
 
   res.redirect(advertiserUrl)
+
+})
+
+adtech.get('/register-source-href-new', (req, res) => {
+  const attributionDestination = process.env.ADVERTISERNEW_URL
+  // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
+  const sourceEventId = Math.floor(Math.random() * 1000000000000000)
+  const legacyMeasurementCookie = req.cookies['__session']
+  var epoch = 1
+  if(req.query['epoch'] != undefined)
+  {
+    epoch = req.query['epoch']
+  }
+
+const headerConfig = {
+  source_event_id: `${sourceEventId}`,
+  destination: attributionDestination,
+  // Optional: expiry of 7 days (default is 30)
+  expiry: '604800',
+  // debug_key as legacyMeasurementCookie is a simple approach for demo purposes. In a real system, you may make debug_key a unique ID, and map it to additional source-time information that you deem useful for debugging or performance comparison.
+  debug_key: legacyMeasurementCookie,
+  epoch: epoch,
+  filter_data: {
+    campaignId: ['444']
+  },
+  aggregation_keys: {
+    // these source key pieces get binary OR'd with the trigger key piece
+    // to create the full histogram bin key
+    purchaseCount: generateSourceKeyPiece('COUNT, CampaignID=444'),
+    purchaseValue: generateSourceKeyPiece('VALUE, CampaignID=444')
+  },
+  // optional, but leaving as a comment for future use
+  // aggregatable_report_window: "86400" // optional duration in seconds after the source registration during which aggregatable reports can be created for this source.
+  debug_reporting: true
+}
+
+// Send a response with the header Attribution-Reporting-Register-Source in order to instruct the browser to register a source event
+res.set('Attribution-Reporting-Register-Source', JSON.stringify(headerConfig))
+log('REGISTERING SOURCE \n', headerConfig)
+
+res.redirect(advertiserNewUrl)
 
 })
 
