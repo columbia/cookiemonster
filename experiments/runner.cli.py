@@ -292,12 +292,11 @@ def patcg_varying_epoch_granularity(ray_session_dir):
     config["num_days_per_epoch"] = [14, 7]
     grid_run(**config)
 
-    path = "ray/patcg/varying_epoch_granularity_aw_7"
-    save_data(path, type="budget")
-    save_data(path, type="bias")
+    save_data(logs_dir, type="budget")
+    save_data(logs_dir, type="bias")
     os.makedirs("figures", exist_ok=True)
     patcg_plot_experiments_side_by_side(
-        f"{LOGS_PATH.joinpath(path)}", "figures/fig5_a_b_c.png"
+        f"{LOGS_PATH.joinpath(logs_dir)}", "figures/fig5_a_b_c.png"
     )
 
 
@@ -368,8 +367,7 @@ def bias_detection(ray_session_dir):
 
     experiments = []
 
-    # bias_detection_knob = [0.1, 0.5, 1]
-    bias_detection_knob = [1]
+    bias_detection_knob = [0.1, 0.5, 1]
     config = {
         "baseline": ["cookiemonster"],
         "dataset_name": f"{dataset}",
@@ -377,6 +375,7 @@ def bias_detection(ray_session_dir):
         "conversions_path": f"{dataset}/conversions_bias.csv",
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
+        # "workload_size": [1_000],
         "workload_size": [500],
         "min_scheduling_batch_size_per_query": 2000,
         "max_scheduling_batch_size_per_query": 2000,

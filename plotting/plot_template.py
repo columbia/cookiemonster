@@ -1,14 +1,13 @@
 import math
-from plotting.macros import *
+import warnings
 
 import numpy as np
-import plotly.io as pio
-from plotly.subplots import make_subplots
+import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import plotly.express as px
+from plotly.subplots import make_subplots
 
-import warnings
+from plotting.macros import *
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -27,8 +26,9 @@ def make_plots(
     titles=None,
 ):
 
-    fig = make_subplots(rows=1, cols=cols,
-                        horizontal_spacing=0.08, subplot_titles=titles)
+    fig = make_subplots(
+        rows=1, cols=cols, horizontal_spacing=0.08, subplot_titles=titles
+    )
 
     # Create the figures
     traces = []
@@ -87,6 +87,7 @@ def bars(
     x_axis,
     ordering,
     showlegend=True,
+    baselines_order=DEFAULT_BASELINES_ORDER,
     **kwargs,
 ):
     if ordering:
@@ -116,8 +117,9 @@ def lines(
     metric,
     x_axis,
     ordering,
-    marker_pos=1/2,
+    marker_pos=1 / 2,
     showlegend=True,
+    baselines_order=DEFAULT_BASELINES_ORDER,
     **kwargs,
 ):
     if ordering:
@@ -129,16 +131,18 @@ def lines(
         group = df.query("baseline == @csv_name")
         if group.empty:
             continue
-        traces.append(go.Scatter(
-            x=group[x_axis],
-            y=group[metric],
-            legendgroup=baseline,
-            name=baseline,
-            marker_color=color_discrete_map[baseline],
-            showlegend=True,
-            mode="lines",
-            line=dict(dash=lines_map[baseline]),
-        ))
+        traces.append(
+            go.Scatter(
+                x=group[x_axis],
+                y=group[metric],
+                legendgroup=baseline,
+                name=baseline,
+                marker_color=color_discrete_map[baseline],
+                showlegend=True,
+                mode="lines",
+                line=dict(dash=lines_map[baseline]),
+            )
+        )
 
         # # Add markers
         # sample_group = group.iloc[[int(len(group) * marker_pos)]]
@@ -163,6 +167,7 @@ def boxes(
     x_axis,
     ordering,
     showlegend=True,
+    baselines_order=DEFAULT_BASELINES_ORDER,
     **kwargs,
 ):
     if ordering:
@@ -195,8 +200,9 @@ def cdf(
     x_axis,
     ordering,
     showlegend=True,
-    marker_pos=1/2,
+    marker_pos=1 / 2,
     unit=None,
+    baselines_order=DEFAULT_BASELINES_ORDER,
     **kwargs,
 ):
     if ordering:
@@ -216,20 +222,21 @@ def cdf(
         group.dropna(inplace=True)
         stop = group.shape[0]
         values = np.sort(group[metric].values)
-        cumulative_probabilities = np.arange(
-            start, stop + 1) / float(len_values) * 100
+        cumulative_probabilities = np.arange(start, stop + 1) / float(len_values) * 100
 
-        traces.append(go.Scatter(
-            x=cumulative_probabilities,
-            y=values,
-            legendgroup=baseline,
-            name=f"{baseline} ({len_values} {unit})" if unit else baseline,
-            marker_color=color_discrete_map[baseline],
-            marker_symbol=symbol_map[baseline],
-            showlegend=showlegend,
-            mode="lines",
-            line=dict(dash=lines_map[baseline]),
-        ))
+        traces.append(
+            go.Scatter(
+                x=cumulative_probabilities,
+                y=values,
+                legendgroup=baseline,
+                name=f"{baseline} ({len_values} {unit})" if unit else baseline,
+                marker_color=color_discrete_map[baseline],
+                marker_symbol=symbol_map[baseline],
+                showlegend=showlegend,
+                mode="lines",
+                line=dict(dash=lines_map[baseline]),
+            )
+        )
 
         if stop != len_values:
             # Add X marker to show IPA stopped
@@ -237,17 +244,19 @@ def cdf(
             sample_x = cumulative_probabilities[-1]
             sample_y = values[-1]
 
-            traces.append(go.Scatter(
-                x=[sample_x],
-                y=[sample_y],
-                legendgroup=baseline,
-                name=f"{baseline} ({len_values} {unit})" if unit else baseline,
-                marker_color=color_discrete_map[baseline],
-                showlegend=False,
-                marker_symbol=symbol_map[baseline],
-                mode="markers",
-                marker=dict(size=11),
-            ))
+            traces.append(
+                go.Scatter(
+                    x=[sample_x],
+                    y=[sample_y],
+                    legendgroup=baseline,
+                    name=f"{baseline} ({len_values} {unit})" if unit else baseline,
+                    marker_color=color_discrete_map[baseline],
+                    showlegend=False,
+                    marker_symbol=symbol_map[baseline],
+                    mode="markers",
+                    marker=dict(size=11),
+                )
+            )
     return traces
 
 
@@ -257,7 +266,7 @@ def augmented_impressions_cdf(
     x_axis,
     ordering,
     showlegend=True,
-    marker_pos=1/2,
+    marker_pos=1 / 2,
     **kwargs,
 ):
     if ordering:
@@ -268,12 +277,16 @@ def augmented_impressions_cdf(
     aug_color_discrete_map = {**color_discrete_map}
     aug_symbol_map = {}
     aug_lines_map = {**lines_map}
-    aug_legendranks = [0]*6
+    aug_legendranks = [0] * 6
 
     symbols = ["square", "circle", "x", "triangle-up"]
     for i, impressions in enumerate([0, 3, 6, 9]):
         baseline, csv_baseline = (COOKIEMONSTER, "cookiemonster")
-        title = f"{baseline}+{impressions} impressions/conversion" if impressions else baseline
+        title = (
+            f"{baseline}+{impressions} impressions/conversion"
+            if impressions
+            else baseline
+        )
         csv = f"{csv_baseline}_{impressions}"
         baselines.append(title)
         aug_csv_mapping[title] = csv
@@ -283,15 +296,17 @@ def augmented_impressions_cdf(
         if not i:
             aug_legendranks[i] = i
         else:
-            aug_legendranks[i] = 2*i - 1
+            aug_legendranks[i] = 2 * i - 1
 
-    for i, (baseline, csv_baseline) in enumerate([(COOKIEMONSTER_BASE, "cookiemonster_base"), (IPA, "ipa")]):
+    for i, (baseline, csv_baseline) in enumerate(
+        [(COOKIEMONSTER_BASE, "cookiemonster_base"), (IPA, "ipa")]
+    ):
         impressions = 0
         title = baseline
         csv = f"{csv_baseline}_{impressions}"
         baselines.append(title)
         aug_csv_mapping[title] = csv
-        aug_legendranks[i + 4] = 2*(i + 1)
+        aug_legendranks[i + 4] = 2 * (i + 1)
 
     traces = []
     for i, baseline in enumerate(baselines):
@@ -307,50 +322,53 @@ def augmented_impressions_cdf(
         group.dropna(inplace=True)
         stop = group.shape[0]
         values = np.sort(group[metric].values)
-        cumulative_probabilities = np.arange(
-            start, stop + 1) / float(len_values) * 100
+        cumulative_probabilities = np.arange(start, stop + 1) / float(len_values) * 100
 
-        lines_only = (not baseline.startswith(COOKIEMONSTER)
-                      ) or baseline == COOKIEMONSTER
+        lines_only = (
+            not baseline.startswith(COOKIEMONSTER)
+        ) or baseline == COOKIEMONSTER
 
-        traces.append(go.Scatter(
-            x=cumulative_probabilities,
-            y=values,
-            legendgroup=baseline,
-            name=baseline,  # 381000 devices; 109 devices for IPA
-            marker_color=aug_color_discrete_map[baseline],
-            showlegend=lines_only,
-            legendrank=-1*aug_legendranks[i] if lines_only else 1000,
-            mode="lines",
-            line=dict(dash=aug_lines_map[baseline]),
-        ))
+        traces.append(
+            go.Scatter(
+                x=cumulative_probabilities,
+                y=values,
+                legendgroup=baseline,
+                name=baseline,  # 381000 devices; 109 devices for IPA
+                marker_color=aug_color_discrete_map[baseline],
+                showlegend=lines_only,
+                legendrank=-1 * aug_legendranks[i] if lines_only else 1000,
+                mode="lines",
+                line=dict(dash=aug_lines_map[baseline]),
+            )
+        )
 
         if baseline.startswith(COOKIEMONSTER) and baseline != COOKIEMONSTER:
+
             def get_index(l: int, i: int) -> int:
-                return math.floor(l * i/4)
+                return math.floor(l * i / 4)
 
             sample_x = [
-                cumulative_probabilities[get_index(
-                    len(cumulative_probabilities), i)]
+                cumulative_probabilities[get_index(len(cumulative_probabilities), i)]
                 for i in range(1, 2)
             ]
             sample_y = [
-                values[get_index(len(cumulative_probabilities), i)]
-                for i in range(1, 2)
+                values[get_index(len(cumulative_probabilities), i)] for i in range(1, 2)
             ]
 
             name = baseline.replace(COOKIEMONSTER, "")
-            traces.append(go.Scatter(
-                x=sample_x,
-                y=sample_y,
-                legendgroup=name,
-                name=name,
-                marker_color=aug_color_discrete_map[baseline],
-                marker_symbol=aug_symbol_map[baseline],
-                showlegend=showlegend,
-                legendrank=-1*aug_legendranks[i],
-                mode="lines+markers",
-                marker=dict(size=12),
-            ))
+            traces.append(
+                go.Scatter(
+                    x=sample_x,
+                    y=sample_y,
+                    legendgroup=name,
+                    name=name,
+                    marker_color=aug_color_discrete_map[baseline],
+                    marker_symbol=aug_symbol_map[baseline],
+                    showlegend=showlegend,
+                    legendrank=-1 * aug_legendranks[i],
+                    mode="lines+markers",
+                    marker=dict(size=12),
+                )
+            )
 
     return traces

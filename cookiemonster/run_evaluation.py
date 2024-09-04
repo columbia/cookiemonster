@@ -13,6 +13,7 @@ from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
 from cookiemonster.bias import (
     aggregate_bias_prediction_metrics,
+    compute_base_bias_metrics,
     compute_bias_metrics,
     compute_bias_prediction_metrics,
     predict_rmsre_naive,
@@ -253,7 +254,7 @@ class Evaluation:
 
         if aggregation_result is None:
             if self.config.user.bias_detection_knob is not None:
-                true_output = aggregation_output = aggregation_noisy_output = -1
+                true_output = aggregation_output = aggregation_noisy_output = np.nan
             else:
                 true_output = aggregation_output = aggregation_noisy_output = None
         else:
@@ -353,36 +354,35 @@ class Evaluation:
                             ],
                         }
                     )
-
-                    mlflow.log_metrics(
-                        metrics=bias_metrics, step=self.num_queries_answered
-                    )
                     self.logger.log_one(MLFLOW, aggregatable_metrics)
 
                 elif isinstance(true_output, np.ndarray):
                     # You probably don't want to log this, but who knows
+                    bias_metrics = {}
 
                     for i in range(len(true_output)):
-                        mlflow.log_metrics(
+                        bias_metrics.update(
                             {
                                 f"true_output_{i}": true_output[i],
                                 f"aggregation_output_{i}": aggregation_output[i],
                                 f"aggregation_noisy_output_{i}": aggregation_noisy_output[
                                     i
                                 ],
-                            },
-                            step=self.num_queries_answered,
+                            }
                         )
 
                 else:
-                    mlflow.log_metrics(
-                        {
-                            "true_output": true_output,
-                            "aggregation_output": aggregation_output,
-                            "aggregation_noisy_output": aggregation_noisy_output,
-                        },
-                        step=self.num_queries_answered,
+                    bias_metrics = compute_base_bias_metrics(
+                        true_output,
+                        aggregation_output,
+                        aggregation_noisy_output,
+                        laplace_noise_scale=batch.noise_scale,
                     )
+
+                mlflow.log_metrics(
+                    bias_metrics,
+                    step=self.num_queries_answered,
+                )
 
     def _log_all_filters_state(self):
         if BUDGET in self.config.logs.logging_keys:

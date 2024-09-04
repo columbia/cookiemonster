@@ -2,7 +2,7 @@
     "per_day_user_impressions_rate": 0.1,
     "user_participation_rate_per_query": 0.1,
     "user_contributions_per_query": 1,
-    "num_query_types": 10,
+    "num_query_types": 20,
     "num_schedules": 50,
     "num_days": 120,
     "scheduled_batch_size": 2000,

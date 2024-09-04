@@ -56,7 +56,7 @@ lines_map = {
     COOKIEMONSTER_BASE: "dot",
 }
 
-baselines_order = [COOKIEMONSTER, COOKIEMONSTER_BASE, IPA]
+DEFAULT_BASELINES_ORDER = [COOKIEMONSTER, COOKIEMONSTER_BASE, IPA]
 
 csv_mapping = {
     IPA: "ipa",
