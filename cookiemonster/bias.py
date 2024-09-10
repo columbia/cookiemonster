@@ -21,10 +21,10 @@ def compute_base_bias_metrics(
     else:
         rmsre = np.nan
     return {
-        "true_output": true_output,
+        "output_true": true_output,
         "aggregation_output": aggregation_output,
-        "aggregation_noisy_output": aggregation_noisy_output,
-        "true_bias": true_bias,
+        "aggregation_output_noisy": aggregation_noisy_output,
+        "bias_true": true_bias,
         "rmsre": rmsre,
     }
 
@@ -50,12 +50,12 @@ def compute_bias_metrics(
 
     m.update(
         {
-            "true_empty_epochs": true_output[0] / kappa,  # Should be 0 for us
-            "true_empty_or_exhausted_epochs": aggregation_output[0] / kappa,
-            "noisy_empty_epochs": aggregation_noisy_output[0] / kappa,
-            "noisy_bias": aggregation_noisy_output[0]
+            # "empty_epochs_true": true_output[0] / kappa,  # Should be 0 for us
+            "empty_epochs_true": aggregation_output[0] / kappa,
+            "empty_epochs_noisy": aggregation_noisy_output[0] / kappa,
+            "bias_noisy": aggregation_noisy_output[0]
             * (max_report_global_sensitivity / kappa),
-            "noisy_bias_p95_confidence": (
+            "bias_noisy_p95_confidence": (
                 aggregation_noisy_output[0]
                 + laplace_noise_scale * np.log(1 / 0.05) / np.sqrt(2)
             )
@@ -67,8 +67,8 @@ def compute_bias_metrics(
 
 def predict_rmsre_naive(bias_metrics, batch):
     return np.sqrt(
-        (bias_metrics["noisy_bias"] ** 2 + 2 * batch.noise_scale**2)
-        / bias_metrics["aggregation_noisy_output"] ** 2
+        (bias_metrics["bias_noisy"] ** 2 + 2 * batch.noise_scale**2)
+        / bias_metrics["aggregation_output_noisy"] ** 2
     )
 
 

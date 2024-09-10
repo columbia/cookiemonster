@@ -9,12 +9,12 @@ from omegaconf import OmegaConf
 from ray_runner import grid_run
 
 from cookiemonster.utils import BIAS, BUDGET, LOGS_PATH, MLFLOW
-from data.criteo.creators.query_pool_creator import (
-    QueryPoolDatasetCreator as CriteoQueries,
-)
+from data.criteo.creators.query_pool_creator import \
+    QueryPoolDatasetCreator as CriteoQueries
 from notebooks.utils import save_data
 from plotting.criteo_plot import criteo_plot_experiments_side_by_side
-from plotting.microbenchmark_plot import microbenchmark_plot_budget_consumption_bars
+from plotting.microbenchmark_plot import \
+    microbenchmark_plot_budget_consumption_bars
 from plotting.patcg_plot import patcg_plot_experiments_side_by_side
 
 app = typer.Typer()
@@ -361,24 +361,29 @@ def patcg_bias_varying_attribution_window(ray_session_dir):
 
 def bias_detection(ray_session_dir):
     dataset = "microbenchmark"
+    # dataset_config = "knob1_0.1_knob2_0.1"
+    dataset_config = "bias_shuffled"
+    
     logs_dir = f"{dataset}/bias_detection"
     current_time = datetime.now().strftime("%m-%d_%H-%M")
     experiment_name = f"bias_detection_{current_time}"
 
     experiments = []
 
-    bias_detection_knob = [0.1, 0.5, 1]
+    bias_detection_knob = [0.5, 1, 5]
     config = {
         "baseline": ["cookiemonster"],
         "dataset_name": f"{dataset}",
-        "impressions_path": f"{dataset}/impressions_bias.csv",
-        "conversions_path": f"{dataset}/conversions_bias.csv",
-        "num_days_per_epoch": [7],
+        "impressions_path": f"{dataset}/impressions_{dataset_config}.csv",
+        "conversions_path": f"{dataset}/conversions_{dataset_config}.csv",
+        # "num_days_per_epoch": [7, 30, 60, 120, 180],
+        "num_days_per_epoch": [7, 14, 30],
+        # "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
-        # "workload_size": [1_000],
-        "workload_size": [500],
+        "workload_size": [1_000],
         "min_scheduling_batch_size_per_query": 2000,
         "max_scheduling_batch_size_per_query": 2000,
+        # "initial_budget": [0.1, 0.05, 0.01],
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",

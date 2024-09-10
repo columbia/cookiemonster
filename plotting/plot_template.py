@@ -215,11 +215,11 @@ def cdf(
         group = group.sort_values(by=[metric])
         len_values = group.shape[0]
         start = 1
-
+        
         if group.empty:
             continue
 
-        group.dropna(inplace=True)
+        group.dropna(inplace=True, subset=[metric])
         stop = group.shape[0]
         values = np.sort(group[metric].values)
         cumulative_probabilities = np.arange(start, stop + 1) / float(len_values) * 100

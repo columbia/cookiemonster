@@ -7,9 +7,8 @@ import pandas as pd
 import typer
 from omegaconf import OmegaConf
 
-from cookiemonster.epsilon_calculator import (
-    get_epsilon_for_high_probability_relative_error_wrt_avg_prior,
-)
+from cookiemonster.epsilon_calculator import \
+    get_epsilon_for_high_probability_relative_error_wrt_avg_prior
 
 CURRENT_DIR = Path(__file__).parent
 app = typer.Typer()
@@ -52,7 +51,7 @@ def generate_impressions(start_date, num_days, config, publisher_user_profile):
 
 def generate_conversions(product_id, publisher_user_profile, advertiser_id, config):
     start_date = datetime.datetime(2024, 1, 31)
-    num_days = config.num_days - 31  # TODO: why is that?
+    num_days = config.num_days - 31  # Conversions start 1 month after impressions
 
     publisher_user_profile["means"] = 5
     num_converted_users = int(
@@ -102,16 +101,8 @@ def generate_conversions(product_id, publisher_user_profile, advertiser_id, conf
     data["amount"] = np.clip(data["amount"], a_min=1, a_max=config.cap_value)
 
     conversions = pd.DataFrame(data)
-    conversions = conversions.rename(
-        columns={
-            "user_id": "user_id",
-            "conv_timestamp": "timestamp",
-            "conv_amount": "amount",
-        }
-    )
     conversions["advertiser_id"] = advertiser_id
     conversions["product_id"] = product_id
-
     conversions["key"] = "product_id=" + conversions["product_id"].astype(str)
     conversions["filter"] = ""
     return conversions

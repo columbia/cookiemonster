@@ -11,29 +11,19 @@ from termcolor import colored
 
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
-from cookiemonster.bias import (
-    aggregate_bias_prediction_metrics,
-    compute_base_bias_metrics,
-    compute_bias_metrics,
-    compute_bias_prediction_metrics,
-    predict_rmsre_naive,
-)
+from cookiemonster.bias import (aggregate_bias_prediction_metrics,
+                                compute_base_bias_metrics,
+                                compute_bias_metrics,
+                                compute_bias_prediction_metrics,
+                                predict_rmsre_naive)
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.dataset import Dataset
 from cookiemonster.event_logger import EventLogger
 from cookiemonster.query_batch import QueryBatch
 from cookiemonster.user import ConversionResult, User
-from cookiemonster.utils import (
-    BIAS,
-    BUDGET,
-    FILTERS_STATE,
-    IPA,
-    LOGS_PATH,
-    MLFLOW,
-    GlobalStatistics,
-    maybe_initialize_filters,
-    save_logs,
-)
+from cookiemonster.utils import (BIAS, BUDGET, FILTERS_STATE, IPA, LOGS_PATH,
+                                 MLFLOW, GlobalStatistics,
+                                 maybe_initialize_filters, save_logs)
 
 app = typer.Typer()
 
@@ -346,6 +336,7 @@ class Evaluation:
 
                     bias_metrics.update(
                         {
+                            "rmsre_prediction": predicted_rmsre,
                             "truly_meets_rmsre_target": aggregatable_metrics[
                                 "truly_meets_rmsre_target"
                             ],
