@@ -1,13 +1,13 @@
 import json
-import uuid
 import math
-from pathlib import Path
+import uuid
 from datetime import datetime
-from typing import Dict, Tuple, Any
+from pathlib import Path
+from typing import Any, Dict, Tuple
 
 from cookiemonster.budget_accountant import BudgetAccountant
 
-
+# TODO: why is this duplicated?
 REPO_ROOT = Path(__file__).parent.parent
 LOGS_PATH = REPO_ROOT.joinpath("logs")
 RAY_LOGS = LOGS_PATH.joinpath("ray")
@@ -20,6 +20,7 @@ COOKIEMONSTER_BASE = "cookiemonster_base"
 BIAS = "bias"
 BUDGET = "budget"
 FILTERS_STATE = "filters_state"
+MLFLOW = "mlflow"
 
 
 class EpochsWindow:
@@ -83,16 +84,6 @@ def maybe_initialize_filters(
 
     destination_filter.maybe_initialize_filter(attribution_epochs)
     return destination_filter
-
-
-def compute_global_sensitivity(sensitivity_metric, aggregatable_cap_value):
-    match sensitivity_metric:
-        case "L1":
-            global_sensitivity = aggregatable_cap_value
-        case _:
-            raise ValueError(f"Unsupported sensitivity metric: {sensitivity_metric}")
-    assert global_sensitivity is not None
-    return global_sensitivity
 
 
 def get_data_path(path):

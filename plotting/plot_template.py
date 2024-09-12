@@ -87,6 +87,7 @@ def bars(
     x_axis,
     ordering,
     showlegend=True,
+    baselines_order=DEFAULT_BASELINES_ORDER,
     **kwargs,
 ):
     if ordering:
@@ -118,6 +119,7 @@ def lines(
     ordering,
     marker_pos=1 / 2,
     showlegend=True,
+    baselines_order=DEFAULT_BASELINES_ORDER,
     **kwargs,
 ):
     if ordering:
@@ -129,7 +131,7 @@ def lines(
         group = df.query("baseline == @csv_name")
         if group.empty:
             continue
-
+            
         mode = kwargs.get("mode", "lines")
 
         if mode == "lines":
@@ -178,6 +180,7 @@ def lines(
                 )
             )
 
+
         # # Add markers
         # sample_group = group.iloc[[int(len(group) * marker_pos)]]
         # traces.append(
@@ -203,6 +206,7 @@ def boxes(
     x_axis,
     ordering,
     showlegend=True,
+    baselines_order=DEFAULT_BASELINES_ORDER,
     **kwargs,
 ):
     if ordering:
@@ -295,6 +299,7 @@ def cdf(
     showlegend=True,
     marker_pos=1 / 2,
     unit=None,
+    baselines_order=DEFAULT_BASELINES_ORDER,
     **kwargs,
 ):
     if ordering:
@@ -307,11 +312,11 @@ def cdf(
         group = group.sort_values(by=[metric])
         len_values = group.shape[0]
         start = 1
-
+        
         if group.empty:
             continue
 
-        group.dropna(inplace=True)
+        group.dropna(inplace=True, subset=[metric])
         stop = group.shape[0]
         values = np.sort(group[metric].values)
         cumulative_probabilities = np.arange(start, stop + 1) / float(len_values) * 100

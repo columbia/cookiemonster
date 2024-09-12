@@ -77,3 +77,9 @@ The previous `experiments/run_all.sh` command will automatically analyze the exe
 
 Check the `figures` directory for all the outputs.
 Due to noise addition not being deterministic results might not be identical but the relative difference between baselines should be the same. 
+
+### MLflow
+
+```bash
+ mlflow server --backend-store-uri logs/mlflow
+```

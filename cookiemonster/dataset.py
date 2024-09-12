@@ -1,12 +1,13 @@
-from abc import ABC, abstractmethod
-import os
 import math
+import os
+from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Generator, Iterable, SupportsFloat, SupportsIndex, TypeAlias
+
 import pandas as pd
 from omegaconf import OmegaConf
-from datetime import datetime
 
-from cookiemonster.events import Impression, Conversion, Event
+from cookiemonster.events import Conversion, Event, Impression
 
 _SupportsFloatOrIndex: TypeAlias = SupportsFloat | SupportsIndex
 
@@ -86,8 +87,10 @@ class Microbenchmark(Dataset):
         super().__init__(config)
         self.impressions_data = pd.read_csv(self.impressions_path)
         self.conversions_data = pd.read_csv(self.conversions_path)
-        self.queries = list(range(self.workload_size))
-        self.conversions_data.query("product_id in @self.queries", inplace=True)
+
+        # TODO: are we ever doing anything with this? Seems that we just run all the conversions
+        # self.queries = list(range(self.workload_size))
+        # self.conversions_data.query("product_id in @self.queries", inplace=True)
 
     def read_impression(self) -> tuple[Event | None, int | None, str | None]:
         try:
@@ -171,6 +174,7 @@ class Microbenchmark(Dataset):
                 filter=filter,
                 key=str(row["key"]),
                 epsilon=row["epsilon"],
+                noise_scale=row["aggregatable_cap_value"] / row["epsilon"],
                 user_id=conversion_user_id,
             )
 
@@ -279,6 +283,7 @@ class Criteo(Dataset):
                 filter=filter,
                 key=str(row["key"]),
                 epsilon=row["epsilon"],
+                noise_scale=row["aggregatable_cap_value"] / row["epsilon"],
                 user_id=conversion_user_id,
             )
 
@@ -417,7 +422,8 @@ class Patcg(Dataset):
                 aggregatable_cap_value=15,
                 filter=filter,
                 key=key,
-                epsilon=row["epsilon"],
+                epsilon=row["epsilon"], # Not used directly anymore
+                noise_scale=15 / row["epsilon"],
                 user_id=conversion_user_id,
             )
 

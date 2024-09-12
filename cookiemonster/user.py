@@ -1,19 +1,58 @@
+import random
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from loguru import logger
 from omegaconf import OmegaConf
-from typing import Dict, List, Any, Union
 
-from cookiemonster.report import Partition, Report
-from cookiemonster.events import Impression, Conversion
+from cookiemonster.attribution import (LastTouch,
+                                       LastTouchWithAlteredReportCount,
+                                       LastTouchWithEmptyEpochCount)
 from cookiemonster.budget_accountant import BudgetAccountant
-
-from cookiemonster.utils import maybe_initialize_filters, compute_global_sensitivity
-
-from cookiemonster.utils import IPA, COOKIEMONSTER_BASE, COOKIEMONSTER
+from cookiemonster.events import Conversion, Impression
+from cookiemonster.report import HistogramReport, Report, ScalarReport
+from cookiemonster.utils import (COOKIEMONSTER, COOKIEMONSTER_BASE, IPA,
+                                 maybe_initialize_filters)
 
 
 class ConversionResult:
     def __init__(self, unbiased_final_report: Report, final_report: Report) -> None:
         self.unbiased_final_report = unbiased_final_report
         self.final_report = final_report
+
+
+class Partition:
+    """
+    A simple container for impressions in a set of epochs on a single device.
+    Also stores partially computed reports.
+    Impressions might be modified in-place depending on budget consumption,
+    this does not affect the true on-device impressions.
+    """
+
+    def __init__(
+        self,
+        epochs_window: Tuple[int, int],
+        attribution_logic: str,
+        value: Optional[float],
+    ) -> None:
+        self.epochs_window = epochs_window
+        self.attribution_logic = attribution_logic
+        self.impressions_per_epoch: Dict[int, List[Impression]] = {}
+        self.value = value
+        self.report = None
+        self.unbiased_report = None
+
+    def epochs_window_size(self) -> int:
+        return self.epochs_window[1] - self.epochs_window[0] + 1
+
+    def get_epochs(self, reverse=False) -> List[int]:
+        """Returns a list of epochs in the window. Not just epochs with events!"""
+        if reverse:
+            return list(range(self.epochs_window[1], self.epochs_window[0] - 1, -1))
+
+        return list(range(self.epochs_window[0], self.epochs_window[1] + 1))
+
+    def __str__(self):
+        return str(self.__dict__)
 
 
 class User:
@@ -35,23 +74,57 @@ class User:
             self.impressions[event.epoch].append(event)
 
         elif isinstance(event, Conversion):
-            return self.create_report(event)
+            return self.process_conversion_event(event)
 
         else:
             raise ValueError(f"Unsupported event Type: {type(event)}")
 
-    def create_report(self, conversion: Conversion) -> ConversionResult:
+    def process_conversion_event(self, conversion: Conversion) -> ConversionResult:
         """Searches for impressions to attribute within the attribution window that match
-        the keys_to_match. Then creates a report using the attribution logic."""
+        the keys_to_match. Then creates a report using the attribution logic.
+        Also stores an unbiased version of the report, to compute metrics.
+        """
+
+        # Initialize attribution logic.
+        # If conversion value is public, we can use it as attribution_cap,
+        # which will be used for the global sensitivity.
+        # Otherwise you would need to use attribution_cap_value
+        if self.config.bias_detection_knob:
+
+            # TODO(bias): add global bound
+
+            # attribution_function = LastTouchWithEmptyEpochCount(
+            #     sensitivity_metric=self.config.sensitivity_metric,
+            #     attribution_cap=conversion.aggregatable_value,
+            #     kappa=self.config.bias_detection_knob,
+            # )
+
+            attribution_function = LastTouchWithAlteredReportCount(
+                sensitivity_metric=self.config.sensitivity_metric,
+                attribution_cap=conversion.aggregatable_value,
+                kappa=self.config.bias_detection_knob,
+            )
+
+        else:
+            attribution_function = LastTouch(
+                sensitivity_metric=self.config.sensitivity_metric,
+                attribution_cap=conversion.aggregatable_value,
+            )
 
         # Create partitioning
         partitions = self.create_partitions(conversion)
 
-        # Get relevant impressions per epoch per partition
+        # Treat different partitions as if they were different queries
         for partition in partitions:
-            (x, y) = partition.epochs_window
-            for epoch in range(x, y + 1):
+
+            # Get relevant impressions per epoch
+            for epoch in partition.get_epochs():
+                # Create an empty impression set for all the epochs on the device
+                # Useful to tell that they have budget (hearbeat)
+                partition.impressions_per_epoch[epoch] = []
+
                 if epoch in self.impressions:
+
                     # Linear search TODO: Optimize?
                     # Maybe sort impressions by key and do log search or sth?
                     for impression in self.impressions[epoch]:
@@ -62,27 +135,19 @@ class User:
                         ) and impression.matches(
                             conversion.destination, conversion.filter
                         ):
-                            if epoch not in partition.impressions_per_epoch:
-                                partition.impressions_per_epoch[epoch] = []
                             partition.impressions_per_epoch[epoch].append(impression)
 
-        # Create the unbiased report per partition
-        for partition in partitions:
-            partition.unbiased_report = partition.create_report(
-                conversion.filter, conversion.key
-            )
-        # IPA doesn't do on-device budget accounting
-        if self.config.baseline != IPA:
-
-            # Compute global sensitivity
-            global_sensitivity = compute_global_sensitivity(
-                self.config.sensitivity_metric, conversion.aggregatable_cap_value
+            # Create unbiased report
+            partition.unbiased_report = attribution_function.create_report(
+                partition=partition,
+                filter=conversion.filter,
+                key_piece=conversion.key,
             )
 
-            # Budget accounting
-            for partition in partitions:
-
+            # Modify partition in place and pay on-device budget
+            if self.config.baseline == COOKIEMONSTER_BASE:
                 # Initialize filters for the origin
+                # TODO: the state of this function is odd. Maybe initialize when we try to pay?
                 origin_filters = maybe_initialize_filters(
                     self.filters_per_origin,
                     conversion.destination,
@@ -90,72 +155,74 @@ class User:
                     self.initial_budget,
                 )
 
-                # Compute the required budget and the epochs to pay depending on the baseline
-                if self.config.baseline == COOKIEMONSTER_BASE:
-                    # Epochs in this partition pay worst case budget
-                    epochs_to_pay = partition.epochs_window
-                    budget_required = conversion.epsilon
+                # Use global sensitivity for all epochs in partition
+                budget_required = (
+                    attribution_function.compute_global_sensitivity()
+                    / conversion.noise_scale
+                )
 
-                elif self.config.baseline == COOKIEMONSTER:
-                    if partition.epochs_window_size() == 1:
-                        # Partition covers only one epoch. The epoch in this partition pays budget based on its individual sensitivity
-                        # Assuming Laplace here
-                        epochs_to_pay = partition.epochs_window
-                        noise_scale = global_sensitivity / conversion.epsilon
-                        budget_required = (
-                            partition.compute_sensitivity(
-                                self.config.sensitivity_metric
-                            )
-                            / noise_scale
-                        )
-                    else:
-                        # Partition is union of at least two epochs.
-                        budget_required = conversion.epsilon
-
-                        epochs_to_pay = []
-                        (x, y) = partition.epochs_window
-                        for epoch in range(x, y + 1):
-                            if not origin_filters.can_run(epoch, budget_required):
-                                # Delete epoch from partition so that it will be ignored upon report creation, won't be added to epochs_to_pay either
-                                if epoch in partition.impressions_per_epoch:
-                                    del partition.impressions_per_epoch[epoch]
-
-                            # Epochs empty of impressions are not paying any budget
-                            if epoch in partition.impressions_per_epoch:
-                                epochs_to_pay.append(epoch)
-
-                            # epochs_to_pay are epochs that contain relevant impressions in partition.impressions_per_epoch AND can pay the required budget
-                            # Report will be created based on the remaining impressions_per_epoch of the partition
-                            # If no epoch could pay or no epoch contained relevant impressions, the report will be empty
-
-                else:
-                    raise ValueError(f"Unsupported baseline: {self.config.baseline}")
-
+                epochs_to_pay = partition.epochs_window
                 filter_result = origin_filters.pay_all_or_nothing(
                     epochs_to_pay, budget_required
                 )
                 if not filter_result.succeeded():
-                    # If epochs couldn't pay the required budget, erase the partition's impressions_per_epoch so that an empty report will be created
+                    # If any epoch in the partition couldn't pay the required budget,
+                    # erase the partition's impressions_per_epoch so that an empty report will be created
                     partition.impressions_per_epoch.clear()
 
-        # Create the possibly biased report per partition
-        for partition in partitions:
-            partition.report = partition.create_report(
-                conversion.filter, conversion.key
+            elif self.config.baseline == COOKIEMONSTER:
+                # The noise scale is fixed for the whole query
+                noise_scale = conversion.noise_scale
+
+                origin_filters = maybe_initialize_filters(
+                    self.filters_per_origin,
+                    conversion.destination,
+                    partition.epochs_window,
+                    self.initial_budget,
+                )
+
+                for epoch in partition.get_epochs():
+                    individual_sensitivity = (
+                        attribution_function.compute_individual_sensitivity(
+                            partition, epoch
+                        )
+                    )
+
+                    budget_required = individual_sensitivity / noise_scale
+                    filter_result = origin_filters.pay_all_or_nothing(
+                        [epoch], budget_required
+                    )
+                    if not filter_result.succeeded():
+                        # Empty the impressions from `epoch`
+                        del partition.impressions_per_epoch[epoch]
+
+            elif self.config.baseline == IPA:
+                # IPA doesn't do on-device budget accounting
+                pass
+            
+            else:
+                raise NotImplementedError(
+                    f"Unsupported baseline: {self.config.baseline}"
+                )
+
+            # Create the possibly biased report
+            partition.report = attribution_function.create_report(
+                partition=partition,
+                filter=conversion.filter,
+                key_piece=conversion.key,
             )
 
         # Aggregate partition reports to create a final report
-        final_report = Report()
-        for partition in partitions:
-            final_report += partition.report
+        final_report = attribution_function.sum_reports(
+            partition.report for partition in partitions
+        )
 
         # Keep an unbiased version of the final report for experiments
-        unbiased_final_report = Report()
-        for partition in partitions:
-            unbiased_final_report += partition.unbiased_report
+        unbiased_final_report = attribution_function.sum_reports(
+            partition.unbiased_report for partition in partitions
+        )
 
-        conversion_result = ConversionResult(unbiased_final_report, final_report)
-        return conversion_result
+        return ConversionResult(unbiased_final_report, final_report)
 
     def create_partitions(self, conversion: Conversion) -> List[Partition]:
         match conversion.partitioning_logic:

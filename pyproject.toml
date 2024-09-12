@@ -23,6 +23,8 @@ numpy = "^1.26.4"
 notebook = "^7.1.2"
 jupyter = "^1.0.0"
 dask = {extras = ["dataframe"], version = "^2024.4.1"}
+mlflow = "^2.12.1"
+coolname = "^2.2.0"
 gdown = "^5.2.0"
 
 [tool.poetry.dev-dependencies]

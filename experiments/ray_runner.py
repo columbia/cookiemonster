@@ -1,8 +1,10 @@
-import ray
-from ray import tune
-from ray import train
-from loguru import logger
+import random
+import time
 from typing import Any, Dict, List
+
+import ray
+from loguru import logger
+from ray import train, tune
 from rich.pretty import pretty_repr
 
 from cookiemonster.run_evaluation import Evaluation
@@ -10,6 +12,10 @@ from cookiemonster.utils import RAY_LOGS, get_data_path
 
 
 def run_and_report(config: dict, replace=False) -> None:
+
+    # config["logs"]["trial_name"] = train._internal.session.get_trial_name()
+    # config["logs"]["experiment_name"] = train._internal.session.get_experiment_name()
+    time.sleep(random.uniform(0, 5))  # Don't start all trials at the exact same time
     logs = Evaluation(config).run()
     if logs:
         train.report(logs)
@@ -31,6 +37,10 @@ def grid_run(
     ray_session_dir: str,
     logging_keys: List[str],
     ray_init: bool = True,
+    bias_detection_knob: List[float] = [None],
+    target_rmsre: List[float] = [0.05],
+    is_monotonic_scalar_query: List[bool] = [False],
+    experiment_name: str = "Default",
 ):
 
     if ray_session_dir and ray_init:
@@ -41,6 +51,9 @@ def grid_run(
             "sensitivity_metric": "L1",
             "baseline": tune.grid_search(baseline),
             "initial_budget": tune.grid_search(initial_budget),
+            "bias_detection_knob": tune.grid_search(bias_detection_knob),
+            "target_rmsre": tune.grid_search(target_rmsre),
+            "is_monotonic_scalar_query": tune.grid_search(is_monotonic_scalar_query),
         },
         "dataset": {
             "name": dataset_name,
@@ -57,6 +70,8 @@ def grid_run(
             "save_dir": "",
             "logging_keys": logging_keys,
             "loguru_level": loguru_level,
+            "experiment_name": experiment_name,
+            "trial_name": "",
         },
         "aggregation_service": "local_laplacian",
         "aggregation_policy": {
@@ -68,12 +83,8 @@ def grid_run(
 
     logger.info(f"Tune config: {pretty_repr(config)}")
 
-    experiment_analysis = tune.run(
-        run_and_report,
-        config=config,
-        resources_per_trial={"cpu": 1},
+    run_config = ray.train.RunConfig(
         storage_path=str(RAY_LOGS.joinpath(logs_dir)),
-        resume=False,
         verbose=1,
         callbacks=[
             CustomLoggerCallback(),
@@ -88,6 +99,15 @@ def grid_run(
             max_report_frequency=60,
         ),
     )
+
+    tuner = tune.Tuner(
+        run_and_report,
+        param_space=config,
+        run_config=run_config,
+        # resources_per_trial={"cpu": 1},
+        # resume=False,
+    )
+    tuner.fit()
     # all_trial_paths = experiment_analysis._get_trial_paths()
     # experiment_dir = Path(all_trial_paths[0]).parent
 
