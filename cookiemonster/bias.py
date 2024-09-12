@@ -2,6 +2,7 @@ from typing import Dict
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 
 def compute_base_bias_metrics(
@@ -36,6 +37,8 @@ def compute_bias_metrics(
     kappa: float,
     max_report_global_sensitivity: float,
     laplace_noise_scale: float,
+    batch_size: int,
+    is_monotonic_scalar_query: bool = False,
 ) -> Dict[str, float]:
     """
     Outputs are vectors with 2 dimensions (first one for the DP count, second for the scalar metric)
@@ -47,19 +50,39 @@ def compute_bias_metrics(
         aggregation_noisy_output[1],
         laplace_noise_scale,
     )
+    
+    # Formula needs the sensitivity of the original query, without the count query
+    delta = max_report_global_sensitivity - kappa
+    
+    empty_epochs_true = aggregation_output[0] / kappa
+    empty_epochs_noisy = aggregation_noisy_output[0] / kappa
+    bias_noisy = empty_epochs_noisy * delta
+    bias_noisy_p95_confidence = bias_noisy + (
+        delta / kappa
+    ) * laplace_noise_scale * np.log(1 / 0.05) / np.sqrt(2)
+
+    if is_monotonic_scalar_query:
+        logger.info(
+            f"Monotonic scalar query, batch size {batch_size}, sensitivity {delta}"
+        )
+        monotonic_bias_bound = (
+            batch_size * delta - aggregation_noisy_output[1]
+        )
+        bias_best_bound = min(bias_noisy_p95_confidence, monotonic_bias_bound)
+    else:
+        monotonic_bias_bound = np.nan
+        bias_best_bound = bias_noisy_p95_confidence
 
     m.update(
         {
-            # "empty_epochs_true": true_output[0] / kappa,  # Should be 0 for us
-            "empty_epochs_true": aggregation_output[0] / kappa,
-            "empty_epochs_noisy": aggregation_noisy_output[0] / kappa,
-            "bias_noisy": aggregation_noisy_output[0]
-            * (max_report_global_sensitivity / kappa),
-            "bias_noisy_p95_confidence": (
-                aggregation_noisy_output[0]
-                + laplace_noise_scale * np.log(1 / 0.05) / np.sqrt(2)
-            )
-            * (max_report_global_sensitivity / kappa),
+            "empty_epochs_true": empty_epochs_true,
+            "empty_epochs_noisy": empty_epochs_noisy,
+            "bias_noisy": bias_noisy,
+            "bias_noisy_p95_confidence": bias_noisy_p95_confidence,
+            "bias_bound_from_true_empty_epochs": empty_epochs_true
+            * delta,
+            "bias_monotonic_bound": monotonic_bias_bound,
+            "bias_best_bound": bias_best_bound,
         }
     )
     return m
@@ -67,7 +90,7 @@ def compute_bias_metrics(
 
 def predict_rmsre_naive(bias_metrics, batch):
     return np.sqrt(
-        (bias_metrics["bias_noisy"] ** 2 + 2 * batch.noise_scale**2)
+        (bias_metrics["bias_best_bound"] ** 2 + 2 * batch.noise_scale**2)
         / bias_metrics["aggregation_output_noisy"] ** 2
     )
 

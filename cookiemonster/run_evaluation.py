@@ -68,14 +68,12 @@ class Evaluation:
         )
         mlflow.start_run(run_name=run_name, experiment_id=experiment_id)
 
-        # TODO: flatten
         for k, v in OmegaConf.to_object(self.config).items():
             if isinstance(v, dict):
                 for k2, v2 in v.items():
                     mlflow.log_param(f"{k}.{k2}", v2)
             else:
                 mlflow.log_param(k, v)
-        # mlflow.log_params(OmegaConf.to_object(self.config))
 
     def run(self):
         """Reads events from a dataset and asks users to process them"""
@@ -98,6 +96,7 @@ class Evaluation:
             if user_id not in self.users:
                 self.users[user_id] = User(user_id, self.config)
 
+            # Potentially generate report and spend individual budget
             result = self.users[user_id].process_event(event)
 
             if isinstance(result, ConversionResult):
@@ -123,6 +122,8 @@ class Evaluation:
                 global_sensitivity = (
                     report.global_sensitivity
                 )  # Computed by the attribution function
+                
+                # logger.info(f"Event. Value: {value}, Unbiased Value: {unbiased_value}")
 
                 # Create at most one query per histogram (we don't support multi-query histograms yet)
                 if query_id not in per_query_batch:
@@ -308,6 +309,7 @@ class Evaluation:
 
                 if self.config.user.bias_detection_knob:
                     # TODO(bias): add global bound
+                                        
                     bias_metrics = compute_bias_metrics(
                         true_output,
                         aggregation_output,
@@ -315,6 +317,8 @@ class Evaluation:
                         kappa=self.config.user.bias_detection_knob,
                         max_report_global_sensitivity=batch.global_sensitivity,
                         laplace_noise_scale=batch.noise_scale,
+                        batch_size=len(batch.values),
+                        is_monotonic_scalar_query=self.config.user.is_monotonic_scalar_query,
                     )
 
                     logger.info(
@@ -374,6 +378,18 @@ class Evaluation:
                     bias_metrics,
                     step=self.num_queries_answered,
                 )
+                
+        if MLFLOW in self.config.logs.logging_keys:
+            # Other logs
+            epoch_start, epoch_end = batch.epochs_window.get_epochs()
+            mlflow.log_metrics(
+                    metrics={
+                        "epoch_start": epoch_start,
+                        "epoch_end": epoch_end,
+                    },
+                    step=self.num_queries_answered,
+                )
+             
 
     def _log_all_filters_state(self):
         if BUDGET in self.config.logs.logging_keys:

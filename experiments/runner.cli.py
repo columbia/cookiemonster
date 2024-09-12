@@ -168,7 +168,7 @@ def criteo_run(ray_session_dir):
 
     workload_generation = OmegaConf.load("data/criteo/config.json")
 
-    # augment_rate = workload_generation.get("augment_rate")
+    augment_rate = workload_generation.get("augment_rate")
 
     epoch_first_batch = [1, 60, 14]
     epoch_second_batch = [30, 7, 21]
@@ -362,7 +362,9 @@ def patcg_bias_varying_attribution_window(ray_session_dir):
 def bias_detection(ray_session_dir):
     dataset = "microbenchmark"
     # dataset_config = "knob1_0.1_knob2_0.1"
-    dataset_config = "bias_shuffled"
+    # dataset_config = "bias_shuffled"
+    dataset_config = "bias"
+    
     
     logs_dir = f"{dataset}/bias_detection"
     current_time = datetime.now().strftime("%m-%d_%H-%M")
@@ -370,17 +372,17 @@ def bias_detection(ray_session_dir):
 
     experiments = []
 
-    bias_detection_knob = [0.5, 1, 5]
+    bias_detection_knob = [0.5, 1, 2]
     config = {
         "baseline": ["cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": f"{dataset}/impressions_{dataset_config}.csv",
         "conversions_path": f"{dataset}/conversions_{dataset_config}.csv",
         # "num_days_per_epoch": [7, 30, 60, 120, 180],
-        "num_days_per_epoch": [7, 14, 30],
-        # "num_days_per_epoch": [7],
+        # "num_days_per_epoch": [7, 14, 30],
+        "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
-        "workload_size": [1_000],
+        "workload_size": [10_000], # Run all the queries
         "min_scheduling_batch_size_per_query": 2000,
         "max_scheduling_batch_size_per_query": 2000,
         # "initial_budget": [0.1, 0.05, 0.01],
@@ -391,6 +393,7 @@ def bias_detection(ray_session_dir):
         "logging_keys": [BIAS, BUDGET, MLFLOW],
         "bias_detection_knob": bias_detection_knob,
         "target_rmsre": [0.05],
+        "is_monotonic_scalar_query": [False, True],
         "experiment_name": experiment_name,
     }
     experiments.append(
@@ -410,6 +413,105 @@ def bias_detection(ray_session_dir):
     experiments_start_and_join(experiments)
 
 
+def bias_detection_patcg(ray_session_dir):
+    dataset = "patcg"
+    logs_dir = f"{dataset}/bias_varying_epoch_granularity_aw_7"
+
+    impressions_path = f"{dataset}/v375_{dataset}_impressions.csv"
+    conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
+
+    current_time = datetime.now().strftime("%m-%d_%H-%M")
+    experiment_name = f"bias_detection_criteo_{current_time}"
+
+    experiments = []
+
+    bias_detection_knob = [0.5, 1, 2]
+    config = {
+        "baseline": ["cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [7],
+        "num_days_attribution_window": [7],
+        "workload_size": [80],
+        "max_scheduling_batch_size_per_query": 303009,
+        "min_scheduling_batch_size_per_query": 280000,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [BIAS, BUDGET, MLFLOW],
+        "bias_detection_knob": bias_detection_knob,
+        "target_rmsre": [0.05],
+        "experiment_name": experiment_name,
+    }
+
+    experiments.append(
+        multiprocessing.Process(
+            target=lambda config: grid_run(**config), args=(deepcopy(config),)
+        )
+    )
+
+    config["bias_detection_knob"] = [0]
+    config["baseline"] = ["ipa", "cookiemonster_base", "cookiemonster"]
+    experiments.append(
+        multiprocessing.Process(
+            target=lambda config: grid_run(**config), args=(deepcopy(config),)
+        )
+    )
+
+    experiments_start_and_join(experiments)
+    
+
+def bias_detection_criteo(ray_session_dir):
+    dataset = "criteo"
+    impressions_path = f"{dataset}/{dataset}_query_pool_impressions.csv"
+    conversions_path = f"{dataset}/{dataset}_query_pool_conversions.csv"
+    
+    workload_generation = OmegaConf.load("data/criteo/config.json")
+    logs_dir = f"{dataset}/bias_detection_criteo"
+    current_time = datetime.now().strftime("%m-%d_%H-%M")
+    experiment_name = f"bias_detection_criteo_{current_time}"
+
+    experiments = []
+
+    bias_detection_knob = [0.5, 1, 2]
+    config = {
+        "baseline": ["cookiemonster"],
+        "dataset_name": f"{dataset}",
+        "impressions_path": impressions_path,
+        "conversions_path": conversions_path,
+        "num_days_per_epoch": [7],
+        "num_days_attribution_window": [30],
+        "workload_size": [1_000],  # force a high number so that we run on all queries
+        "max_scheduling_batch_size_per_query": workload_generation.max_batch_size,
+        "min_scheduling_batch_size_per_query": workload_generation.min_batch_size,
+        "initial_budget": [1],
+        "logs_dir": logs_dir,
+        "loguru_level": "INFO",
+        "ray_session_dir": ray_session_dir,
+        "logging_keys": [BIAS, BUDGET, MLFLOW],
+        "bias_detection_knob": bias_detection_knob,
+        "target_rmsre": [0.05],
+        "experiment_name": experiment_name,
+    }
+
+    experiments.append(
+        multiprocessing.Process(
+            target=lambda config: grid_run(**config), args=(deepcopy(config),)
+        )
+    )
+
+    config["bias_detection_knob"] = [0]
+    config["baseline"] = ["ipa", "cookiemonster_base", "cookiemonster"]
+    experiments.append(
+        multiprocessing.Process(
+            target=lambda config: grid_run(**config), args=(deepcopy(config),)
+        )
+    )
+
+    experiments_start_and_join(experiments)
+    
 @app.command()
 def run(
     exp: str = "budget_consumption_vary_conversions_rate",

@@ -4,20 +4,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from loguru import logger
 from omegaconf import OmegaConf
 
-from cookiemonster.attribution import (
-    LastTouch,
-    LastTouchWithAlteredReportCount,
-    LastTouchWithEmptyEpochCount,
-)
+from cookiemonster.attribution import (LastTouch,
+                                       LastTouchWithAlteredReportCount,
+                                       LastTouchWithEmptyEpochCount)
 from cookiemonster.budget_accountant import BudgetAccountant
 from cookiemonster.events import Conversion, Impression
 from cookiemonster.report import HistogramReport, Report, ScalarReport
-from cookiemonster.utils import (
-    COOKIEMONSTER,
-    COOKIEMONSTER_BASE,
-    IPA,
-    maybe_initialize_filters,
-)
+from cookiemonster.utils import (COOKIEMONSTER, COOKIEMONSTER_BASE, IPA,
+                                 maybe_initialize_filters)
 
 
 class ConversionResult:
@@ -161,19 +155,13 @@ class User:
                     self.initial_budget,
                 )
 
-                # TODO: actually we could drop OOB epochs here too instead of aborting?
-                epochs_to_pay = partition.epochs_window
-
                 # Use global sensitivity for all epochs in partition
-                # TODO(P1): double check that we can use global sensitivity with the actual conversion value here.
-                # - Unlike IPA, we can't wait for the whole batch to take the max
-                # - But still ok with parallel composition? Maybe true (decompose in subqueries??) but not very obvious, and not what ARA is doing anyway?
                 budget_required = (
                     attribution_function.compute_global_sensitivity()
                     / conversion.noise_scale
                 )
-                # budget_required = conversion.epsilon
 
+                epochs_to_pay = partition.epochs_window
                 filter_result = origin_filters.pay_all_or_nothing(
                     epochs_to_pay, budget_required
                 )
@@ -208,11 +196,14 @@ class User:
                         # Empty the impressions from `epoch`
                         del partition.impressions_per_epoch[epoch]
 
-            else:
+            elif self.config.baseline == IPA:
                 # IPA doesn't do on-device budget accounting
-                assert (
-                    self.config.baseline == IPA
-                ), f"Unsupported baseline: {self.config.baseline}"
+                pass
+            
+            else:
+                raise NotImplementedError(
+                    f"Unsupported baseline: {self.config.baseline}"
+                )
 
             # Create the possibly biased report
             partition.report = attribution_function.create_report(

@@ -15,7 +15,7 @@ def run_and_report(config: dict, replace=False) -> None:
 
     # config["logs"]["trial_name"] = train._internal.session.get_trial_name()
     # config["logs"]["experiment_name"] = train._internal.session.get_experiment_name()
-    time.sleep(random.uniform(0, 2))  # Don't start all trials at the exact same time
+    time.sleep(random.uniform(0, 5))  # Don't start all trials at the exact same time
     logs = Evaluation(config).run()
     if logs:
         train.report(logs)
@@ -39,6 +39,7 @@ def grid_run(
     ray_init: bool = True,
     bias_detection_knob: List[float] = [None],
     target_rmsre: List[float] = [0.05],
+    is_monotonic_scalar_query: List[bool] = [False],
     experiment_name: str = "Default",
 ):
 
@@ -52,6 +53,7 @@ def grid_run(
             "initial_budget": tune.grid_search(initial_budget),
             "bias_detection_knob": tune.grid_search(bias_detection_knob),
             "target_rmsre": tune.grid_search(target_rmsre),
+            "is_monotonic_scalar_query": tune.grid_search(is_monotonic_scalar_query),
         },
         "dataset": {
             "name": dataset_name,
