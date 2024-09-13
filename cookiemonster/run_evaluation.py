@@ -427,20 +427,34 @@ class Evaluation:
             aggregated_metrics = aggregate_bias_prediction_metrics(aggregatable_metrics)
 
             # Also add the average budget here
-            hardcoded_destination = "1"
-            stats = logs["global_statistics"][hardcoded_destination]
-            n_device_epochs = (
-                stats["num_unique_device_filters_touched"] * stats["num_epochs_touched"]
-            )
-            budget_sum = self.logger.get("latest_budget_sum_sum")
-            aggregated_metrics["avg_budget"] = budget_sum / n_device_epochs
+            if self.global_filters_per_origin:
+                # For IPA, take the average budget over epochs that are actually queried
+                logger.info(self.global_filters_per_origin)
+                accountant = list(self.global_filters_per_origin.values())[0]
+                
+                n_queried_epochs = 0
+                budget_sum = 0
+                for budget in accountant.filter.values():
+                    logger.info(f"Budget: {budget}")
+                    consumed_budget = accountant.initial_budget - budget
+                    if consumed_budget > 0:
+                        n_queried_epochs += 1
+                        budget_sum += consumed_budget
+                aggregated_metrics["avg_budget"] = budget_sum / n_queried_epochs
+                logger.info(f"Queried epochs: {n_queried_epochs}, budget sum: {budget_sum}")
+                
+            else:
+                hardcoded_destination = "1"
+                stats = logs["global_statistics"][hardcoded_destination]
+                n_device_epochs = (
+                    stats["num_unique_device_filters_touched"] * stats["num_epochs_touched"]
+                )
+                budget_sum = self.logger.get("latest_budget_sum_sum")
+                aggregated_metrics["avg_budget"] = budget_sum / n_device_epochs
 
             mlflow.log_metrics(
                 metrics=aggregated_metrics, step=self.num_queries_answered
             )
-
-            # TODO: plot some CDFs and log them as artifacts?
-            # mlflow.log_figure()
 
         logs["event_logs"] = self.logger.logs
         logs["config"] = OmegaConf.to_object(self.config)

@@ -231,15 +231,23 @@ def boxes(
         )
         traces.append(trace)
 
-    if kwargs.get("show_nqueries", None):
+    baselines_with_nqueries = kwargs.get("show_nqueries", [])
+
+    if baselines_with_nqueries:
+        n_total_queries = kwargs.get("n_total_queries", 0)
+        if not n_total_queries:
+            # Might need to clean this
+            ara_csv_name = csv_mapping[COOKIEMONSTER_BASE]
+            ara_group = df.query("baseline == @ara_csv_name")
+            x_label = group[x_axis].unique()
+            x = x_label[0]
+            n_total_queries = len(ara_group.query(f"{x_axis} == @x"))
+            
+    for baseline in baselines_with_nqueries:
         # Add number of queries executed
-        baseline = IPA
+        # baseline = IPA
         csv_name = csv_mapping[baseline]
         group = df.query("baseline == @csv_name")
-
-        ara_csv_name = csv_mapping[COOKIEMONSTER_BASE]
-        ara_group = df.query("baseline == @ara_csv_name")
-
         x_label = group[x_axis].unique()
         y_label = []
         labels = []
@@ -249,14 +257,14 @@ def boxes(
         for x in x_label:
             # y_label.append(ara_group.query(f"{x_axis} == @x")[metric].max() + vspace)
             y_label.append(group.query(f"{x_axis} == @x")[metric].max() + vspace)
-            n_ipa_queries = len(group.query(f"{x_axis} == @x").dropna())
-            n_ara_queries = len(ara_group.query(f"{x_axis} == @x"))
+            n_queries = len(group.query(f"{x_axis} == @x").dropna())
+            
             space_string = " " * hspace
 
             if kwargs["show_nqueries"] == "percentage":
-                labels.append(f"{space_string}{100*n_ipa_queries/n_ara_queries:.0f}%")
+                labels.append(f"{space_string}{100*n_queries/n_total_queries:.0f}%")
             else:
-                labels.append(f"{space_string}{n_ipa_queries}/{n_ara_queries}")
+                labels.append(f"{space_string}{n_queries}/{n_total_queries}")
 
         text_trace = go.Scatter(
             x=x_label,

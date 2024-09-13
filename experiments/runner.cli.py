@@ -15,8 +15,7 @@ from notebooks.utils import save_data
 from plotting.criteo_plot import criteo_plot_experiments_side_by_side
 from plotting.microbenchmark_plot import (
     microbenchmark_plot_all_budget_consumption_bars,
-    microbenchmark_plot_budget_consumption_bars,
-)
+    microbenchmark_plot_budget_consumption_bars)
 from plotting.patcg_plot import patcg_plot_experiments_side_by_side
 
 app = typer.Typer()
@@ -433,7 +432,7 @@ def bias_detection(ray_session_dir):
 
     experiments = []
 
-    bias_detection_knob = [0.5, 1, 2]
+    bias_detection_knob = [0.1, 0.2, 0.5, 1, 2]
     config = {
         "baseline": ["cookiemonster"],
         "dataset_name": f"{dataset}",
@@ -443,7 +442,7 @@ def bias_detection(ray_session_dir):
         # "num_days_per_epoch": [7, 14, 30],
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [30],
-        "workload_size": [10_000], # Run all the queries
+        "workload_size": [10_000], # Run all the queries       
         "min_scheduling_batch_size_per_query": 2000,
         "max_scheduling_batch_size_per_query": 2000,
         # "initial_budget": [0.1, 0.05, 0.01],
@@ -454,7 +453,7 @@ def bias_detection(ray_session_dir):
         "logging_keys": [BIAS, BUDGET, MLFLOW],
         "bias_detection_knob": bias_detection_knob,
         "target_rmsre": [0.05],
-        "is_monotonic_scalar_query": [False, True],
+        "is_monotonic_scalar_query": [True],
         "experiment_name": experiment_name,
     }
     experiments.append(

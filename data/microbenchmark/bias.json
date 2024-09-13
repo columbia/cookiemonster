@@ -3,7 +3,7 @@
     "user_participation_rate_per_query": 0.1,
     "user_contributions_per_query": 1,
     "num_query_types": 10,
-    "num_schedules": 25,
+    "num_schedules": 40,
     "num_days": 60,
     "scheduled_batch_size": 2000,
     "accuracy": [
