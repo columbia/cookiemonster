@@ -77,6 +77,7 @@ pattern_shape_map = {
     COOKIEMONSTER: "/",
     IPA: "x",
     COOKIEMONSTER_BASE: "\\",
+    COOKIEMONSTER_BIAS: "|",
 }
 
 

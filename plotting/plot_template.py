@@ -231,8 +231,7 @@ def boxes(
         )
         traces.append(trace)
 
-    baselines_with_nqueries = kwargs.get("show_nqueries", [])
-
+    baselines_with_nqueries = kwargs.get("baselines_with_nqueries", [])
     if baselines_with_nqueries:
         n_total_queries = kwargs.get("n_total_queries", 0)
         if not n_total_queries:
@@ -259,9 +258,9 @@ def boxes(
             y_label.append(group.query(f"{x_axis} == @x")[metric].max() + vspace)
             n_queries = len(group.query(f"{x_axis} == @x").dropna())
             
-            space_string = " " * hspace
+            space_string = " " * hspace if hspace else ""
 
-            if kwargs["show_nqueries"] == "percentage":
+            if kwargs.get("nqueries_style", "count") == "percentage":
                 labels.append(f"{space_string}{100*n_queries/n_total_queries:.0f}%")
             else:
                 labels.append(f"{space_string}{n_queries}/{n_total_queries}")
