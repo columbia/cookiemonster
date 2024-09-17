@@ -40,8 +40,6 @@ class ScalarReport(Report):
             )
 
         key = keys[0]
-
-        # TODO: use proper tuples/objects instead of this string encoding
         _, filter, conversion_key = key.split("#")
         query_id = f"{filter}#{conversion_key}"
         return query_id
@@ -129,5 +127,3 @@ class HistogramReport(Report):
 class VectorReport(Report):
     def __init__(self, vector_size: int):
         self.vector = np.zeros(vector_size)
-
-    # TODO: implement the rest for the Meta use case with linear models

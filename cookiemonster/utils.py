@@ -7,7 +7,6 @@ from typing import Any, Dict, Tuple
 
 from cookiemonster.budget_accountant import BudgetAccountant
 
-# TODO: why is this duplicated?
 REPO_ROOT = Path(__file__).parent.parent
 LOGS_PATH = REPO_ROOT.joinpath("logs")
 RAY_LOGS = LOGS_PATH.joinpath("ray")

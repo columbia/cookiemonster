@@ -90,15 +90,6 @@ class User:
         # which will be used for the global sensitivity.
         # Otherwise you would need to use attribution_cap_value
         if self.config.bias_detection_knob:
-
-            # TODO(bias): add global bound
-
-            # attribution_function = LastTouchWithEmptyEpochCount(
-            #     sensitivity_metric=self.config.sensitivity_metric,
-            #     attribution_cap=conversion.aggregatable_value,
-            #     kappa=self.config.bias_detection_knob,
-            # )
-
             attribution_function = LastTouchWithAlteredReportCount(
                 sensitivity_metric=self.config.sensitivity_metric,
                 attribution_cap=conversion.aggregatable_value,
@@ -125,8 +116,7 @@ class User:
 
                 if epoch in self.impressions:
 
-                    # Linear search TODO: Optimize?
-                    # Maybe sort impressions by key and do log search or sth?
+                    # Linear search.
                     for impression in self.impressions[epoch]:
 
                         # Make sure impression is within the attribution_window and matches the conversion
@@ -147,7 +137,6 @@ class User:
             # Modify partition in place and pay on-device budget
             if self.config.baseline == COOKIEMONSTER_BASE:
                 # Initialize filters for the origin
-                # TODO: the state of this function is odd. Maybe initialize when we try to pay?
                 origin_filters = maybe_initialize_filters(
                     self.filters_per_origin,
                     conversion.destination,
@@ -197,8 +186,7 @@ class User:
                         del partition.impressions_per_epoch[epoch]
 
             elif self.config.baseline == IPA:
-                # IPA doesn't do on-device budget accounting
-                pass
+                pass # IPA doesn't do on-device budget accounting
             
             else:
                 raise NotImplementedError(

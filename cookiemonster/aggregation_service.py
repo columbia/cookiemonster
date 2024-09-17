@@ -65,5 +65,4 @@ class RemoteLaplacianAggregationService(LocalLaplacianAggregationService):
     """
 
     def create_summary_report(self, query_batch: QueryBatch) -> AggregationResult:
-        # TODO: send out to create summary report
-        return super().create_summary_report()
+        raise NotImplementedError("RemoteLaplacianAggregationService is not implemented yet")

@@ -218,8 +218,6 @@ def criteo_plot_experiments_side_by_side_submission(
         "showlegend": False,
     }
 
-    # TODO: reorder, and replace cdf by augmented cdf? Or just separate.
-
     figs = [(boxes, args1), (cdf, args2), (cdf, args3), (cdf, args4)]
     figs_args = {
         "axis_title_font_size": {"x": 18, "y": 18},

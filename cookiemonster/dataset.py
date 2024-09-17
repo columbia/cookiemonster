@@ -87,11 +87,7 @@ class Microbenchmark(Dataset):
         super().__init__(config)
         self.impressions_data = pd.read_csv(self.impressions_path)
         self.conversions_data = pd.read_csv(self.conversions_path)
-
-        # TODO: are we ever doing anything with this? Seems that we just run all the conversions
-        # self.queries = list(range(self.workload_size))
-        # self.conversions_data.query("product_id in @self.queries", inplace=True)
-
+        
     def read_impression(self) -> tuple[Event | None, int | None, str | None]:
         try:
             _, row = next(self.impressions_reader)

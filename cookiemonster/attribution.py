@@ -98,6 +98,7 @@ class LastTouch(AttributionFunction):
 
         # TODO: do we really need this?
         if report.empty():
+            raise ValueError("Empty report. Should not happen?")
             bucket_key = "#" + filter + "#" + key_piece
             bucket_value = 0
             report.add(bucket_key, bucket_value)

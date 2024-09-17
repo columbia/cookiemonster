@@ -62,21 +62,6 @@ def patcg_plot_experiments_side_by_side(
         f"Avg budget consumption plot: IPA executed {len(df_rmsre.queries_rmsres.dropna())} queries"
     )
 
-    # TODO: Add RMSRE information to identify executed queries
-    # df_rmsre = pd.read_csv(f"{path}/rmsres.csv").query(f"{variable} == {value}")
-    # df1 = df1.merge(
-    #     df_rmsre,
-    #     on=[
-    #         "timestamp",
-    #         "baseline",
-    #         "initial_budget",
-    #         "workload_size",
-    #         "num_days_per_epoch",
-    #         "num_days_attribution_window",
-    #     ],
-    #     how="left",
-    # )
-
     args3 = {
         "df": df1,
         "metric": "avg",

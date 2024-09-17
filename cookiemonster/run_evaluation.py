@@ -102,16 +102,11 @@ class Evaluation:
             if isinstance(result, ConversionResult):
                 self.global_statistics.update(event)
 
-                # Add report to its corresponding batch
+                # Prepare report and add it to the corresponding batch
                 report = result.final_report
                 unbiased_report = result.unbiased_final_report
-
-                # TODO: do we really need this?
-                assert not report.empty() and not unbiased_report.empty()
-
                 if event.destination not in self.per_destination_per_query_batch:
                     self.per_destination_per_query_batch[event.destination] = {}
-
                 per_query_batch = self.per_destination_per_query_batch[
                     event.destination
                 ]
@@ -122,8 +117,6 @@ class Evaluation:
                 global_sensitivity = (
                     report.global_sensitivity
                 )  # Computed by the attribution function
-                
-                # logger.info(f"Event. Value: {value}, Unbiased Value: {unbiased_value}")
 
                 # Create at most one query per histogram (we don't support multi-query histograms yet)
                 if query_id not in per_query_batch:
@@ -147,12 +140,10 @@ class Evaluation:
 
                 # Check if the new report triggers scheduling / aggregation
                 batch = per_query_batch[query_id]
-
                 if i % 100_000 == 0:
                     logger.info(
                         f"Batch at event {i}: query {query_id}, sum {sum(batch.values)}, true sum {sum(batch.unbiased_values)}"
                     )
-
                 if self.aggregation_policy.should_calculate_summary_reports(batch):
                     query_result = self._calculate_summary_reports(
                         query_id=query_id,
@@ -185,9 +176,7 @@ class Evaluation:
                     self._log_query_result(query_id, batch, destination, query_result)
 
         logs = self._finalize_logs()
-
-        print(logs["global_statistics"])
-
+        logger.info(logs["global_statistics"])
         return logs
 
     def _try_consume_budget_for_ipa(self, destination, batch):
@@ -206,7 +195,6 @@ class Evaluation:
             )  # Uses the max global sensitivity over report values
             logger.info(f"IPA budget: {global_epsilon} for window {batch_window}")
 
-            # TODO: is this the tightest parallel composition we can do? Can we only spend from certain epochs?
             filter_result = origin_filters.pay_all_or_nothing(
                 batch_window, global_epsilon
             )
@@ -308,8 +296,6 @@ class Evaluation:
             if MLFLOW in self.config.logs.logging_keys:
 
                 if self.config.user.bias_detection_knob:
-                    # TODO(bias): add global bound
-                                        
                     bias_metrics = compute_bias_metrics(
                         true_output,
                         aggregation_output,
@@ -325,8 +311,7 @@ class Evaluation:
                         f"Bias metrics for query {self.num_queries_answered}: {bias_metrics}"
                     )
 
-                    # TODO: we could use the prior too, but the noisy_output is probably closer? Could also use the p95 bounds on both sides
-                    # This is a heuristic, so scaling factors are fair game too
+                    # Heuristic using the high-probabiliby bias bound. Could also use the prior, scaling factors and other high-probabiliy bounds.
                     predicted_rmsre = predict_rmsre_naive(bias_metrics, batch)
                     true_rmsre = bias_metrics["rmsre"]
                     target_rmsre = self.config.user.target_rmsre
@@ -378,18 +363,17 @@ class Evaluation:
                     bias_metrics,
                     step=self.num_queries_answered,
                 )
-                
+
         if MLFLOW in self.config.logs.logging_keys:
             # Other logs
             epoch_start, epoch_end = batch.epochs_window.get_epochs()
             mlflow.log_metrics(
-                    metrics={
-                        "epoch_start": epoch_start,
-                        "epoch_end": epoch_end,
-                    },
-                    step=self.num_queries_answered,
-                )
-             
+                metrics={
+                    "epoch_start": epoch_start,
+                    "epoch_end": epoch_end,
+                },
+                step=self.num_queries_answered,
+            )
 
     def _log_all_filters_state(self):
         if BUDGET in self.config.logs.logging_keys:
@@ -431,7 +415,7 @@ class Evaluation:
                 # For IPA, take the average budget over epochs that are actually queried
                 logger.info(self.global_filters_per_origin)
                 accountant = list(self.global_filters_per_origin.values())[0]
-                
+
                 n_queried_epochs = 0
                 budget_sum = 0
                 for budget in accountant.filter.values():
@@ -441,13 +425,16 @@ class Evaluation:
                         n_queried_epochs += 1
                         budget_sum += consumed_budget
                 aggregated_metrics["avg_budget"] = budget_sum / n_queried_epochs
-                logger.info(f"Queried epochs: {n_queried_epochs}, budget sum: {budget_sum}")
-                
+                logger.info(
+                    f"Queried epochs: {n_queried_epochs}, budget sum: {budget_sum}"
+                )
+
             else:
                 hardcoded_destination = "1"
                 stats = logs["global_statistics"][hardcoded_destination]
                 n_device_epochs = (
-                    stats["num_unique_device_filters_touched"] * stats["num_epochs_touched"]
+                    stats["num_unique_device_filters_touched"]
+                    * stats["num_epochs_touched"]
                 )
                 budget_sum = self.logger.get("latest_budget_sum_sum")
                 aggregated_metrics["avg_budget"] = budget_sum / n_device_epochs
