@@ -66,7 +66,7 @@ def make_plots(
         legend={
             "title": None,
             "font": {"size": 20},
-            "traceorder": "reversed",
+            # "traceorder": "reversed",
             **legend,
         },
         template=TEMPLATE,

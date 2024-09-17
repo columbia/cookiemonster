@@ -2,8 +2,8 @@ TEMPLATE = "simple_white"
 
 IPA = "IPA-like (off-device)"
 COOKIEMONSTER_BASE = "ARA-like (on-device)"
-COOKIEMONSTER = "Cookie Monster"
-COOKIEMONSTER_BIAS = "Cookie Monster w/ bias detection"
+COOKIEMONSTER = "Cookie Monster without bias measurement"
+COOKIEMONSTER_BIAS = "Cookie Monster with bias measurement"
 
 KNOB1_AXIS = "fraction of users per query"
 KNOB2_AXIS = "user impressions per day"
@@ -62,8 +62,8 @@ lines_map = {
     
 }
 
-DEFAULT_BASELINES_ORDER = [COOKIEMONSTER, COOKIEMONSTER_BASE, IPA]
-BIAS_BASELINES_ORDER = [COOKIEMONSTER, COOKIEMONSTER_BIAS, COOKIEMONSTER_BASE, IPA]
+DEFAULT_BASELINES_ORDER = [IPA, COOKIEMONSTER_BASE, COOKIEMONSTER]
+BIAS_BASELINES_ORDER = [IPA, COOKIEMONSTER_BASE, COOKIEMONSTER, COOKIEMONSTER_BIAS]
 
 csv_mapping = {
     IPA: "ipa",

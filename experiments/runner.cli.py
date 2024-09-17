@@ -453,7 +453,7 @@ def bias_detection(ray_session_dir):
         "logging_keys": [BIAS, BUDGET, MLFLOW],
         "bias_detection_knob": bias_detection_knob,
         "target_rmsre": [0.05],
-        "is_monotonic_scalar_query": [True],
+        "is_monotonic_scalar_query": [True, False],
         "experiment_name": experiment_name,
     }
     experiments.append(
@@ -481,11 +481,11 @@ def bias_detection_patcg(ray_session_dir):
     conversions_path = f"{dataset}/v375_{dataset}_conversions.csv"
 
     current_time = datetime.now().strftime("%m-%d_%H-%M")
-    experiment_name = f"bias_detection_criteo_{current_time}"
+    experiment_name = f"bias_detection_patcg_{current_time}"
 
     experiments = []
 
-    bias_detection_knob = [0.5, 1, 2]
+    bias_detection_knob = [1.5, 3]
     config = {
         "baseline": ["cookiemonster"],
         "dataset_name": f"{dataset}",
@@ -498,29 +498,36 @@ def bias_detection_patcg(ray_session_dir):
         "min_scheduling_batch_size_per_query": 280000,
         "initial_budget": [1],
         "logs_dir": logs_dir,
-        "loguru_level": "INFO",
+        "loguru_level": "WARNING",
         "ray_session_dir": ray_session_dir,
         "logging_keys": [BIAS, BUDGET, MLFLOW],
         "bias_detection_knob": bias_detection_knob,
         "target_rmsre": [0.05],
         "experiment_name": experiment_name,
+        "is_monotonic_scalar_query": [True],
     }
-
-    experiments.append(
-        multiprocessing.Process(
-            target=lambda config: grid_run(**config), args=(deepcopy(config),)
-        )
-    )
+    # experiments.append(
+    #     multiprocessing.Process(
+    #         target=lambda config: grid_run(**config), args=(deepcopy(config),)
+    #     )
+    # )
+    grid_run(**config)
 
     config["bias_detection_knob"] = [0]
     config["baseline"] = ["ipa", "cookiemonster_base", "cookiemonster"]
-    experiments.append(
-        multiprocessing.Process(
-            target=lambda config: grid_run(**config), args=(deepcopy(config),)
-        )
-    )
+    grid_run(**config)
+    
+    config["bias_detection_knob"] = [7.5, 15] # Way too much
+    config["baseline"] = ["cookiemonster"]
+    grid_run(**config)
+    
+    # experiments.append(
+    #     multiprocessing.Process(
+    #         target=lambda config: grid_run(**config), args=(deepcopy(config),)
+    #     )
+    # )
 
-    experiments_start_and_join(experiments)
+    # experiments_start_and_join(experiments)
     
 
 def bias_detection_criteo(ray_session_dir):
@@ -554,6 +561,7 @@ def bias_detection_criteo(ray_session_dir):
         "bias_detection_knob": bias_detection_knob,
         "target_rmsre": [0.05],
         "experiment_name": experiment_name,
+        "is_monotonic_scalar_query": [True],
     }
 
     experiments.append(
