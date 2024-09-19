@@ -1,5 +1,7 @@
 from typing import List
 
+from loguru import logger
+
 from cookiemonster.report import HistogramReport, Report, ScalarReport
 
 
@@ -96,9 +98,7 @@ class LastTouch(AttributionFunction):
                 report.add(bucket_key, bucket_value)
                 break
 
-        # TODO: do we really need this?
         if report.empty():
-            raise ValueError("Empty report. Should not happen?")
             bucket_key = "#" + filter + "#" + key_piece
             bucket_value = 0
             report.add(bucket_key, bucket_value)
@@ -296,5 +296,8 @@ class LastTouchWithAlteredReportCount(LastTouchWithEmptyEpochCount):
             bucket_key = default_bucket_prefix + "#" + filter + "#" + key_piece
             bucket_value = 0
             report.add(bucket_key, bucket_value)
+            
+        else:
+            logger.info(f"Non-empty report: {report.histogram}. Global sensitivity: {global_sensitivity}")
 
         return report

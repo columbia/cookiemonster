@@ -142,7 +142,7 @@ class Evaluation:
                 batch = per_query_batch[query_id]
                 if i % 100_000 == 0:
                     logger.info(
-                        f"Batch at event {i}: query {query_id}, sum {sum(batch.values)}, true sum {sum(batch.unbiased_values)}"
+                        f"Batch at event {i}: baseline {self.config.user.baseline}, query {query_id}, sum {sum(batch.values)}, true sum {sum(batch.unbiased_values)}"
                     )
                 if self.aggregation_policy.should_calculate_summary_reports(batch):
                     query_result = self._calculate_summary_reports(

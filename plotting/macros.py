@@ -4,6 +4,7 @@ IPA = "IPA-like (off-device)"
 COOKIEMONSTER_BASE = "ARA-like (on-device)"
 COOKIEMONSTER = "Cookie Monster without bias measurement"
 COOKIEMONSTER_BIAS = "Cookie Monster with bias measurement"
+COOKIEMONSTER_BASE_BIAS = "ARA-like with bias measurement"
 
 KNOB1_AXIS = "fraction of users per query"
 KNOB2_AXIS = "user impressions per day"
@@ -42,6 +43,7 @@ color_discrete_map = {
     IPA: "red",
     COOKIEMONSTER_BASE: "green",
     COOKIEMONSTER_BIAS: "purple",
+    COOKIEMONSTER_BASE_BIAS: "teal",
     
 }
 
@@ -50,6 +52,7 @@ symbol_map = {
     IPA: "x",
     COOKIEMONSTER_BASE: "diamond",
     COOKIEMONSTER_BIAS: "circle",
+    COOKIEMONSTER_BASE_BIAS: "diamond",
     
 }
 
@@ -59,17 +62,19 @@ lines_map = {
     IPA: "dash",
     COOKIEMONSTER_BASE: "dot",
     COOKIEMONSTER_BIAS: "solid",
+    COOKIEMONSTER_BASE_BIAS: "dot",
     
 }
 
 DEFAULT_BASELINES_ORDER = [IPA, COOKIEMONSTER_BASE, COOKIEMONSTER]
-BIAS_BASELINES_ORDER = [IPA, COOKIEMONSTER_BASE, COOKIEMONSTER, COOKIEMONSTER_BIAS]
+BIAS_BASELINES_ORDER = [IPA, COOKIEMONSTER_BASE, COOKIEMONSTER, COOKIEMONSTER_BIAS, COOKIEMONSTER_BASE_BIAS]
 
 csv_mapping = {
     IPA: "ipa",
     COOKIEMONSTER: "cookiemonster",
     COOKIEMONSTER_BASE: "cookiemonster_base",
     COOKIEMONSTER_BIAS: "cookiemonster_bias",
+    COOKIEMONSTER_BASE_BIAS: "cookiemonster_base_bias",
 }
 
 # ['', '/', '\\', 'x', '-', '|', '+', '.']
@@ -78,6 +83,7 @@ pattern_shape_map = {
     IPA: "x",
     COOKIEMONSTER_BASE: "\\",
     COOKIEMONSTER_BIAS: "|",
+    COOKIEMONSTER_BASE_BIAS: "\\",
 }
 
 

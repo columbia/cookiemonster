@@ -432,9 +432,9 @@ def bias_detection(ray_session_dir):
 
     experiments = []
 
-    bias_detection_knob = [0.1, 0.2, 0.5, 1, 2]
+    bias_detection_knob = [0.25, 0.5, 1]
     config = {
-        "baseline": ["cookiemonster"],
+        "baseline": ["cookiemonster_base", "cookiemonster"],
         "dataset_name": f"{dataset}",
         "impressions_path": f"{dataset}/impressions_{dataset_config}.csv",
         "conversions_path": f"{dataset}/conversions_{dataset_config}.csv",
@@ -445,7 +445,7 @@ def bias_detection(ray_session_dir):
         "workload_size": [10_000], # Run all the queries       
         "min_scheduling_batch_size_per_query": 2000,
         "max_scheduling_batch_size_per_query": 2000,
-        # "initial_budget": [0.1, 0.05, 0.01],
+        # "initial_budget": [0.1, 0.05, 0.01],1
         "initial_budget": [1],
         "logs_dir": logs_dir,
         "loguru_level": "INFO",
@@ -453,7 +453,7 @@ def bias_detection(ray_session_dir):
         "logging_keys": [BIAS, BUDGET, MLFLOW],
         "bias_detection_knob": bias_detection_knob,
         "target_rmsre": [0.05],
-        "is_monotonic_scalar_query": [True, False],
+        "is_monotonic_scalar_query": [True],
         "experiment_name": experiment_name,
     }
     experiments.append(
@@ -461,6 +461,7 @@ def bias_detection(ray_session_dir):
             target=lambda config: grid_run(**config), args=(deepcopy(config),)
         )
     )
+   
 
     config["bias_detection_knob"] = [0]
     config["baseline"] = ["ipa", "cookiemonster_base", "cookiemonster"]
@@ -485,15 +486,17 @@ def bias_detection_patcg(ray_session_dir):
 
     experiments = []
 
-    bias_detection_knob = [1.5, 3]
+    # bias_detection_knob = [0, 3]
+    bias_detection_knob = [3]
     config = {
-        "baseline": ["cookiemonster"],
+        "baseline": ["cookiemonster", "cookiemonster_base"],
         "dataset_name": f"{dataset}",
         "impressions_path": impressions_path,
         "conversions_path": conversions_path,
         "num_days_per_epoch": [7],
         "num_days_attribution_window": [7],
-        "workload_size": [80],
+        # "workload_size": [80],
+        "workload_size": [1],
         "max_scheduling_batch_size_per_query": 303009,
         "min_scheduling_batch_size_per_query": 280000,
         "initial_budget": [1],
@@ -513,13 +516,13 @@ def bias_detection_patcg(ray_session_dir):
     # )
     grid_run(**config)
 
-    config["bias_detection_knob"] = [0]
-    config["baseline"] = ["ipa", "cookiemonster_base", "cookiemonster"]
-    grid_run(**config)
+    # config["bias_detection_knob"] = [0]
+    # config["baseline"] = ["ipa", "cookiemonster_base", "cookiemonster"]
+    # grid_run(**config)
     
-    config["bias_detection_knob"] = [7.5, 15] # Way too much
-    config["baseline"] = ["cookiemonster"]
-    grid_run(**config)
+    # config["bias_detection_knob"] = [7.5, 15] # Way too much
+    # config["baseline"] = ["cookiemonster"]
+    # grid_run(**config)
     
     # experiments.append(
     #     multiprocessing.Process(
