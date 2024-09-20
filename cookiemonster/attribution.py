@@ -256,16 +256,21 @@ class LastTouchWithAlteredReportCount(LastTouchWithEmptyEpochCount):
             if epoch not in partition.impressions_per_epoch:
                 
                 if not at_least_one_epoch_is_empty:
-                    # This epoch belongs to the window but has been erased from the partition
-                    # That means it has no budget left.
-                    # We treat it like a totally empty epoch.
-                    default_bucket_prefix = "empty"
-                    bucket_key = default_bucket_prefix + "#" + filter + "#" + key_piece
-                    bucket_value = self.kappa
-                    report.add(bucket_key, bucket_value)
                     
-                    # This is the main difference with `LastTouchWithEmptyEpochCount`
-                    at_least_one_epoch_is_empty = True
+                    # If the conversion has been attributed without any empty epoch, we don't care about older empty epochs
+                    if not already_attributed:
+                        # This epoch belongs to the window but has been erased from the partition
+                        # That means it has no budget left.
+                        # We treat it like a totally empty epoch.
+                        default_bucket_prefix = "empty"
+                        bucket_key = default_bucket_prefix + "#" + filter + "#" + key_piece
+                        bucket_value = self.kappa
+                        report.add(bucket_key, bucket_value)
+                        
+                        # This is the main difference with `LastTouchWithEmptyEpochCount`
+                        at_least_one_epoch_is_empty = True
+                    else:
+                        logger.info("Skipping empty epoch because the conversion has already been attributed.")
 
             else:
                 impressions = partition.impressions_per_epoch[epoch]
