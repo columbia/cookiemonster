@@ -2,9 +2,9 @@ TEMPLATE = "simple_white"
 
 IPA = "IPA-like (off-device)"
 COOKIEMONSTER_BASE = "ARA-like (on-device)"
-COOKIEMONSTER = "Cookie Monster without bias measurement"
-COOKIEMONSTER_BIAS = "Cookie Monster with bias measurement"
-COOKIEMONSTER_BASE_BIAS = "ARA-like with bias measurement"
+COOKIEMONSTER = "Cookie Monster w/o bias measurement"
+COOKIEMONSTER_BIAS = "Cookie Monster w/ bias measurement"
+COOKIEMONSTER_BASE_BIAS = "ARA-like w/ bias measurement"
 
 KNOB1_AXIS = "fraction of users per query"
 KNOB2_AXIS = "user impressions per day"

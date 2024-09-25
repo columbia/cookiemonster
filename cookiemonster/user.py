@@ -87,19 +87,19 @@ class User:
 
         # Initialize attribution logic.
         # If conversion value is public, we can use it as attribution_cap,
-        # which will be used for the global sensitivity.
-        # Otherwise you would need to use attribution_cap_value
+        # which will be used for the global sensitivity for CM. 
+        # Otherwise we need to use attribution_cap_value
         if self.config.bias_detection_knob:
             attribution_function = LastTouchWithAlteredReportCount(
                 sensitivity_metric=self.config.sensitivity_metric,
-                attribution_cap=conversion.aggregatable_value,
+                attribution_cap=conversion.aggregatable_cap_value,
                 kappa=self.config.bias_detection_knob,
             )
 
         else:
             attribution_function = LastTouch(
                 sensitivity_metric=self.config.sensitivity_metric,
-                attribution_cap=conversion.aggregatable_value,
+                attribution_cap=conversion.aggregatable_cap_value,
             )
 
         # Create partitioning
