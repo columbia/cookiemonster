@@ -76,4 +76,5 @@ With the `-v` flag we mount directories `cookiemonster/logs`, `cookiemonster/fig
 The previous `experiments/run_all.sh` command will automatically analyze the execution logs and create plots corresponding to the figures presented in the paper, using the [experiments/runner.cli.py](https://github.com/columbia/cookiemonster/blob/artifact-sosp/experiments/runner.cli.py) script.
 
 Check the `figures` directory for all the outputs.
+
 Due to noise addition not being deterministic results might not be identical but the relative difference between baselines should be the same.

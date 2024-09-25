@@ -1,9 +1,10 @@
 TEMPLATE = "simple_white"
 
-IPA = "Off-device (IPA-like)"
-COOKIEMONSTER_BASE = "On-device (ARA-like)"
-COOKIEMONSTER = "Cookie Monster"
-
+IPA = "IPA-like (off-device)"
+COOKIEMONSTER_BASE = "ARA-like (on-device)"
+COOKIEMONSTER = "Cookie Monster w/o bias measurement"
+COOKIEMONSTER_BIAS = "Cookie Monster w/ bias measurement"
+COOKIEMONSTER_BASE_BIAS = "ARA-like w/ bias measurement"
 
 KNOB1_AXIS = "fraction of users per query"
 KNOB2_AXIS = "user impressions per day"
@@ -11,7 +12,7 @@ KNOB2_AXIS = "user impressions per day"
 IMPRESSIONS_COUNT_X = "# of impressions"
 EPOCHS_COUNT_X = "# of epochs"
 
-BUDGET_CONSUMPTION_X = "# of queries executed"
+BUDGET_CONSUMPTION_X = "# of queries submitted"
 BUDGET_CONSUMPTION_Y = "consumed budget"
 BUDGET_CONSUMPTION_Y_MAX = "max budget"
 BUDGET_CONSUMPTION_Y_MAX_AVG = "avg. max consumed budget"
@@ -27,7 +28,7 @@ RMSRE_CDF_X = "% of queries"
 BUDGET_CDF_X = "% of devices (for all queriers)"
 BUDGET_CDF_Y = "budget consumption"
 
-NUM_DAYS_PER_EPOCH_X = "days per epoch"
+NUM_DAYS_PER_EPOCH_X = "# of days per epoch"
 INITIAL_BUDGET_X = "initial budget"
 RMSRE_Y = "RMSRE query error"
 RMSRE_Y_LOG = "RMSRE query error (log)"
@@ -41,12 +42,18 @@ color_discrete_map = {
     COOKIEMONSTER: "blue",
     IPA: "red",
     COOKIEMONSTER_BASE: "green",
+    COOKIEMONSTER_BIAS: "purple",
+    COOKIEMONSTER_BASE_BIAS: "teal",
+    
 }
 
 symbol_map = {
     COOKIEMONSTER: "circle",
     IPA: "x",
     COOKIEMONSTER_BASE: "diamond",
+    COOKIEMONSTER_BIAS: "circle",
+    COOKIEMONSTER_BASE_BIAS: "diamond",
+    
 }
 
 
@@ -54,14 +61,20 @@ lines_map = {
     COOKIEMONSTER: "solid",
     IPA: "dash",
     COOKIEMONSTER_BASE: "dot",
+    COOKIEMONSTER_BIAS: "solid",
+    COOKIEMONSTER_BASE_BIAS: "dot",
+    
 }
 
-baselines_order = [COOKIEMONSTER, COOKIEMONSTER_BASE, IPA]
+DEFAULT_BASELINES_ORDER = [IPA, COOKIEMONSTER_BASE, COOKIEMONSTER]
+BIAS_BASELINES_ORDER = [IPA, COOKIEMONSTER_BASE, COOKIEMONSTER, COOKIEMONSTER_BIAS, COOKIEMONSTER_BASE_BIAS]
 
 csv_mapping = {
     IPA: "ipa",
     COOKIEMONSTER: "cookiemonster",
     COOKIEMONSTER_BASE: "cookiemonster_base",
+    COOKIEMONSTER_BIAS: "cookiemonster_bias",
+    COOKIEMONSTER_BASE_BIAS: "cookiemonster_base_bias",
 }
 
 # ['', '/', '\\', 'x', '-', '|', '+', '.']
@@ -69,6 +82,8 @@ pattern_shape_map = {
     COOKIEMONSTER: "/",
     IPA: "x",
     COOKIEMONSTER_BASE: "\\",
+    COOKIEMONSTER_BIAS: "|",
+    COOKIEMONSTER_BASE_BIAS: "\\",
 }
 
 

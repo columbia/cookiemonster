@@ -1,14 +1,23 @@
-import pandas as pd
-from plotting.macros import *
-from plotting.plot_template import *
 import math
 
+import pandas as pd
 
-def patcg_plot_experiments_side_by_side(path, output_path, variable="num_days_per_epoch", value=7, x_axis_title=NUM_DAYS_PER_EPOCH_X):
+from plotting.macros import *
+from plotting.plot_template import *
+
+
+def patcg_plot_experiments_side_by_side(
+    path,
+    output_path,
+    variable="num_days_per_epoch",
+    value=7,
+    x_axis_title=NUM_DAYS_PER_EPOCH_X,
+):
 
     df = pd.read_csv(f"{path}/rmsres.csv")
-    df = df[df[variable] != 28]
-    df = df[df["baseline"] != "ipa"]
+    df = df.query(f"{variable} in [1 , 7, 14, 21, 30]")
+    # df = df[df[variable] != 28]
+    # df = df[df["baseline"] != "ipa"]
 
     # RMSRE BOXES
     args1 = {
@@ -20,6 +29,8 @@ def patcg_plot_experiments_side_by_side(path, output_path, variable="num_days_pe
         "ordering": (variable, "str"),
         "log_y": False,
         "showlegend": False,
+        "show_nqueries": True,
+        "vspace": 0.02,
     }
 
     df = pd.read_csv(f"{path}/rmsres.csv")
@@ -36,13 +47,20 @@ def patcg_plot_experiments_side_by_side(path, output_path, variable="num_days_pe
         "ordering": None,
         "log_y": False,
         "x_range": [1, 100],
-        "showlegend": False,
+        "showlegend": True,
         "marker_pos": 0.98,
     }
 
     # AVG BUDGET CONSUMPTION LINES
     df = pd.read_csv(f"{path}/budgets.csv")
     df1 = df.query(f"{variable} == {value}")
+    df_rmsre = pd.read_csv(f"{path}/rmsres.csv").query(
+        f"{variable} == {value} and baseline == 'ipa'"
+    )
+
+    print(
+        f"Avg budget consumption plot: IPA executed {len(df_rmsre.queries_rmsres.dropna())} queries"
+    )
 
     args3 = {
         "df": df1,
@@ -53,8 +71,9 @@ def patcg_plot_experiments_side_by_side(path, output_path, variable="num_days_pe
         "ordering": None,
         "log_y": False,
         "x_range": [0, 80],
-        "showlegend": True,
+        "showlegend": False,
         "marker_pos": 0.98,
+        "mode": "markers",
     }
 
     # # MAX BUDGET CONSUMPTION BARS
@@ -73,7 +92,7 @@ def patcg_plot_experiments_side_by_side(path, output_path, variable="num_days_pe
     # }
 
     # figs = [(boxes, args1), (bars, args4), (cdf, args2), (lines, args3)]
-    figs = [(boxes, args1), (cdf, args2), (lines, args3)]
+    figs = [(lines, args3), (cdf, args2), (boxes, args1)]
     figs_args = {
         "axis_title_font_size": {"x": 18, "y": 18},
         "axis_tick_font_size": {"x": 14, "y": 14},

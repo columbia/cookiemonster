@@ -1,27 +1,29 @@
 import os
-import typer
-from loguru import logger
-from termcolor import colored
-from omegaconf import OmegaConf
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
-from cookiemonster.dataset import Dataset
-from cookiemonster.query_batch import QueryBatch
-from cookiemonster.event_logger import EventLogger
-from cookiemonster.user import User, ConversionResult
-from cookiemonster.budget_accountant import BudgetAccountant
+import mlflow
+import numpy as np
+import typer
+from coolname import generate_slug
+from loguru import logger
+from omegaconf import OmegaConf
+from termcolor import colored
+
 from cookiemonster.aggregation_policy import AggregationPolicy
 from cookiemonster.aggregation_service import AggregationService
-from cookiemonster.utils import (
-    GlobalStatistics,
-    IPA,
-    BIAS,
-    BUDGET,
-    FILTERS_STATE,
-    save_logs,
-    maybe_initialize_filters,
-    compute_global_sensitivity,
-)
+from cookiemonster.bias import (aggregate_bias_prediction_metrics,
+                                compute_base_bias_metrics,
+                                compute_bias_metrics,
+                                compute_bias_prediction_metrics,
+                                predict_rmsre_naive)
+from cookiemonster.budget_accountant import BudgetAccountant
+from cookiemonster.dataset import Dataset
+from cookiemonster.event_logger import EventLogger
+from cookiemonster.query_batch import QueryBatch
+from cookiemonster.user import ConversionResult, User
+from cookiemonster.utils import (BIAS, BUDGET, FILTERS_STATE, IPA, LOGS_PATH,
+                                 MLFLOW, GlobalStatistics,
+                                 maybe_initialize_filters, save_logs)
 
 app = typer.Typer()
 
@@ -34,6 +36,8 @@ class Evaluation:
 
         self.logger = EventLogger()
         self.global_statistics = GlobalStatistics(self.config.user.baseline)
+
+        self.num_queries_answered = 0
 
         # filters shared across users for IPA
         self.global_filters_per_origin: Dict[str, BudgetAccountant] = {}
@@ -48,76 +52,110 @@ class Evaluation:
             self.config.aggregation_service
         )
 
+    def setup_mlfow(self):
+        mlflow.set_tracking_uri(LOGS_PATH.joinpath("mlflow"))
+
+        exp_name = self.config.logs.experiment_name
+        try:
+            experiment_id = mlflow.create_experiment(name=exp_name)
+        except mlflow.exceptions.MlflowException:
+            experiment_id = mlflow.get_experiment_by_name(exp_name).experiment_id
+
+        run_name = (
+            self.config.logs.trial_name
+            if self.config.logs.trial_name
+            else generate_slug(2)
+        )
+        mlflow.start_run(run_name=run_name, experiment_id=experiment_id)
+
+        for k, v in OmegaConf.to_object(self.config).items():
+            if isinstance(v, dict):
+                for k2, v2 in v.items():
+                    mlflow.log_param(f"{k}.{k2}", v2)
+            else:
+                mlflow.log_param(k, v)
+
     def run(self):
         """Reads events from a dataset and asks users to process them"""
+
+        if MLFLOW in self.config.logs.logging_keys:
+            self.setup_mlfow()
+
         for i, res in enumerate(self.dataset.event_reader()):
             (user_id, event) = res
 
-            if i % 100000 == 0:
-                logger.info(colored(str(event), "blue"))
+            if self.num_queries_answered > self.dataset.workload_size:
+                logger.info(
+                    f"Reached workload size {self.dataset.workload_size} at event {i}"
+                )
+                break
+
+            if i % 100_000 == 0:
+                logger.info(f"Event {i}: {event}")
 
             if user_id not in self.users:
                 self.users[user_id] = User(user_id, self.config)
 
+            # Potentially generate report and spend individual budget
             result = self.users[user_id].process_event(event)
 
             if isinstance(result, ConversionResult):
                 self.global_statistics.update(event)
 
-                # Add report to its corresponding batch
+                # Prepare report and add it to the corresponding batch
                 report = result.final_report
                 unbiased_report = result.unbiased_final_report
-                assert not report.empty() and not unbiased_report.empty()
-
                 if event.destination not in self.per_destination_per_query_batch:
                     self.per_destination_per_query_batch[event.destination] = {}
-
                 per_query_batch = self.per_destination_per_query_batch[
                     event.destination
                 ]
 
-                # Compute global sensitivity based on the aggregatable cap value
-                global_sensitivity = compute_global_sensitivity(
-                    self.config.user.sensitivity_metric, event.aggregatable_cap_value
-                )
-                # Support for only scalar reports for now
-                assert len(report.histogram) == 1
+                query_id = report.get_query_id()
+                value = report.get_value()
+                unbiased_value = unbiased_report.get_value()
+                global_sensitivity = (
+                    report.global_sensitivity
+                )  # Computed by the attribution function
 
-                for query_id, value in report.histogram.items():
-                    if query_id not in per_query_batch:
-                        per_query_batch[query_id] = QueryBatch(
-                            query_id,
-                            event.epsilon,
-                            global_sensitivity,
-                            biggest_id=event.id,
-                        )
-                    else:
-                        # All conversion requests for the same query should have the same epsilon and sensitivity
-                        assert per_query_batch[query_id].global_epsilon == event.epsilon
-                        assert (
-                            per_query_batch[query_id].global_sensitivity
-                            == global_sensitivity
-                        )
-
-                    per_query_batch[query_id].update(
-                        value,
-                        unbiased_report.histogram[query_id],
-                        event.epochs_window,
+                # Create at most one query per histogram (we don't support multi-query histograms yet)
+                if query_id not in per_query_batch:
+                    per_query_batch[query_id] = QueryBatch(
+                        query_id=query_id,
+                        noise_scale=event.noise_scale,
                         biggest_id=event.id,
                     )
+                else:
+                    assert (
+                        per_query_batch[query_id].noise_scale == event.noise_scale
+                    ), f"Different noise scales. {per_query_batch[query_id].noise_scale} != {event.noise_scale}. We can handle it by requiring >=, or by creating a new query batch every time we find a different noise scale."
+
+                per_query_batch[query_id].add_report(
+                    value,
+                    unbiased_value,
+                    global_sensitivity,
+                    event.epochs_window,
+                    biggest_id=event.id,
+                )
 
                 # Check if the new report triggers scheduling / aggregation
-                for query_id in report.histogram.keys():
-                    batch = per_query_batch[query_id]
-                    if self.aggregation_policy.should_calculate_summary_reports(batch):
-                        self._calculate_summary_reports(
-                            query_id=query_id,
-                            batch=batch,
-                            destination=event.destination,
-                        )
+                batch = per_query_batch[query_id]
+                if i % 100_000 == 0:
+                    logger.info(
+                        f"Batch at event {i}: baseline {self.config.user.baseline}, query {query_id}, sum {sum(batch.values)}, true sum {sum(batch.unbiased_values)}"
+                    )
+                if self.aggregation_policy.should_calculate_summary_reports(batch):
+                    query_result = self._calculate_summary_reports(
+                        query_id=query_id,
+                        batch=batch,
+                        destination=event.destination,
+                    )
+                    self._log_query_result(
+                        query_id, batch, event.destination, query_result
+                    )
 
-                        # Reset the batch
-                        del per_query_batch[query_id]
+                    # Reset the batch
+                    del per_query_batch[query_id]
 
         # Handle the tail for those queries that have enough events for DP, but are not the preferred batch size
         for (
@@ -125,28 +163,24 @@ class Evaluation:
             per_query_batch,
         ) in self.per_destination_per_query_batch.items():
             for query_id, batch in per_query_batch.items():
+
+                # Use the min_batch_size thanks to `tail=True`
                 if self.aggregation_policy.should_calculate_summary_reports(
                     batch, tail=True
                 ):
-                    self._calculate_summary_reports(
+                    query_result = self._calculate_summary_reports(
                         query_id=query_id,
                         batch=batch,
                         destination=destination,
                     )
+                    self._log_query_result(query_id, batch, destination, query_result)
 
-        self._log_all_filters_state()
-
-        logs = {}
-        logs["global_statistics"] = self.global_statistics.dump()
-        logs["event_logs"] = self.logger.logs
-        logs["config"] = OmegaConf.to_object(self.config)
-        if self.config.logs.save:
-            save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
-            save_logs(logs, save_dir)
-
+        logs = self._finalize_logs()
+        logger.info(logs["global_statistics"])
         return logs
 
     def _try_consume_budget_for_ipa(self, destination, batch):
+
         # In case of IPA the advertiser consumes worst-case budget from all the requested epochs in their global filter (Central DP)
         if self.config.user.baseline == IPA:
             origin_filters = maybe_initialize_filters(
@@ -155,8 +189,14 @@ class Evaluation:
                 batch.epochs_window.get_epochs(),
                 float(self.config.user.initial_budget),
             )
+            batch_window = batch.epochs_window.get_epochs()
+            global_epsilon = (
+                batch.get_global_epsilon()
+            )  # Uses the max global sensitivity over report values
+            logger.info(f"IPA budget: {global_epsilon} for window {batch_window}")
+
             filter_result = origin_filters.pay_all_or_nothing(
-                batch.epochs_window.get_epochs(), batch.global_epsilon
+                batch_window, global_epsilon
             )
             if not filter_result.succeeded():
                 logger.info(colored(f"IPA can't run query", "red"))
@@ -165,34 +205,51 @@ class Evaluation:
 
     def _calculate_summary_reports(
         self, *, query_id: str, batch: QueryBatch, destination: str
-    ) -> None:
+    ) -> Any:
 
-        true_output = None
-        aggregation_output = None
-        aggregation_noisy_output = None
-
-        status = True
-        if self.config.user.baseline == IPA:
-            status = self._try_consume_budget_for_ipa(destination, batch)
-
-        if status:
+        # On-device queries always succeed, but IPA can throw an OOB error
+        query_succeeded = (
+            self._try_consume_budget_for_ipa(destination, batch)
+            if self.config.user.baseline == IPA
+            else True
+        )
+        if query_succeeded:
             # Schedule the batch
             aggregation_result = self.aggregation_service.create_summary_report(batch)
+            return aggregation_result
+        else:
+            return None
+
+    def _log_query_result(
+        self,
+        query_id: str,
+        batch: QueryBatch,
+        destination: str,
+        aggregation_result: Any,
+    ) -> None:
+
+        # Keep track of the number of queries answered (potentially with answer=None) to stop when workload_size is reached
+        self.num_queries_answered += 1
+
+        if aggregation_result is None:
+            if self.config.user.bias_detection_knob is not None:
+                true_output = aggregation_output = aggregation_noisy_output = np.nan
+            else:
+                true_output = aggregation_output = aggregation_noisy_output = None
+        else:
             true_output = aggregation_result.true_output
             aggregation_output = aggregation_result.aggregation_output
             aggregation_noisy_output = aggregation_result.aggregation_noisy_output
             logger.info(
-                colored(
-                    f"Scheduling query batch {query_id}, true_output: {true_output}, aggregation_output: {aggregation_output}, noisy_output: {aggregation_noisy_output}",
-                    "green",
-                )
+                f"Scheduling query #{self.num_queries_answered}, id {query_id}, true_output: {true_output}, aggregation_output: {aggregation_output}, noisy_output: {aggregation_noisy_output}"
             )
 
         # Log budgeting metrics and accuracy related data
         if BUDGET in self.config.logs.logging_keys:
             budget_metrics = {"max_max": 0, "sum_max": 0, "max_sum": 0, "sum_sum": 0}
 
-            def get_budget_metrics(filters_per_origin):
+            def update_budget_metrics(filters_per_origin):
+                # Modifies `budget_metrics` in-place
                 if destination in filters_per_origin:
                     budget_accountant = filters_per_origin[destination]
                     max_ = budget_accountant.get_max_consumption_across_blocks()
@@ -204,12 +261,22 @@ class Evaluation:
                     budget_metrics["sum_sum"] += sum_
 
             if self.global_filters_per_origin:
-                get_budget_metrics(self.global_filters_per_origin)
+                update_budget_metrics(self.global_filters_per_origin)
             else:
                 for user in self.users.values():
-                    get_budget_metrics(user.filters_per_origin)
+                    update_budget_metrics(user.filters_per_origin)
 
             self.logger.log(BUDGET, destination, batch.biggest_id, budget_metrics)
+
+            if MLFLOW in self.config.logs.logging_keys:
+                mlflow.log_metrics(
+                    metrics={
+                        "global_budget_sum_sum": budget_metrics["sum_sum"],
+                        "global_budget_max_max": budget_metrics["max_max"],
+                    },
+                    step=self.num_queries_answered,
+                )
+                self.logger.store("latest_budget_sum_sum", budget_metrics["sum_sum"])
 
         if BIAS in self.config.logs.logging_keys:
             self.logger.log(
@@ -217,13 +284,95 @@ class Evaluation:
                 batch.biggest_id,
                 destination,
                 query_id,
-                batch.global_epsilon,
+                batch.get_global_epsilon(),
                 batch.global_sensitivity,
                 {
                     "true_output": true_output,
                     "aggregation_output": aggregation_output,
                     "aggregation_noisy_output": aggregation_noisy_output,
                 },
+            )
+
+            if MLFLOW in self.config.logs.logging_keys:
+
+                if self.config.user.bias_detection_knob:
+                    bias_metrics = compute_bias_metrics(
+                        true_output,
+                        aggregation_output,
+                        aggregation_noisy_output,
+                        kappa=self.config.user.bias_detection_knob,
+                        max_report_global_sensitivity=batch.global_sensitivity,
+                        laplace_noise_scale=batch.noise_scale,
+                        batch_size=len(batch.values),
+                        is_monotonic_scalar_query=self.config.user.is_monotonic_scalar_query,
+                    )
+
+                    logger.info(
+                        f"Bias metrics for query {self.num_queries_answered}: {bias_metrics}"
+                    )
+
+                    # Heuristic using the high-probabiliby bias bound. Could also use the prior, scaling factors and other high-probabiliy bounds.
+                    predicted_rmsre = predict_rmsre_naive(bias_metrics, batch)
+                    true_rmsre = bias_metrics["rmsre"]
+                    target_rmsre = self.config.user.target_rmsre
+
+                    # Some extra logs to get workload-level metrics
+                    aggregatable_metrics = compute_bias_prediction_metrics(
+                        predicted_rmsre,
+                        true_rmsre,
+                        target_rmsre,
+                    )
+
+                    bias_metrics.update(
+                        {
+                            "rmsre_prediction": predicted_rmsre,
+                            "truly_meets_rmsre_target": aggregatable_metrics[
+                                "truly_meets_rmsre_target"
+                            ],
+                            "probably_meets_rmsre_target": aggregatable_metrics[
+                                "probably_meets_rmsre_target"
+                            ],
+                        }
+                    )
+                    self.logger.log_one(MLFLOW, aggregatable_metrics)
+
+                elif isinstance(true_output, np.ndarray):
+                    # You probably don't want to log this, but who knows
+                    bias_metrics = {}
+
+                    for i in range(len(true_output)):
+                        bias_metrics.update(
+                            {
+                                f"true_output_{i}": true_output[i],
+                                f"aggregation_output_{i}": aggregation_output[i],
+                                f"aggregation_noisy_output_{i}": aggregation_noisy_output[
+                                    i
+                                ],
+                            }
+                        )
+
+                else:
+                    bias_metrics = compute_base_bias_metrics(
+                        true_output,
+                        aggregation_output,
+                        aggregation_noisy_output,
+                        laplace_noise_scale=batch.noise_scale,
+                    )
+
+                mlflow.log_metrics(
+                    bias_metrics,
+                    step=self.num_queries_answered,
+                )
+
+        if MLFLOW in self.config.logs.logging_keys:
+            # Other logs
+            epoch_start, epoch_end = batch.epochs_window.get_epochs()
+            mlflow.log_metrics(
+                metrics={
+                    "epoch_start": epoch_start,
+                    "epoch_end": epoch_end,
+                },
+                step=self.num_queries_answered,
             )
 
     def _log_all_filters_state(self):
@@ -251,6 +400,57 @@ class Evaluation:
 
             self.logger.log(FILTERS_STATE, per_destination_device_epoch_filters)
 
+    def _finalize_logs(self):
+        self._log_all_filters_state()
+
+        logs = {}
+        logs["global_statistics"] = self.global_statistics.dump()
+
+        if MLFLOW in self.config.logs.logging_keys:
+            aggregatable_metrics = self.logger.logs.pop(MLFLOW, None)
+            aggregated_metrics = aggregate_bias_prediction_metrics(aggregatable_metrics)
+
+            # Also add the average budget here
+            if self.global_filters_per_origin:
+                # For IPA, take the average budget over epochs that are actually queried
+                logger.info(self.global_filters_per_origin)
+                accountant = list(self.global_filters_per_origin.values())[0]
+
+                n_queried_epochs = 0
+                budget_sum = 0
+                for budget in accountant.filter.values():
+                    logger.info(f"Budget: {budget}")
+                    consumed_budget = accountant.initial_budget - budget
+                    if consumed_budget > 0:
+                        n_queried_epochs += 1
+                        budget_sum += consumed_budget
+                aggregated_metrics["avg_budget"] = budget_sum / n_queried_epochs
+                logger.info(
+                    f"Queried epochs: {n_queried_epochs}, budget sum: {budget_sum}"
+                )
+
+            else:
+                hardcoded_destination = "1"
+                stats = logs["global_statistics"][hardcoded_destination]
+                n_device_epochs = (
+                    stats["num_unique_device_filters_touched"]
+                    * stats["num_epochs_touched"]
+                )
+                budget_sum = self.logger.get("latest_budget_sum_sum")
+                aggregated_metrics["avg_budget"] = budget_sum / n_device_epochs
+
+            mlflow.log_metrics(
+                metrics=aggregated_metrics, step=self.num_queries_answered
+            )
+
+        logs["event_logs"] = self.logger.logs
+        logs["config"] = OmegaConf.to_object(self.config)
+        if self.config.logs.save:
+            save_dir = self.config.logs.save_dir if self.config.logs.save_dir else ""
+            save_logs(logs, save_dir)
+
+        return logs
+
 
 @app.command()
 def run_evaluation(
@@ -259,8 +459,8 @@ def run_evaluation(
 ):
     os.environ["LOGURU_LEVEL"] = loguru_level
 
-    omegaconf = OmegaConf.load(omegaconf)
-    return Evaluation(omegaconf).run()
+    config = OmegaConf.load(omegaconf)
+    return Evaluation(config).run()
 
 
 if __name__ == "__main__":

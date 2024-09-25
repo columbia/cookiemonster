@@ -61,7 +61,17 @@ def get_epsilon_for_high_probability_absolute_error(
     return sensitivity * math.log(1 / failure_probability) / absolute_error
 
 
-def get_epsilon_for_relative_rmse_wrt_prior(
+def get_epsilon_for_rmsre_wrt_avg_prior(
+    sensitivity: float,
+    batch_size: int,
+    expected_average_result: float,
+    relative_error: float,
+):
+    expected_result = expected_average_result * batch_size
+    return get_epsilon_for_rmse(sensitivity, relative_error * expected_result)
+
+
+def get_epsilon_for_rmsre_wrt_prior(
     sensitivity: float, expected_result: float, relative_error: float
 ):
     return get_epsilon_for_rmse(sensitivity, relative_error * expected_result)
