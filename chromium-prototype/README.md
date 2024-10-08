@@ -23,8 +23,8 @@ fetch --nohooks chromium
 ```
 
 Press `n` to the following:
-`OK to update it to https://chromium.googlesource.com/chromium/tools/depot_tools.git ? [Y/n] n`
-
+`OK to update it to https://chromium.googlesource.com/chromium/tools/depot_tools.git ? [Y/n] n`\
+(don't press `enter` after pressing `n`!)
 
 #### Install dependencies
 ```bash
@@ -38,7 +38,8 @@ gclient runhooks
 ```
 
 Press `n` to the following:
-`OK to update it to https://chromium.googlesource.com/chromium/tools/depot_tools.git ? [Y/n] n`
+`OK to update it to https://chromium.googlesource.com/chromium/tools/depot_tools.git ? [Y/n] n`\
+(don't press `enter` after pressing `n`!)
 
 #### Setup the build
 ```bash
@@ -50,7 +51,7 @@ gn gen out/Default
 Hacky way to pull changes from our devtools-frontend. 
 Previous command fetched the google repos instead. TODO: fix that.
 ```bash
-cd src/third_party/devtools-frontend/src/
+cd third_party/devtools-frontend/src/
 git remote add cu https://github.com/columbia/devtools-frontend.git
 git fetch cu
 git checkout cu/cu-ara
@@ -59,16 +60,18 @@ git checkout cu/cu-ara
 
 #### Build chromium
 ```bash
+cd ../../../../
 autoninja -C out/Default chrome
 ```
 
-#### Setup Exporting Display
+#### Setup Exporting Display (if running Chromium in a remote node)
 ```bash
 sudo apt-get install xorg
 sudo apt-get install xvfb
 Xvfb :99 -screen 0 1024x768x24 &
 export DISPLAY=:99
 ```
+Also make sure you SSH using the -X flag and download a tool like XQuartz in your local machine.
 
 
 #### Run Chromium:
