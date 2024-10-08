@@ -61,6 +61,7 @@ git checkout cu/cu-ara
 #### Build chromium
 ```bash
 cd ../../../../
+git checkout origin/logging-filters
 autoninja -C out/Default chrome
 ```
 
