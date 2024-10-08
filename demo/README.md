@@ -8,7 +8,7 @@
 1. If it's not yet installed on your machine, install [node.js](https://nodejs.org/en/download/).
    Install using this: https://deb.nodesource.com/ and try >=v20
 2. Install the latest Firebase CLI by running the following in your terminal: `npm install -g firebase-tools`. The version known to work with this README.md is 13.3.0.
-3. In your terminal, run `git clone https://github.com/columbia/adsprivate.git && cd adsprivate/demo`. 
+3. In your terminal, run `git clone https://github.com/columbia/cookiemonster.git && cd cookiemonster/demo`. 
 4. In your terminal, run `npm install && cd functions && npm install && cd ..`. This command will install all the required dependencies for you to locally run the `attribution-reporting` demo.
 
 ### Run locally
