@@ -54,8 +54,17 @@ advertiser.get('/', (req, res) => {
   res.render('home', { demoHomeUrl, publisherUrl, advertiserUrl, adtechUrl })
 })
 
+advertiser.get('/home', (req, res) => {
+  res.render('home', { demoHomeUrl, publisherUrl, advertiserUrl, adtechUrl })
+})
+
+advertiser.get('/blue-shoes', (req, res) => {
+  res.render('blue-shoes', { demoHomeUrl, publisherUrl, advertiserUrl, adtechUrl })
+})
+
 advertiser.post('/new-purchase', (req, res) => {
   req.session.purchaseId = Math.floor(Math.random() * 100000)
+  console.log('New purchase ID:', req.session.purchaseId)
   res.redirect('checkout')
 })
 
@@ -63,6 +72,10 @@ advertiser.get('/checkout', (req, res) => {
   if (!req.session.purchaseId) {
     req.session.purchaseId = Math.floor(Math.random() * 100000)
   }
+
+  console.log('Checkout purchase ID:', req.session.purchaseId)
+
+
   const { prio, dedup, purchaseId } = req.session
 
   const searchParams = new URLSearchParams({

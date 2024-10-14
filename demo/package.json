@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "cbor": "^9.0.2"
+    "cbor": "^9.0.2",
+    "firebase-tools": "^13.22.0"
   }
 }

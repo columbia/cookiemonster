@@ -34,7 +34,15 @@ const adtechUrl = process.env.ADTECH_URL
 const advertiserUrl = process.env.ADVERTISER_URL
 
 adtech.get('/', (req, res) => {
-  res.render('index')
+  console.log(
+    'Adtech index. Time:',
+    Date.now(),
+    ' ',
+    req.originalUrl,
+    ' Cookies: ',
+    req.cookies
+  )
+  res.render('index', {cookies: req.cookies})
 })
 
 /* -------------------------------------------------------------------------- */
@@ -86,7 +94,11 @@ adtech.use(function (req, res, next) {
 
   var headers = []
   const legacyMeasurementCookie = req.cookies['__session']
+
+  console.log('legacyMeasurementCookie: ', legacyMeasurementCookie)
+
   if (legacyMeasurementCookie === undefined) {
+    // TODO: generate name 
     const cookieValue = Math.floor(Math.random() * 1000000000000000)
     headers.push(`__session=${cookieValue}; SameSite=None; Secure; HttpOnly`)
   }
@@ -100,9 +112,32 @@ adtech.use(function (req, res, next) {
   if (headers.length > 0) {
     res.set('Set-Cookie', headers)
   }
+  
+  console.log(
+    'Time:',
+    Date.now(),
+    ' ',
+    req.originalUrl,
+    ' Cookies after setup: ',
+    req.cookies
+  )
 
   next()
 })
+
+
+adtech.get('/logs', (req, res) => {
+  console.log(
+    'Adtech index. Time:',
+    Date.now(),
+    ' ',
+    req.originalUrl,
+    ' Cookies: ',
+    req.cookies
+  )
+  res.render('logs', {cookies: req.cookies})
+})
+
 
 /* -------------------------------------------------------------------------- */
 /*                                 Ad serving                                 */
@@ -113,6 +148,25 @@ adtech.get('/ad-click', (req, res) => {
 })
 
 adtech.get('/ad-script-click-element', (req, res) => {
+  console.log('Serving ad script. From publisher:',)
+  console.log('req.url:', req.url)
+
+  // TODO: simplified cookie! Probably not implemented like this in practice. 
+  // TODO: also use different ad names
+  var headers = []
+  const impressionCookie = req.cookies['__impressions']
+  console.log('impressionCookie: ', impressionCookie)
+  var cookieValue = []
+  if (impressionCookie != undefined) {
+    cookieValue = impressionCookie.split(',')
+  }
+  cookieValue.push(req.url)
+  headers.push(`__impressions=${cookieValue}; SameSite=None; Secure; HttpOnly`)
+
+  if (headers.length > 0) {
+    res.set('Set-Cookie', headers)
+  }
+
   res.set('Content-Type', 'text/javascript')
   const adClickUrl = `${process.env.ADTECH_URL}/ad-click`
   const iframe = `<iframe src='${adClickUrl}' allow='attribution-reporting' width=190 height=190 scrolling=no frameborder=1 padding=0></iframe>`
@@ -238,7 +292,7 @@ adtech.get('/conversion', (req, res) => {
   const partitioningLogic = ""
   
   // Debug report (common to event-level and aggregate)
-  console.log('Conversion Cookies Set: ', req.cookies)
+  console.log('Conversion Cookies Set:: ', req.cookies)
 
   // Optional: set a debug key, and give it the value of the legacy measurement 3P cookie.
   // This is a simple approach for demo purposes. In a real system, you would make this key a unique ID, and you may map it to additional trigger-time information that you deem useful for debugging or performance comparison.

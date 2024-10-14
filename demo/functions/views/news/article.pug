@@ -1,0 +1,91 @@
+html
+  head
+    meta(charset='UTF-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    title 📰 News
+    link(rel='stylesheet' href='/styles.css')
+    link(rel='stylesheet' href=`${demoHomeUrl}/shared.styles-browser-setup.css`)
+    link(rel='stylesheet' type='text/css' href='https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css')
+    script(type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js")
+    style.
+        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap');
+  body
+    div#setup-issues-banner(style="display:none") Make sure to follow the 
+        a(href=`${demoHomeUrl}#browser-setup`) browser setup instructions
+        | .
+        div#setup-issues-list
+    header
+        div.main
+            h1 📰 Morningside News 
+            div
+                nav.menu
+    div.main.mainContentWrapper
+      h2 News article
+      article
+          | Baseball ipsum dolor sit amet cellar rubber win hack tossed. 
+          | Slugging catcher slide bench league, left fielder nubber. 
+          | Base cookie triple play blue hot dog relay rake starting pitcher inning.
+      // Third-party adtech script that dynamically creates an iframe with an ad
+      //- div.loading
+      script(src=adScriptUrl)
+      //- script.
+      //-   if (document.featurePolicy.allowsFeature('attribution-reporting')) {
+      //-     // \!{}\ is the syntax for this template engine (pug) to access server-defined variables in a script
+      //-     const adScriptUrl = !{JSON.stringify(adScriptUrl)};
+      //-     let eventType = ""
+      //-     textStart = `💡 Demo tip: \n\n Click on the ad. \n\n Once you do, a source event for this ad will be registered in your browser.`
+          
+      //-     const advertiserUrl = !{JSON.stringify(advertiserUrl)};
+      //-     Toastify({
+      //-       text: `${textStart} \n You can see source events stored in your browser in chrome://attribution-internals. \n Next, visit ${advertiserUrl} (the advertiser site for this source event), and convert. \n\n This will generate an attribution report for this source event. \n`,
+      //-       destination: advertiserUrl,
+      //-       newWindow: true,
+      //-       duration: -1, // infinity
+      //-       close: true,
+      //-       gravity: "top",
+      //-       position: "right",
+      //-       stopOnFocus: true, // Prevents dismissing of toast on hover
+      //-       offset: {
+      //-         y: 300,
+      //-         x: 40
+      //-       },
+      //-       style: {
+      //-         background: "#000000d6",
+      //-         cursor: "pointer",
+      //-         fontFamily: "'Lucida Console', Monaco, monospace",
+      //-         fontSize: ".8rem",
+      //-         boxShadow: "rgba(0, 0, 0, 0.3) 0px 19px 38px, rgba(0, 0, 0, 0.22) 0px 15px 12px;",
+      //-         borderRadius: "6px",
+      //-         width: "40vw",
+      //-         maxWidth: "40rem",
+      //-       },
+      //-     }).showToast();
+      //-   }
+
+    //- block foot
+    //-     #footer
+    //-         div 
+    //-             a(href=demoHomeUrl) Demo homepage
+    //-             | ・
+    //-             span Publisher site
+    //-             | ・
+    //-             a(href=advertiserUrl) Advertiser site
+    //-             | ・
+    //-             a(href=adtechUrl) Adtech site
+    //-         div
+    //-             a(href="https://goo.gle/sppi-devrel-eventlevel" target="_blank") Deployed demo
+    //-             | ・
+    //-             a(href="https://github.com/GoogleChromeLabs/trust-safety-demo/tree/main/attribution-reporting" target="_blank") Code
+    script(type="text/javascript" src=`${demoHomeUrl}/shared.browser-setup.js`)
+    script(type="text/javascript" src=`${demoHomeUrl}/shared.highlight-current-link.js`)
+    //- script.
+    //-     document.onreadystatechange = function () {
+    //-         if (document.querySelector('.loading')) {
+    //-             if (document.readyState !== 'complete') {
+    //-             document.querySelector('.loading').style.visibility = 'visible'
+    //-             } else {
+    //-             document.querySelector('.loading').style.display = 'none'
+    //-             }
+    //-         }
+    //-     }
+

@@ -1,0 +1,20 @@
+doctype html
+doctype html
+head
+  meta(charset='UTF-8')
+  meta(name='viewport' content='width=device-width, initial-scale=1.0')
+  title 🚀 Adtech server
+  link(rel='stylesheet' href='/styles.css')
+body
+  h1 Adtech server 🚀 
+  br
+  p
+  | Internal logs. Here are the cookies set by the adtech server:
+  | TODO: Match URL from actual requests (maybe more realistic), or just create more cookies for each webpage (simpler to explain and still plausible)?
+  ul
+  each value, key in cookies
+    li #{key}: #{value}
+  script.
+    console.log("hey")
+    //- console.log('Adtech server frontend loaded', ' Cookies: ', req.cookies')
+

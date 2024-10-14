@@ -63,8 +63,38 @@
           "function": "publisher"
         }
       ]
+    },
+    {
+      "site": "news",
+      "public": "sites/news",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "news"
+        }
+      ]
+    },
+    {
+      "site": "social",
+      "public": "sites/social",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "function": "social"
+        }
+      ]
     }
-  ],
+    ],
   "emulators": {
     "functions": {
       "port": "5080"
