@@ -126,6 +126,28 @@ adtech.use(function (req, res, next) {
 })
 
 
+function parseCookies(cookieString) {
+  let parsedData = [];
+  let rawData = cookieString.split(',');
+  console.log("rawData", rawData);
+
+  for (let data of rawData) {
+    let dataDict = {};
+    let dataQuery = data.includes('?') ? data.split('?')[1].split('&') : [];
+
+    dataQuery.forEach(function(pair) {
+      let [key, value] = pair.split('=');
+      if (key && value) {
+        dataDict[key] = decodeURIComponent(value);
+      }
+    });
+
+    parsedData.push(dataDict);
+  }
+
+  return parsedData;
+}
+
 adtech.get('/logs', (req, res) => {
   console.log(
     'Adtech index. Time:',
@@ -135,7 +157,9 @@ adtech.get('/logs', (req, res) => {
     ' Cookies: ',
     req.cookies
   )
-  res.render('logs', {cookies: req.cookies})
+  let impressions = parseCookies(req.cookies["__impressions"]);
+  let conversions = parseCookies(req.cookies["__conversions"]);
+  res.render('logs', {sessionId: req.cookies["__session"], impressions, conversions})
 })
 
 
@@ -147,12 +171,30 @@ adtech.get('/ad-click', (req, res) => {
   res.render('ad-click')
 })
 
+adtech.get('/ad-click-undefined', (req, res) => {
+  res.render('ad-click')
+})
+
+adtech.get('/ad-click-campaign-1', (req, res) => {
+  res.render('ad-click-campaign-1')
+})
+
+adtech.get('/ad-click-campaign-2', (req, res) => {
+  res.render('ad-click-campaign-2')
+})
+
 adtech.get('/ad-script-click-element', (req, res) => {
   console.log('Serving ad script. From publisher:',)
   console.log('req.url:', req.url)
+  var query_string = req.url.split('?')[1].split('&');
+  var query_dict = {};
+  query_string.forEach(function(pair) {
+    var [key, value] = pair.split('=');
+    query_dict[key] = decodeURIComponent(value);
+  });
+  console.log("query dict", query_dict);
 
-  // TODO: simplified cookie! Probably not implemented like this in practice. 
-  // TODO: also use different ad names
+  // Simplified cookie tracking! Probably not implemented like this in practice. 
   var headers = []
   const impressionCookie = req.cookies['__impressions']
   console.log('impressionCookie: ', impressionCookie)
@@ -160,7 +202,9 @@ adtech.get('/ad-script-click-element', (req, res) => {
   if (impressionCookie != undefined) {
     cookieValue = impressionCookie.split(',')
   }
-  cookieValue.push(req.url)
+  let new_impression = req.url + '&' + "timestamp=" + Date.now()
+
+  cookieValue.push(new_impression)
   headers.push(`__impressions=${cookieValue}; SameSite=None; Secure; HttpOnly`)
 
   if (headers.length > 0) {
@@ -168,8 +212,10 @@ adtech.get('/ad-script-click-element', (req, res) => {
   }
 
   res.set('Content-Type', 'text/javascript')
-  const adClickUrl = `${process.env.ADTECH_URL}/ad-click`
-  const iframe = `<iframe src='${adClickUrl}' allow='attribution-reporting' width=190 height=190 scrolling=no frameborder=1 padding=0></iframe>`
+  // const adClickUrl = `${process.env.ADTECH_URL}/ad-click`
+  const adClickUrl = `${process.env.ADTECH_URL}/ad-click-` + query_dict['campaign']
+
+  const iframe = `<iframe src='${adClickUrl}' allow='attribution-reporting' width=250 height=250 scrolling=no frameborder=1 padding=0></iframe>`
   res.send(`document.write("${iframe}");`)
 })
 
@@ -183,6 +229,7 @@ adtech.get('/register-source-href', (req, res) => {
     // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
     const sourceEventId = Math.floor(Math.random() * 1000000000000000)
     const legacyMeasurementCookie = req.cookies['__session']
+
 
   const headerConfig = {
     source_event_id: `${sourceEventId}`,
@@ -292,7 +339,26 @@ adtech.get('/conversion', (req, res) => {
   const partitioningLogic = ""
   
   // Debug report (common to event-level and aggregate)
-  console.log('Conversion Cookies Set:: ', req.cookies)
+
+
+  // Simplified cookie tracking! Probably not implemented like this in practice. 
+  var headers = []
+  const conversionCookie = req.cookies['__conversions']
+  console.log('conversionCookie: ', conversionCookie)
+  var cookieValue = []
+  if (conversionCookie != undefined) {
+    cookieValue = conversionCookie.split(',')
+  }
+  let new_conversion = req.url + '&' + "timestamp=" + Date.now()
+
+  cookieValue.push(new_conversion)
+  headers.push(`__conversions=${cookieValue}; SameSite=None; Secure; HttpOnly`)
+  if (headers.length > 0) {
+    res.set('Set-Cookie', headers)
+  }
+
+  console.log('Conversion Cookies Set: ', req.cookies)
+
 
   // Optional: set a debug key, and give it the value of the legacy measurement 3P cookie.
   // This is a simple approach for demo purposes. In a real system, you would make this key a unique ID, and you may map it to additional trigger-time information that you deem useful for debugging or performance comparison.

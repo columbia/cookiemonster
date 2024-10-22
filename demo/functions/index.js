@@ -20,7 +20,7 @@ const adtech = require('./apps/adtech');
 const advertiser = require('./apps/advertiser');
 const publisher = require('./apps/publisher');
 const news = require('./apps/news');
-const social = require('./apps/social');
+const blog = require('./apps/blog');
 
 
 exports.home = home.home
@@ -28,6 +28,6 @@ exports.adtech = adtech.adtech
 exports.advertiser = advertiser.advertiser
 exports.publisher = publisher.publisher
 exports.news = news.news
-exports.social = social.social
+exports.blog = blog.blog
 
 

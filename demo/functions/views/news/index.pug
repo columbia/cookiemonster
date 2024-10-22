@@ -1,0 +1,40 @@
+html
+  head
+    meta(charset='UTF-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    title 📰 News
+    link(rel='stylesheet' href='/styles.css')
+    link(rel='stylesheet' href=`${demoHomeUrl}/shared.styles-browser-setup.css`)
+    link(rel='stylesheet' type='text/css' href='https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css')
+    script(type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js")
+    style.
+        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap');
+  body
+    div#setup-issues-banner(style="display:none") Make sure to follow the 
+        a(href=`${demoHomeUrl}#browser-setup`) browser setup instructions
+        | .
+        div#setup-issues-list
+    header
+        div.main
+            h1 📰 Morningside News 
+            div
+                nav.menu
+    div.main.mainContentWrapper
+      h2 Today's Headlines
+
+      article
+        h3 NYC Marathon Sees Record Participation
+        p The NYC Marathon saw a record number of participants this year, with runners from all over the world competing in the iconic race.
+
+      article
+        h3 Global Markets Rally as Economic Optimism Grows
+        p The global markets saw a significant rally today as economic optimism continues to grow among investors.
+
+      article
+        h3 Historic Climate Accord Reached at International Summit
+        p Leaders from around the world have reached a historic climate accord at the international summit, aiming to reduce carbon emissions significantly.
+
+      // Third-party adtech script that dynamically creates an iframe with an ad
+    //- script(src=adScriptUrl)
+    script(type="text/javascript" src=`${demoHomeUrl}/shared.browser-setup.js`)
+    script(type="text/javascript" src=`${demoHomeUrl}/shared.highlight-current-link.js`)

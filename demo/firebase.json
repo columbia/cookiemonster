@@ -80,8 +80,8 @@
       ]
     },
     {
-      "site": "social",
-      "public": "sites/social",
+      "site": "blog",
+      "public": "sites/blog",
       "ignore": [
         "firebase.json",
         "**/.*",
@@ -90,7 +90,7 @@
       "rewrites": [
         {
           "source": "**",
-          "function": "social"
+          "function": "blog"
         }
       ]
     }

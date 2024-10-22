@@ -1,0 +1,32 @@
+html
+  head
+    meta(charset='UTF-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    title 🦁 Blog
+    link(rel='stylesheet' href='/styles.css')
+    link(rel='stylesheet' href=`${demoHomeUrl}/shared.styles-browser-setup.css`)
+    style.
+        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap');
+  body
+    div#setup-issues-banner(style="display:none") Make sure to follow the 
+        a(href=`${demoHomeUrl}#browser-setup`) browser setup instructions
+        | .
+        div#setup-issues-list
+    header
+        div.main
+            h1 🦁 Alistair's Blog
+            div
+                nav.menu
+    div.main.mainContentWrapper
+      article Welcome to my personal page! 
+      h2  My experience training for a marathon as a first-time runner
+      article
+        p As a PhD student, balancing research, teaching, and personal life can be quite challenging. However, I decided to take on an additional challenge this year: training for my first marathon. The journey has been both exhilarating and demanding. I started with short runs around the campus, gradually increasing my distance and pace. The support from my friends and colleagues has been incredible, and their encouragement has kept me motivated through the toughest training days.
+        p One of the most rewarding aspects of this experience has been the sense of community among runners. Whether it's sharing tips on nutrition and recovery or simply exchanging a nod of acknowledgment during early morning runs, the camaraderie is palpable. Training for a marathon has taught me valuable lessons in discipline, resilience, and time management, which have positively impacted my academic pursuits as well. I look forward to crossing the finish line and celebrating this achievement with my Columbia family.
+      // Third-party adtech script that dynamically creates an iframe with an ad
+      script(src=adScriptUrl)
+
+    script(type="text/javascript" src=`${demoHomeUrl}/shared.browser-setup.js`)
+    script(type="text/javascript" src=`${demoHomeUrl}/shared.highlight-current-link.js`)
+
+

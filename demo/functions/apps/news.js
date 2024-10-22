@@ -30,7 +30,20 @@ const adtechUrl = process.env.ADTECH_URL
 news.get('/', (req, res) => {
   // TODO: pass some context along with the URL. Like cookie ID or specific article.
   // const source = encodeURIComponent(req.originalUrl) // Retrieve and encode the current page URL
-  const adScriptUrl = `${process.env.ADTECH_URL}/ad-script-click-element?source=${newsUrl}`
+  const adScriptUrl = `${process.env.ADTECH_URL}/ad-script-click-element?source=${newsUrl}&campaign=campaign-1`
+  res.render('index', {
+    adScriptUrl,
+    demoHomeUrl,
+    newsUrl,
+    advertiserUrl,
+    adtechUrl
+  })
+})
+
+news.get('/nyc-marathon-sees-record-participation', (req, res) => {
+  // TODO: pass some context along with the URL. Like cookie ID or specific article.
+  // const source = encodeURIComponent(req.originalUrl) // Retrieve and encode the current page URL
+  const adScriptUrl = `${process.env.ADTECH_URL}/ad-script-click-element?source=${newsUrl}/nyc-marathon-sees-record-participation&campaign=campaign-1`
   res.render('article', {
     adScriptUrl,
     demoHomeUrl,

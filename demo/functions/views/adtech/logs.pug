@@ -6,15 +6,27 @@ head
   title 🚀 Adtech server
   link(rel='stylesheet' href='/styles.css')
 body
-  h1 Adtech server 🚀 
+  h1 Adtech logs 🚀 
   br
   p
-  | Internal logs. Here are the cookies set by the adtech server:
-  | TODO: Match URL from actual requests (maybe more realistic), or just create more cookies for each webpage (simpler to explain and still plausible)?
-  ul
-  each value, key in cookies
-    li #{key}: #{value}
-  script.
-    console.log("hey")
-    //- console.log('Adtech server frontend loaded', ' Cookies: ', req.cookies')
+  | Internal logs seen by the adtech server and linked through third-party cookies.
 
+  h3 Device id: #{sessionId}
+
+  h3 Impressions
+  
+  hr
+  each impression in impressions
+    ul
+    each value, key in impression
+      li #{key}: #{value}
+    hr
+
+  h3 Conversions 
+
+  hr
+  each c in conversions
+    ul
+    each value, key in c
+      li #{key}: #{value}
+    hr
