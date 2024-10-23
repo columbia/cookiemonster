@@ -1,0 +1,25 @@
+doctype html
+head
+    meta(charset='UTF-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    title Adtech Source Registration Seeder
+    link(rel='stylesheet' href='/styles.css')
+body
+    p Check the Dev Tools > Network tab to see the source registrations!
+    script.
+        (async () => {
+            const attributionReporting = {
+                eventSourceEligible: true,
+                triggerEligible: false,
+            };
+
+            for (let i = #{epoch_start}; i <= #{epoch_end}; i++) {
+                await fetch(`#{adtechUrl}/seed-source-registration?epoch=` + i, {
+                    keepalive: true,
+                    attributionReporting,
+                    mode: "no-cors",
+                });
+                // delay in case we care about ordering these events
+                await new Promise((r) => setTimeout(r, 500));
+            }
+        })();

@@ -1,0 +1,20 @@
+{
+  "returnCode": "SUCCESS",
+  "returnMessage": "Aggregation job successfully processed",
+  "errorSummary": {
+  },
+  "finishedAt": "2024-08-21T13:23:01.628299Z"
+}on exceeded threshold.",
+  "errorSummary": {
+    "errorCounts": [{
+      "category": "DECRYPTION_ERROR",
+      "count": "3",
+      "description": "Unable to decrypt the report. This may be caused by: tampered aggregatable report shared info, corrupt encrypted report, or other such issues."
+    }, {
+      "category": "NUM_REPORTS_WITH_ERRORS",
+      "count": "3",
+      "description": "Total number of reports that had an error. These reports were not considered in aggregation. See additional error messages for details on specific reasons."
+    }]
+  },
+  "finishedAt": "2024-08-21T10:26:10.130300Z"
+}
