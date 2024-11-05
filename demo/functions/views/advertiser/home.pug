@@ -1,7 +1,10 @@
 extends _layout.pug
 
 block content
-    h3 Home
-    p Click to buy the shoes:
-    a(href='/checkout') completing a checkout 💰
-    span  to convert.
+    h3 Checkout Page
+    img(src='/purple-shoes.png' alt='Shoes Image'  width=180 height=180)
+
+    p(style='font-size: 30px;') $70
+    p Click to complete the purchase:
+    a.button(href='/checkout' style='display: inline-block; padding: 10px 20px; background-color: #FFA500; color: black; text-decoration: none; font-size: 20px; border-radius: 10px; border: 2px solid #000000;') Buy 💰
+    //- span  to convert.

@@ -128,7 +128,7 @@ adtech.use(function (req, res, next) {
 
 function parseCookies(cookieString) {
   let parsedData = [];
-  let rawData = cookieString.split(',');
+  let rawData = cookieString ? cookieString.split(',') : [];
   console.log("rawData", rawData);
 
   for (let data of rawData) {
