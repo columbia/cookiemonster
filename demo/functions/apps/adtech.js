@@ -42,7 +42,7 @@ adtech.get('/', (req, res) => {
     ' Cookies: ',
     req.cookies
   )
-  res.render('index', {cookies: req.cookies})
+  res.render('index', { cookies: req.cookies })
 })
 
 /* -------------------------------------------------------------------------- */
@@ -112,7 +112,7 @@ adtech.use(function (req, res, next) {
   if (headers.length > 0) {
     res.set('Set-Cookie', headers)
   }
-  
+
   console.log(
     'Time:',
     Date.now(),
@@ -135,7 +135,7 @@ function parseCookies(cookieString) {
     let dataDict = {};
     let dataQuery = data.includes('?') ? data.split('?')[1].split('&') : [];
 
-    dataQuery.forEach(function(pair) {
+    dataQuery.forEach(function (pair) {
       let [key, value] = pair.split('=');
       if (key && value) {
         dataDict[key] = decodeURIComponent(value);
@@ -159,7 +159,7 @@ adtech.get('/logs', (req, res) => {
   )
   let impressions = parseCookies(req.cookies["__impressions"]);
   let conversions = parseCookies(req.cookies["__conversions"]);
-  res.render('logs', {sessionId: req.cookies["__session"], impressions, conversions})
+  res.render('logs', { sessionId: req.cookies["__session"], impressions, conversions })
 })
 
 
@@ -188,7 +188,7 @@ adtech.get('/ad-script-click-element', (req, res) => {
   console.log('req.url:', req.url)
   var query_string = req.url.split('?')[1].split('&');
   var query_dict = {};
-  query_string.forEach(function(pair) {
+  query_string.forEach(function (pair) {
     var [key, value] = pair.split('=');
     query_dict[key] = decodeURIComponent(value);
   });
@@ -202,7 +202,7 @@ adtech.get('/ad-script-click-element', (req, res) => {
   if (impressionCookie != undefined) {
     cookieValue = impressionCookie.split(',')
   }
-  let new_impression = req.url + '&' + "timestamp=" + Date.now()
+  let new_impression = req.url + '&' + "timestamp=" + new Date().toISOString().replace(/:/g, '-');
 
   cookieValue.push(new_impression)
   headers.push(`__impressions=${cookieValue}; SameSite=None; Secure; HttpOnly`)
@@ -225,10 +225,10 @@ adtech.get('/ad-script-click-element', (req, res) => {
 /* -------------------------------------------------------------------------- */
 
 adtech.get('/register-source-href', (req, res) => {
-    const attributionDestination = process.env.ADVERTISER_URL
-    // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
-    const sourceEventId = Math.floor(Math.random() * 1000000000000000)
-    const legacyMeasurementCookie = req.cookies['__session']
+  const attributionDestination = process.env.ADVERTISER_URL
+  // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
+  const sourceEventId = Math.floor(Math.random() * 1000000000000000)
+  const legacyMeasurementCookie = req.cookies['__session']
 
 
   const headerConfig = {
@@ -269,32 +269,32 @@ adtech.get('/seed-source-registration', (req, res) => {
   const attributionDestination = process.env.ADVERTISER_URL
   // For demo purposes, sourceEventId is a random ID. In a real system, this ID would be tied to a unique serving-time identifier mapped to any information an adtech provider may need
   const sourceEventId = Math.floor(Math.random() * 1000000000000000)
-  
-const headerConfig = {
-  source_event_id: `${sourceEventId}`,
-  destination: attributionDestination,
-  // Optional: expiry of 7 days (default is 30)
-  expiry: '604800',
-  epoch: '2',
-  filter_data: {
-    campaignId: ['123']
-  },
-  aggregation_keys: {
-    // these source key pieces get binary OR'd with the trigger key piece
-    // to create the full histogram bin key
-    purchaseCount: generateSourceKeyPiece('COUNT, CampaignID=123'),
-    purchaseValue: generateSourceKeyPiece('VALUE, CampaignID=123')
-  },
-  // optional, but leaving as a comment for future use
-  // aggregatable_report_window: "86400" // optional duration in seconds after the source registration during which aggregatable reports can be created for this source.
-  debug_reporting: true
-}
 
-// Send a response with the header Attribution-Reporting-Register-Source in order to instruct the browser to register a source event
-res.set('Attribution-Reporting-Register-Source', JSON.stringify(headerConfig))
-log('REGISTERING SOURCE \n', headerConfig)
+  const headerConfig = {
+    source_event_id: `${sourceEventId}`,
+    destination: attributionDestination,
+    // Optional: expiry of 7 days (default is 30)
+    expiry: '604800',
+    epoch: '2',
+    filter_data: {
+      campaignId: ['123']
+    },
+    aggregation_keys: {
+      // these source key pieces get binary OR'd with the trigger key piece
+      // to create the full histogram bin key
+      purchaseCount: generateSourceKeyPiece('COUNT, CampaignID=123'),
+      purchaseValue: generateSourceKeyPiece('VALUE, CampaignID=123')
+    },
+    // optional, but leaving as a comment for future use
+    // aggregatable_report_window: "86400" // optional duration in seconds after the source registration during which aggregatable reports can be created for this source.
+    debug_reporting: true
+  }
 
-res.sendStatus(200)
+  // Send a response with the header Attribution-Reporting-Register-Source in order to instruct the browser to register a source event
+  res.set('Attribution-Reporting-Register-Source', JSON.stringify(headerConfig))
+  log('REGISTERING SOURCE \n', headerConfig)
+
+  res.sendStatus(200)
 
 })
 
@@ -323,21 +323,21 @@ adtech.get('/conversion', (req, res) => {
   ]
 
   const aggregatableValues = {
-    purchaseCount:  1,
+    purchaseCount: 1,
     purchaseValue: 200 //parseInt(purchaseValue)
   }
 
   const aggregatableCapValues = {
-    purchaseCount:  1,
+    purchaseCount: 1,
     purchaseValue: 200
   }
 
 
   const globalEpsilon = 0.25
-  const attributionWindow = {epoch_start: 2, epoch_end: 4}
+  const attributionWindow = { epoch_start: 2, epoch_end: 4 }
   const attributionLogic = "last_touch"
   const partitioningLogic = ""
-  
+
   // Debug report (common to event-level and aggregate)
 
 
@@ -349,7 +349,7 @@ adtech.get('/conversion', (req, res) => {
   if (conversionCookie != undefined) {
     cookieValue = conversionCookie.split(',')
   }
-  let new_conversion = req.url + '&' + "timestamp=" + Date.now()
+  let new_conversion = req.url + '&' + "timestamp=" + new Date().toISOString().replace(/:/g, '-');
 
   cookieValue.push(new_conversion)
   headers.push(`__conversions=${cookieValue}; SameSite=None; Secure; HttpOnly`)
@@ -396,15 +396,15 @@ adtech.get('/reports', (req, res) => {
 
 const decodePlaintextContent = async (encoded) => {
   const hexContent = Buffer.from(encoded, 'base64').toString('hex')
-  const result = await cbor.decodeAll(hexContent, {encoding: 'hex'})
+  const result = await cbor.decodeAll(hexContent, { encoding: 'hex' })
   const decoded = result.map((r) => ({
     ...r,
     data: r.data.map((d) => ({
       // bucket is a 128-bit big endian integer, where the first 64 bits (big-endian style, so leading left-to-right)
       // represent the source key piece, and the second 64-bits represent the trigger key piece. But, we're keeping
       // its hex representation now so it is easier to tie with the chrome://attribution-internals
-      bucket: `0x${d.bucket.toString('hex')}`, 
-      
+      bucket: `0x${d.bucket.toString('hex')}`,
+
       // value is a 32-bit big endian integer 
       // the meaning of the value has been scaled up in the /conversion endpoint. see aggregatableValues
       value: d.value.readInt32BE(0),
@@ -448,7 +448,7 @@ adtech.post(
       `🚀 Adtech has received a primary debug report for aggregatable from the browser`
     )
     console.log('DEBUG REPORT RECEIVED (aggregate):\n=== ')
-    console.log(util.inspect(content, {depth: 10}))
+    console.log(util.inspect(content, { depth: 10 }))
     console.log('=== ')
 
     res.sendStatus(200)
@@ -477,7 +477,7 @@ adtech.post(
 adtech.get(
   '/source-registration-seeder',
   async (req, res) => {
-    res.render('source-registration-seeder', {adtechUrl})
+    res.render('source-registration-seeder', { adtechUrl })
   }
 )
 

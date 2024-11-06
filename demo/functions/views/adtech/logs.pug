@@ -8,12 +8,11 @@ head
 body
   h1 Adtech logs 🚀 
   br
-  p
-  | Internal logs seen by the adtech server and linked through third-party cookies.
+  p(style='font-size: 24px;') Internal logs seen by the adtech server and linked through third-party cookies.
 
-  h3 Device id: #{sessionId}
+  h2 Device id: #{sessionId}
 
-  h3 Impressions
+  h2 Impressions
   
   hr
   each impression in impressions
@@ -22,7 +21,7 @@ body
       li #{key}: #{value}
     hr
 
-  h3 Conversions 
+  h2 Conversions 
 
   hr
   each c in conversions
